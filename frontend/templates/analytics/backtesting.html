@@ -1,0 +1,2544 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Enhanced Backtesting - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-history-card {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .search-history-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .search-history-item:hover {
+        background-color: #f8f9fa;
+    }
+    .signal-table {
+        font-size: 0.9rem;
+    }
+    
+    /* Signal Card Styles */
+    .signal-card {
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .signal-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .bg-light-success {
+        background-color: rgba(25, 135, 84, 0.1) !important;
+    }
+    
+    .bg-light-danger {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+    
+    .bg-light-warning {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+    }
+    
+    .signal-detail {
+        margin-bottom: 0.5rem;
+    }
+    
+    .signal-detail strong {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .signal-detail span {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .signals-container {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .signal-type-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .confidence-bar {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+    }
+    .confidence-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    .loading-spinner {
+        display: none;
+    }
+    .loading-spinner.show {
+        display: inline-block;
+    }
+    
+    /* Beautiful Button Alignment */
+    .btn-group-custom {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+        align-items: center;
+        margin: 1rem 0;
+    }
+    
+    .btn-group-custom .btn {
+        min-width: 200px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .btn-group-custom .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .btn-group-custom .btn-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border: none;
+    }
+    
+    .btn-group-custom .btn-outline-success {
+        color: #28a745;
+        border-color: #28a745;
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(40, 167, 69, 0.05) 100%);
+    }
+    
+    .btn-group-custom .btn-outline-success:hover {
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        color: white;
+    }
+    
+    .btn-group-custom .btn-outline-secondary {
+        color: #6c757d;
+        border-color: #6c757d;
+        background: linear-gradient(135deg, rgba(108, 117, 125, 0.1) 0%, rgba(108, 117, 125, 0.05) 100%);
+    }
+    
+    .btn-group-custom .btn-outline-secondary:hover {
+        background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+        color: white;
+    }
+    
+    .btn-group-custom .btn-outline-info {
+        color: #17a2b8;
+        border-color: #17a2b8;
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.1) 0%, rgba(23, 162, 184, 0.05) 100%);
+    }
+    
+    .btn-group-custom .btn-outline-info:hover {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+    }
+    
+    /* Clickable row styles */
+    .clickable-row:hover {
+        background-color: #f8f9fa !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .clickable-row:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .filtered-signals-highlight {
+        background-color: #e3f2fd !important;
+        border-left: 4px solid #2196f3;
+    }
+    
+    @media (max-width: 768px) {
+        .btn-group-custom {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .btn-group-custom .btn {
+            min-width: auto;
+            width: 100%;
+        }
+    }
+    
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-history me-2"></i>Enhanced Backtesting
+                    </h1>
+                    <p class="text-muted">Generate historical signals and test YOUR trading strategy on historical data.</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'analytics:dashboard' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-chart-line me-2"></i>Analytics Dashboard
+                    </a>
+                    <a href="{% url 'analytics:ml_dashboard' %}" class="btn btn-outline-success">
+                        <i class="fas fa-robot me-2"></i>AI/ML Models
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Backtesting Form -->
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>YOUR Strategy Backtesting Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form id="backtestForm" method="post" action="{% url 'signals:backtest_api' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="generate_signals">
+                        <!-- Data Availability Info -->
+                        <div class="alert alert-info mb-3">
+                            <h6><i class="fas fa-database me-2"></i>Historical Data Availability</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>✅ Best Years for Testing:</strong>
+                                    <ul class="mb-0 mt-1">
+                                        <li><strong>2021:</strong> Most comprehensive data (94K+ records)</li>
+                                        <li><strong>2020:</strong> Good historical data (8K+ records)</li>
+                                        <li><strong>2022:</strong> Solid data coverage (6K+ records)</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>⚠️ Limited Data Years:</strong>
+                                    <ul class="mb-0 mt-1">
+                                        <li><strong>2024:</strong> Very limited data (7K records)</li>
+                                        <li><strong>2025:</strong> Recent data only (94K records)</li>
+                                        <li><strong>2019:</strong> Minimal historical data (200 records)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <strong>💡 Recommendation:</strong> Use <strong>2021</strong> for comprehensive backtesting with BTC, ETH, XRP, ADA, and other major cryptocurrencies.
+                            </div>
+                            <div class="mt-2">
+                                <strong>🎯 Signal Frequency:</strong> Your strategy guarantees <strong>minimum 1 signal per 2 months</strong> to ensure consistent backtesting opportunities.
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="symbol" class="form-label">Cryptocurrency</label>
+                                <select class="form-select" id="symbol" name="symbol" required>
+                                    <option value="">Loading symbols...</option>
+                                </select>
+                                <div class="form-text">Select a cryptocurrency for backtesting</div>
+                                <div id="symbolsSummary" class="mt-2"></div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" required>
+                                <div class="form-text">Beginning of test period</div>
+                                <div class="alert alert-info alert-sm mt-1">
+                                    <small><i class="fas fa-info-circle me-1"></i><strong>Best periods:</strong> 2021 (most data), 2020, 2022</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" required>
+                                <div class="form-text">End of test period</div>
+                                <div class="alert alert-warning alert-sm mt-1">
+                                    <small><i class="fas fa-exclamation-triangle me-1"></i><strong>Avoid:</strong> 2024 (limited data), future dates</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="action" class="form-label">Action</label>
+                                <select class="form-select" id="action" name="action" required>
+                                    <option value="generate_signals">Generate Signals</option>
+                                    <option value="backtest">Run Backtest</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Additional Options -->
+                        <div class="row" id="additionalOptions" style="display: none;">
+                            <div class="col-md-4 mb-3">
+                                <label for="strategy_name" class="form-label">Strategy</label>
+                                <select class="form-select" id="strategy_name" name="strategy_name">
+                                    <option value="SMA_Crossover">SMA Crossover</option>
+                                    <option value="RSI_Strategy">RSI Strategy</option>
+                                    <option value="MACD_Strategy">MACD Strategy</option>
+                                    <option value="Bollinger_Bands">Bollinger Bands</option>
+                                    <option value="Breakout_Strategy">Breakout Strategy</option>
+                                    <option value="Mean_Reversion">Mean Reversion</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="initial_capital" class="form-label">Initial Capital</label>
+                                <input type="number" class="form-control" id="initial_capital" name="initial_capital" value="10000" min="1000" step="1000">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="commission_rate" class="form-label">Commission Rate</label>
+                                <input type="number" class="form-control" id="commission_rate" name="commission_rate" value="0.001" min="0" max="0.01" step="0.0001">
+                            </div>
+                        </div>
+                        
+                        <!-- Search Metadata -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="search_name" class="form-label">Search Name (Optional)</label>
+                                <input type="text" class="form-control" id="search_name" name="search_name" placeholder="e.g., XRP Jan-Aug 2025">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="notes" class="form-label">Notes (Optional)</label>
+                                <input type="text" class="form-control" id="notes" name="notes" placeholder="Add any notes about this search">
+                            </div>
+                        </div>
+                        
+                        <!-- Signal Count Options -->
+                        <div class="row" id="signalCountOptions">
+                            <div class="col-md-6 mb-3">
+                                <label for="desired_signal_count" class="form-label">Desired Signal Count (Optional)</label>
+                                <input type="number" class="form-control" id="desired_signal_count" name="desired_signal_count" 
+                                       min="1" max="100" placeholder="Leave empty for all signals">
+                                <div class="form-text">Specify how many best signals you want (1-100)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Signal Count Info</h6>
+                                        <div id="signalCountInfo">
+                                            <small class="text-muted">Generate signals to see maximum count</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Strategy Information Panel -->
+                        <div class="alert alert-info mt-3" id="strategyInfo">
+                            <h6><i class="fas fa-info-circle me-2"></i>YOUR Strategy Details:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul class="list-unstyled mb-0">
+                                        <li><strong>Take Profit:</strong> 15%</li>
+                                        <li><strong>Stop Loss:</strong> 8%</li>
+                                        <li><strong>Min Risk/Reward:</strong> 1.5:1</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="list-unstyled mb-0">
+                                        <li><strong>RSI Buy Range:</strong> 20-50</li>
+                                        <li><strong>RSI Sell Range:</strong> 50-80</li>
+                                        <li><strong>Volume Threshold:</strong> 1.2x</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="btn-group-custom">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-play me-2"></i>Generate Signals Using YOUR Strategy
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearBtn">
+                                <i class="fas fa-eraser me-2"></i>Clear Form
+                            </button>
+                            <button type="button" class="btn btn-outline-success" id="backtestingHistoryBtn">
+                                <i class="fas fa-history me-2"></i>Backtesting History
+                            </button>
+                            <button type="button" class="btn btn-outline-info" id="exportBtn" style="display: none;">
+                                <i class="fas fa-download me-2"></i>Export CSV
+                            </button>
+                        </div>
+                        
+                        <!-- Loading Spinner -->
+                        <div class="loading-spinner mt-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Processing your request...</span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Signal Results -->
+    <div class="row" id="resultsSection" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Generated Signals</h5>
+                    <div>
+                        <span class="badge bg-primary me-2" id="totalSignalsBadge">0 signals</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="clearResultsBtn">
+                            <i class="fas fa-trash me-1"></i>Clear Results
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Signal Summary -->
+                    <div class="row mb-3" id="signalSummary">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Total Signals</h6>
+                                    <h4 class="text-primary" id="totalSignals">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Buy Signals</h6>
+                                    <h4 class="text-success" id="buySignals">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Sell Signals</h6>
+                                    <h4 class="text-danger" id="sellSignals">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">Avg Confidence</h6>
+                                    <h4 class="text-info" id="avgConfidence">0%</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Summarizing Results -->
+                    <div class="row mb-3" id="summarizingResults" style="display: none;">
+                        <div class="col-12">
+                            <div class="card bg-primary text-white">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Summarizing Results</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 id="summaryTotalSignals">0</h4>
+                                                <small>Total Signals</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 id="summaryAvgConfidence">0%</h4>
+                                                <small>Avg Confidence</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 id="summaryAvgRiskReward">0.0</h4>
+                                                <small>Avg Risk/Reward</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <h4 id="summaryBestSignalType">-</h4>
+                                                <small>Best Signal Type</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <h6>Signal Distribution</h6>
+                                            <div id="signalDistribution"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Quality Breakdown</h6>
+                                            <div id="qualityBreakdown"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Enhanced Signal Cards -->
+                    <div class="signals-container" id="signalsTable">
+                        <div id="signalsTableBody">
+                            <!-- Signal cards will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- No Signals Message -->
+                    <div class="text-center text-muted py-5" id="noSignalsMessage" style="display: none;">
+                        <i class="fas fa-info-circle fa-3x mb-3 text-info"></i>
+                        <h5>No signals generated for this period</h5>
+                        <p class="mb-3">This is normal behavior for a quality trading strategy!</p>
+                        
+                        <div class="alert alert-info text-start">
+                            <h6><i class="fas fa-lightbulb me-2"></i>Why no signals were generated:</h6>
+                            <ul class="mb-0">
+                                <li><strong>Strategy Conditions Not Met:</strong> RSI, MACD, volume, or trend conditions weren't favorable</li>
+                                <li><strong>Risk/Reward Too Low:</strong> Signals must meet minimum 1.5:1 risk/reward ratio</li>
+                                <li><strong>Insufficient Confirmations:</strong> Need at least 2 out of 4 strategy confirmations</li>
+                                <li><strong>Market Conditions:</strong> The selected period may not have had favorable market conditions</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-success text-start">
+                            <h6><i class="fas fa-check-circle me-2"></i>This means your strategy is working correctly:</h6>
+                            <ul class="mb-0">
+                                <li>✅ <strong>Quality Control:</strong> Only generates high-quality signals</li>
+                                <li>✅ <strong>Risk Management:</strong> Ensures proper risk/reward ratios</li>
+                                <li>✅ <strong>No False Signals:</strong> Prevents signals in poor conditions</li>
+                                <li>✅ <strong>Professional Approach:</strong> Selective signal generation</li>
+                            </ul>
+                        </div>
+                        
+                        <p class="text-muted">
+                            <strong>Try:</strong> Different date ranges, other cryptocurrencies, or check symbols that historically have more volatile periods.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Global variables
+    let currentSignals = [];
+    let availableSymbols = [];
+    let signalDistributionChart = null; // Store chart instance for cleanup
+    
+    // Initialize the page
+    initializePage();
+    
+    function initializePage() {
+        loadSymbols();
+        setupEventListeners();
+        setDefaultDates();
+    }
+    
+    function loadSymbols() {
+        fetch('{% url "signals:backtest_available_symbols" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    availableSymbols = data.symbols;
+                    populateSymbolDropdown();
+                    
+                    // Show summary
+                    const summaryDiv = document.getElementById('symbolsSummary');
+                    if (summaryDiv) {
+                        summaryDiv.innerHTML = `
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>${data.total_available} cryptocurrencies</strong> with real historical data available for backtesting using YOUR strategy
+                            </div>
+                        `;
+                    }
+                    
+                    console.log(`Loaded ${data.total_available} symbols with real data for backtesting`);
+                } else {
+                    console.error('Failed to load symbols:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading symbols:', error);
+            });
+    }
+    
+    function populateSymbolDropdown() {
+        const symbolSelect = document.getElementById('symbol');
+        symbolSelect.innerHTML = '<option value="">Select Cryptocurrency with Real Data</option>';
+        
+        availableSymbols.forEach(symbol => {
+            const option = document.createElement('option');
+            option.value = symbol.symbol;
+            
+            // Show data quality indicator
+            const qualityIcon = symbol.is_real_data ? '✅' : '⚠️';
+            const dataInfo = `${symbol.data_count} records`;
+            
+            // Enhanced display with full coin names
+            option.textContent = `${qualityIcon} ${symbol.symbol} - ${symbol.name} (${dataInfo})`;
+            option.title = `${symbol.name} - Price range: $${symbol.price_range.min.toFixed(2)} - $${symbol.price_range.max.toFixed(2)}`;
+            
+            symbolSelect.appendChild(option);
+        });
+    }
+    
+    
+    
+    function setupEventListeners() {
+        // Form submission
+        document.getElementById('backtestForm').addEventListener('submit', handleFormSubmit);
+        
+        // Action change
+        document.getElementById('action').addEventListener('change', handleActionChange);
+        
+        // Clear form
+        document.getElementById('clearBtn').addEventListener('click', clearForm);
+        
+        // Clear results
+        document.getElementById('clearResultsBtn').addEventListener('click', clearResults);
+        
+        // Export CSV
+        document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+        
+    }
+    
+    function handleActionChange() {
+        const action = document.getElementById('action').value;
+        const additionalOptions = document.getElementById('additionalOptions');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (action === 'backtest') {
+            additionalOptions.style.display = 'block';
+            submitBtn.innerHTML = '<i class="fas fa-play me-2"></i>Run Backtest';
+        } else {
+            additionalOptions.style.display = 'none';
+            submitBtn.innerHTML = '<i class="fas fa-play me-2"></i>Generate Signals';
+        }
+    }
+    
+    function handleFormSubmit(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        // Validate form
+        if (!data.symbol || !data.start_date || !data.end_date) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        // Show loading
+        showLoading(true);
+        
+        // Make API call
+        fetch('/signals/api/backtests/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            showLoading(false);
+            
+            if (result.success) {
+                if (result.action === 'generate_signals') {
+                    // Update signal count info
+                    updateSignalCountInfo(result.max_possible_signals, result.desired_signal_count);
+                    
+                    if (result.signals && result.signals.length > 0) {
+                        displaySignals(result.signals);
+                        
+                        // Display summarizing results
+                        if (result.summarizing_results) {
+                            displaySummarizingResults(result.summarizing_results);
+                        }
+                        
+                        // PHASE 3: Display signal analysis if available
+                        if (result.signal_analysis) {
+                            displaySignalAnalysis(result.signal_analysis, result.symbol);
+                        }
+                    } else {
+                        // No signals generated - show appropriate message
+                        displayNoSignalsMessage(result.no_signals_reason);
+                    }
+                } else {
+                    displayBacktestResult(result.result);
+                }
+            } else {
+                alert('Error: ' + result.error);
+            }
+        })
+        .catch(error => {
+            showLoading(false);
+            console.error('Error:', error);
+            alert('An error occurred while processing your request');
+        });
+    }
+    
+    
+    function displaySignals(signals) {
+        currentSignals = signals;
+        
+        if (signals.length === 0) {
+            document.getElementById('noSignalsMessage').style.display = 'block';
+            document.getElementById('signalsTable').style.display = 'none';
+            document.getElementById('signalSummary').style.display = 'none';
+            return;
+        }
+        
+        // Show results section
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('noSignalsMessage').style.display = 'none';
+        document.getElementById('signalsTable').style.display = 'block';
+        document.getElementById('signalSummary').style.display = 'flex';
+        document.getElementById('exportBtn').style.display = 'inline-block';
+        
+        // Show success message
+        showSuccessMessage(signals.length);
+        
+        // Update summary
+        updateSignalSummary(signals);
+        
+        // Populate table
+        populateSignalsTable(signals);
+    }
+    
+    function displayBacktestResult(result) {
+        console.log('Displaying backtest result:', result);
+        
+        // Show results section
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('noSignalsMessage').style.display = 'none';
+        document.getElementById('signalsTable').style.display = 'block';
+        document.getElementById('signalSummary').style.display = 'flex';
+        document.getElementById('exportBtn').style.display = 'inline-block';
+        
+        // Update summary with backtest results
+        updateBacktestSummary(result);
+        
+        // Populate table with backtest results
+        populateBacktestTable(result);
+        
+        // Show success message
+        showBacktestSuccessMessage(result);
+    }
+    
+    function updateBacktestSummary(result) {
+        const summaryElement = document.getElementById('signalSummary');
+        if (!summaryElement) return;
+        
+        const totalSignals = result.total_signals || 0;
+        const executedSignals = result.executed_signals || 0;
+        const notOpenedSignals = result.not_opened_signals || 0;
+        const totalInvestment = result.total_investment || 0;
+        const totalProfitLoss = result.total_profit_loss || 0;
+        const profitPercentage = result.profit_percentage || 0;
+        const qualityScore = result.quality_score || 0;
+        const qualityRating = result.quality_rating || 'Unknown';
+        
+        summaryElement.innerHTML = `
+            <div class="summary-item">
+                <span class="summary-label">Profit Signals:</span>
+                <span class="summary-value profit">${result.profit_signals || 0} (${((result.profit_signals || 0) / totalSignals * 100).toFixed(1)}%)</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Loss Signals:</span>
+                <span class="summary-value loss">${result.loss_signals || 0} (${((result.loss_signals || 0) / totalSignals * 100).toFixed(1)}%)</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Not Opened:</span>
+                <span class="summary-value not-opened">${notOpenedSignals} (${(notOpenedSignals / totalSignals * 100).toFixed(1)}%)</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total Investment:</span>
+                <span class="summary-value">$${totalInvestment.toFixed(2)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Total Profit/Loss:</span>
+                <span class="summary-value ${totalProfitLoss >= 0 ? 'profit' : 'loss'}">$${totalProfitLoss.toFixed(2)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Profit Percentage:</span>
+                <span class="summary-value ${profitPercentage >= 0 ? 'profit' : 'loss'}">${profitPercentage.toFixed(2)}%</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Quality Score:</span>
+                <span class="summary-value">${qualityScore.toFixed(1)}/100</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Quality Rating:</span>
+                <span class="summary-value">${qualityRating}</span>
+            </div>
+        `;
+    }
+    
+    function populateBacktestTable(result) {
+        const container = document.getElementById('signalsTableBody');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (result.individual_signals && result.individual_signals.length > 0) {
+            result.individual_signals.forEach(signal => {
+                const card = document.createElement('div');
+                card.className = 'signal-card mb-3 p-3 border rounded';
+                
+                // Determine card color based on status
+                let cardClass = 'border-secondary';
+                if (signal.status === 'PROFIT') cardClass = 'border-success bg-light-success';
+                else if (signal.status === 'LOSS') cardClass = 'border-danger bg-light-danger';
+                else if (signal.status === 'NOT_OPENED') cardClass = 'border-warning bg-light-warning';
+                
+                card.className += ` ${cardClass}`;
+                
+                // Format dates
+                const createdDate = signal.signal_date || 'N/A';
+                const createdTime = signal.signal_time || 'N/A';
+                const openDate = signal.open_date || 'N/A';
+                const openTime = signal.open_time || 'N/A';
+                const closedDate = signal.closing_date || 'N/A';
+                const closedTime = signal.closing_time || 'N/A';
+                
+                // Status badge
+                let statusBadge = '';
+                if (signal.status === 'PROFIT') {
+                    statusBadge = '<span class="badge bg-success"><i class="fas fa-check"></i> PROFIT</span>';
+                } else if (signal.status === 'LOSS') {
+                    statusBadge = '<span class="badge bg-danger"><i class="fas fa-times"></i> LOSS</span>';
+                } else if (signal.status === 'NOT_OPENED') {
+                    statusBadge = '<span class="badge bg-warning"><i class="fas fa-clock"></i> NOT OPENED</span>';
+                }
+                
+                // Type badge
+                const typeBadge = signal.type?.includes('BUY') ? 
+                    '<span class="badge bg-success">BUY</span>' : 
+                    '<span class="badge bg-danger">SELL</span>';
+                
+                card.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1">${typeBadge} Signal #${signal.signal_id || 'N/A'}</h6>
+                            <small class="text-muted">Created: ${createdDate} ${createdTime}</small>
+                        </div>
+                        <div class="text-end">
+                            ${statusBadge}
+                            <div class="mt-1">
+                                <strong class="text-${signal.status === 'PROFIT' ? 'success' : signal.status === 'LOSS' ? 'danger' : 'warning'}">
+                                    $${signal.p_l_amount ?? signal.profit_loss_amount ?? '0.00'} 
+                                    (${signal.p_l_percentage ?? signal.profit_loss_percentage ?? '0.00'}%)
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="signal-detail">
+                                <strong>Entry Price:</strong><br>
+                                <span class="text-primary">$${signal.entry_price || 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="signal-detail">
+                                <strong>Target Price:</strong><br>
+                                <span class="text-success">$${signal.target_price || 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="signal-detail">
+                                <strong>Stop Loss:</strong><br>
+                                <span class="text-danger">$${signal.stop_loss || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-2">
+                        <div class="col-md-4">
+                            <div class="signal-detail">
+                                <strong>Signal Open:</strong><br>
+                                <small>${openDate} ${openTime}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="signal-detail">
+                                <strong>Signal Closed:</strong><br>
+                                <small>${closedDate} ${closedTime}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="signal-detail">
+                                <strong>Execution Price:</strong><br>
+                                <span class="text-info">$${signal.execution_price || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <div class="signal-detail">
+                                <strong>Confidence:</strong>
+                                <div class="progress mt-1" style="height: 8px;">
+                                    <div class="progress-bar bg-${signal.confidence >= 80 ? 'success' : signal.confidence >= 60 ? 'warning' : 'danger'}" 
+                                         style="width: ${signal.confidence ?? signal.confidence_score ?? 0}%"></div>
+                                </div>
+                                <small>${signal.confidence ?? signal.confidence_score ?? 0}%</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="signal-detail text-end">
+                                <strong>Risk/Reward:</strong><br>
+                                <span class="text-muted">${signal.risk_reward_ratio || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        } else {
+            const noResultsCard = document.createElement('div');
+            noResultsCard.className = 'text-center py-5';
+            noResultsCard.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No backtest results available</h5>
+                        <p class="text-muted">Run a backtest to see signal analysis results.</p>
+                    </div>
+                </div>
+            `;
+            container.appendChild(noResultsCard);
+        }
+    }
+    
+    function showBacktestSuccessMessage(result) {
+        const totalSignals = result.total_signals || 0;
+        const executedSignals = result.executed_signals || 0;
+        const profitSignals = result.profit_signals || 0;
+        const lossSignals = result.loss_signals || 0;
+        
+        const message = `Backtest completed! ${totalSignals} signals analyzed: ${executedSignals} executed (${profitSignals} profitable, ${lossSignals} losses)`;
+        
+        // You can implement a toast notification or alert here
+        console.log('Backtest Success:', message);
+    }
+    
+    function displayNoSignalsMessage(noSignalsReason) {
+        // Show results section but with no signals message
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('noSignalsMessage').style.display = 'block';
+        document.getElementById('signalsTable').style.display = 'none';
+        document.getElementById('signalSummary').style.display = 'none';
+        document.getElementById('exportBtn').style.display = 'none';
+        
+        // Update the no signals message with specific reason
+        const noSignalsDiv = document.getElementById('noSignalsMessage');
+        if (noSignalsReason) {
+            // Check if it's a data availability issue
+            if (noSignalsReason.includes('No historical data available')) {
+                noSignalsDiv.innerHTML = `
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                    <h5>No Historical Data Available</h5>
+                    <p class="mb-3">${noSignalsReason}</p>
+                    
+                    <div class="alert alert-warning text-start">
+                        <h6><i class="fas fa-info-circle me-2"></i>What this means:</h6>
+                        <ul class="mb-0">
+                            <li><strong>Data Not Available:</strong> The selected cryptocurrency doesn't have historical data for the chosen date range</li>
+                            <li><strong>Try Different Options:</strong> Select a different cryptocurrency or adjust the date range</li>
+                            <li><strong>Popular Coins:</strong> BTC, ETH, XRP, ADA, SOL typically have more historical data</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-info text-start">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Suggestions:</h6>
+                        <ul class="mb-0">
+                            <li>✅ Try <strong>BTC</strong> or <strong>ETH</strong> for reliable historical data</li>
+                            <li>✅ Use a <strong>wider date range</strong> (e.g., 6 months to 1 year)</li>
+                            <li>✅ Check if the cryptocurrency is actively traded</li>
+                        </ul>
+                    </div>
+                `;
+            } else {
+                // Strategy-based no signals (normal behavior)
+                noSignalsDiv.innerHTML = `
+                    <i class="fas fa-info-circle fa-3x mb-3 text-info"></i>
+                    <h5>No signals generated for this period</h5>
+                    <p class="mb-3">${noSignalsReason}</p>
+                    
+                    <div class="alert alert-info text-start">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Why no signals were generated:</h6>
+                        <ul class="mb-0">
+                            <li><strong>Strategy Conditions Not Met:</strong> RSI, MACD, volume, or trend conditions weren't favorable</li>
+                            <li><strong>Risk/Reward Too Low:</strong> Signals must meet minimum 1.5:1 risk/reward ratio</li>
+                            <li><strong>Insufficient Confirmations:</strong> Need at least 2 out of 4 strategy confirmations</li>
+                            <li><strong>Market Conditions:</strong> The selected period may not have had favorable market conditions</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-success text-start">
+                        <h6><i class="fas fa-check-circle me-2"></i>This means your strategy is working correctly:</h6>
+                        <ul class="mb-0">
+                            <li>✅ <strong>Quality Control:</strong> Only generates high-quality signals</li>
+                            <li>✅ <strong>Risk Management:</strong> Ensures proper risk/reward ratios</li>
+                            <li>✅ <strong>No False Signals:</strong> Prevents signals in poor conditions</li>
+                            <li>✅ <strong>Professional Approach:</strong> Selective signal generation</li>
+                        </ul>
+                    </div>
+                    
+                    <p class="text-muted">
+                        <strong>Try:</strong> Different date ranges, other cryptocurrencies, or check symbols that historically have more volatile periods.
+                    </p>
+                `;
+            }
+        }
+    }
+    
+    function showSuccessMessage(signalCount) {
+        // Create success alert
+        const successAlert = document.createElement('div');
+        successAlert.className = 'alert alert-success alert-dismissible fade show';
+        successAlert.innerHTML = `
+            <h6><i class="fas fa-check-circle me-2"></i>Strategy Analysis Complete!</h6>
+            <p class="mb-0">Successfully generated <strong>${signalCount} signals</strong> using YOUR trading strategy. 
+            These signals met all your criteria: 15% TP, 8% SL, RSI ranges, MACD confirmation, and volume requirements.</p>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert after the form
+        const form = document.getElementById('backtestForm');
+        form.parentNode.insertBefore(successAlert, form.nextSibling);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (successAlert.parentNode) {
+                successAlert.remove();
+            }
+        }, 5000);
+    }
+    
+    function updateSignalSummary(signals) {
+        const totalSignals = signals.length;
+        const buySignals = signals.filter(s => s.signal_type.includes('BUY')).length;
+        const sellSignals = signals.filter(s => s.signal_type.includes('SELL')).length;
+        const avgConfidence = signals.reduce((sum, s) => sum + s.confidence_score, 0) / totalSignals;
+        
+        document.getElementById('totalSignals').textContent = totalSignals;
+        document.getElementById('buySignals').textContent = buySignals;
+        document.getElementById('sellSignals').textContent = sellSignals;
+        document.getElementById('avgConfidence').textContent = Math.round(avgConfidence * 100) + '%';
+        document.getElementById('totalSignalsBadge').textContent = totalSignals + ' signals';
+    }
+    
+    // Helper function to format prices
+    function formatPrice(price) {
+        if (!price && price !== 0) return 'N/A';
+        if (typeof price !== 'number' && typeof price !== 'string') return 'N/A';
+        const numPrice = parseFloat(price);
+        if (isNaN(numPrice) || numPrice <= 0) return 'N/A';
+        return '$' + numPrice.toFixed(2);
+    }
+    
+    function getSignalSourceBadge(source) {
+        switch(source) {
+            case 'NATURAL':
+                return '<span class="badge bg-success">Natural</span><small class="d-block text-muted">High Quality</small>';
+            case 'RELAXED_CONDITIONS':
+                return '<span class="badge bg-warning">Relaxed</span><small class="d-block text-muted">Frequency Boost</small>';
+            case 'TREND_FOLLOWING':
+                return '<span class="badge bg-info">Trend</span><small class="d-block text-muted">Conservative</small>';
+            default:
+                return '<span class="badge bg-secondary">Unknown</span>';
+        }
+    }
+    
+    function populateSignalsTable(signals) {
+        const tbody = document.getElementById('signalsTableBody');
+        tbody.innerHTML = '';
+        
+        signals.forEach(signal => {
+            const row = document.createElement('tr');
+            
+            // Determine signal type badge color
+            let badgeClass = 'badge-secondary';
+            if (signal.signal_type.includes('BUY')) badgeClass = 'badge-success';
+            else if (signal.signal_type.includes('SELL')) badgeClass = 'badge-danger';
+            
+            row.innerHTML = `
+                <td>${new Date(signal.created_at).toLocaleString()}</td>
+                <td><strong>${signal.symbol}</strong></td>
+                <td><span class="badge ${badgeClass} signal-type-badge">${signal.signal_type}</span></td>
+                <td>${signal.strength}</td>
+                <td>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill bg-info" style="width: ${signal.confidence_score * 100}%"></div>
+                    </div>
+                    <small>${Math.round(signal.confidence_score * 100)}%</small>
+                </td>
+                <td>${formatPrice(signal.entry_price)}</td>
+                <td>${formatPrice(signal.target_price)}</td>
+                <td>${formatPrice(signal.stop_loss)}</td>
+                <td>${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}</td>
+                <td>
+                    <span class="badge bg-info">${signal.strategy_confirmations || 0}/4</span>
+                    <small class="d-block text-muted">Confirmations</small>
+                </td>
+                <td>
+                    ${getSignalSourceBadge(signal.signal_source || 'NATURAL')}
+                </td>
+                <td>${signal.quality_score ? signal.quality_score.toFixed(2) : 'N/A'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewSignalDetails(${signal.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+    
+    function setDefaultDates() {
+        // Set default dates to 2021 where we have the most comprehensive data
+        document.getElementById('start_date').value = '2021-01-01';
+        document.getElementById('end_date').value = '2021-12-31';
+    }
+    
+    function showLoading(show) {
+        const spinner = document.querySelector('.loading-spinner');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (show) {
+            spinner.classList.add('show');
+            submitBtn.disabled = true;
+        } else {
+            spinner.classList.remove('show');
+            submitBtn.disabled = false;
+        }
+    }
+    
+    function clearForm() {
+        document.getElementById('backtestForm').reset();
+        setDefaultDates();
+        document.getElementById('additionalOptions').style.display = 'none';
+        
+        // Reset signal count info
+        document.getElementById('signalCountInfo').innerHTML = '<small class="text-muted">Generate signals to see maximum count</small>';
+        
+        // Hide summarizing results
+        document.getElementById('summarizingResults').style.display = 'none';
+    }
+    
+    function clearResults() {
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('exportBtn').style.display = 'none';
+        currentSignals = [];
+    }
+    
+    function exportToCSV() {
+        if (currentSignals.length === 0) {
+            alert('No signals to export');
+            return;
+        }
+        
+        // Use the enhanced TradingView export API
+        const exportData = {
+            symbol: document.getElementById('symbol').value,
+            start_date: document.getElementById('start_date').value + 'T00:00:00Z',
+            end_date: document.getElementById('end_date').value + 'T23:59:59Z'
+        };
+        
+        fetch('/signals/api/backtests/tradingview/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(exportData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Download the CSV file
+                const blob = new Blob([data.csv_content], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.filename;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+                // Show success message with TradingView instructions
+                showTradingViewInstructions();
+            } else {
+                alert('Error exporting signals: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while exporting signals');
+        });
+    }
+    
+    function showTradingViewInstructions() {
+        // Create modal with TradingView instructions
+        const modal = document.createElement('div');
+        modal.className = 'modal fade show';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-chart-line me-2"></i>TradingView Verification Guide
+                        </h5>
+                        <button type="button" class="btn-close" onclick="closeTradingViewModal()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Your signals have been exported successfully! Follow these steps to verify them on TradingView:
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-step-forward me-2"></i>Quick Steps:</h6>
+                                <ol>
+                                    <li>Open <a href="https://tradingview.com" target="_blank">TradingView</a></li>
+                                    <li>Search for your cryptocurrency (e.g., XRPUSD)</li>
+                                    <li>Set the date range to match your backtest period</li>
+                                    <li>Import your CSV file or manually plot signals</li>
+                                    <li>Verify each signal against price action</li>
+                                </ol>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-download me-2"></i>Resources:</h6>
+                                <ul>
+                                    <li><a href="#" onclick="downloadPineScript()">Download Pine Script Template</a></li>
+                                    <li><a href="#" onclick="openVerificationGuide()">Open Verification Guide</a></li>
+                                    <li><a href="#" onclick="showSignalStats()">View Signal Statistics</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6><i class="fas fa-lightbulb me-2"></i>Verification Tips:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>BUY signals should occur at or near local lows</li>
+                                <li><i class="fas fa-check text-success me-2"></i>SELL signals should occur at or near local highs</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Check if signals respect key support/resistance levels</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Look for volume confirmation</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Note any signals during major news events</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6><i class="fas fa-chart-bar me-2"></i>Signal Statistics:</h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6>Total Signals</h6>
+                                            <h4 class="text-primary">${currentSignals.length}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6>BUY Signals</h6>
+                                            <h4 class="text-success">${currentSignals.filter(s => s.signal_type.includes('BUY')).length}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6>SELL Signals</h6>
+                                            <h4 class="text-danger">${currentSignals.filter(s => s.signal_type.includes('SELL')).length}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h6>Avg Confidence</h6>
+                                            <h4 class="text-info">${Math.round(currentSignals.reduce((sum, s) => sum + s.confidence_score, 0) / currentSignals.length * 100)}%</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="openTradingView()">
+                            <i class="fas fa-external-link-alt me-2"></i>Open TradingView
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="closeTradingViewModal()">
+                            <i class="fas fa-times me-2"></i>Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        document.body.appendChild(backdrop);
+    }
+    
+    window.closeTradingViewModal = function() {
+        const modal = document.querySelector('.modal.show');
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (modal) modal.remove();
+        if (backdrop) backdrop.remove();
+    }
+    
+    window.openTradingView = function() {
+        window.open('https://tradingview.com', '_blank');
+        window.closeTradingViewModal();
+    }
+    
+    function downloadPineScript() {
+        // Download the Pine Script template
+        const pineScriptContent = `//@version=5
+indicator("AI Trading Signals Verification", overlay=true)
+
+// Replace the signal arrays below with your actual CSV data
+// Format: [timestamp, price, signal_type, confidence]
+
+// BUY Signals Data
+buy_timestamps = array.from(
+    timestamp("2025-01-15 10:00"),
+    timestamp("2025-01-20 14:30")
+)
+
+buy_prices = array.from(0.45, 0.42)
+buy_confidences = array.from(0.85, 0.72)
+
+// SELL Signals Data  
+sell_timestamps = array.from(
+    timestamp("2025-01-18 16:00"),
+    timestamp("2025-01-25 11:45")
+)
+
+sell_prices = array.from(0.52, 0.49)
+sell_confidences = array.from(0.78, 0.83)
+
+// Plot signals (rest of the script...)
+// See TRADINGVIEW_PINE_SCRIPT_TEMPLATE.pine for complete script`;
+
+        const blob = new Blob([pineScriptContent], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ai_trading_signals_template.pine';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+    
+    function openVerificationGuide() {
+        window.open('/static/TRADINGVIEW_VERIFICATION_GUIDE.md', '_blank');
+    }
+    
+    function showSignalStats() {
+        const stats = {
+            total: currentSignals.length,
+            buy: currentSignals.filter(s => s.signal_type.includes('BUY')).length,
+            sell: currentSignals.filter(s => s.signal_type.includes('SELL')).length,
+            avgConfidence: Math.round(currentSignals.reduce((sum, s) => sum + s.confidence_score, 0) / currentSignals.length * 100)
+        };
+        
+        alert(`Signal Statistics:
+Total Signals: ${stats.total}
+BUY Signals: ${stats.buy}
+SELL Signals: ${stats.sell}
+Average Confidence: ${stats.avgConfidence}%`);
+    }
+    
+    function generateCSVContent(signals) {
+        const headers = ['Timestamp', 'Symbol', 'Signal Type', 'Strength', 'Confidence', 'Entry Price', 'Target Price', 'Stop Loss', 'Risk/Reward', 'Timeframe', 'Quality Score'];
+        const rows = signals.map(signal => [
+            new Date(signal.created_at).toLocaleString(),
+            signal.symbol,
+            signal.signal_type,
+            signal.strength,
+            Math.round(signal.confidence_score * 100) + '%',
+            signal.entry_price || 'N/A',
+            signal.target_price || 'N/A',
+            signal.stop_loss || 'N/A',
+            signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A',
+            signal.timeframe || 'N/A',
+            signal.quality_score ? signal.quality_score.toFixed(2) : 'N/A'
+        ]);
+        
+        return [headers, ...rows].map(row => row.join(',')).join('\n');
+    }
+    
+    window.viewSignalDetails = function(signalId) {
+        // This would show detailed information about a specific signal
+        console.log('Viewing signal details:', signalId);
+    };
+    
+    // Backtesting History Button Handler
+    document.getElementById('backtestingHistoryBtn').addEventListener('click', function() {
+        // Show loading state
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating History...';
+        btn.disabled = true;
+        
+        // Make API call to get backtesting history
+        fetch('{% url "signals:backtesting_history_export" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                action: 'export_all_history'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Create and download ZIP file with all CSV files
+                downloadBacktestingHistory(data.files);
+                showAlert('success', `Backtesting history exported successfully! ${data.files.symbols_count} cryptocurrencies, ${data.files.total_signals} total signals.`);
+            } else {
+                showAlert('error', data.error || 'Failed to export backtesting history');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'An error occurred while exporting backtesting history');
+        })
+        .finally(() => {
+            // Restore button state
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    });
+    
+    // Function to download backtesting history as ZIP
+    function downloadBacktestingHistory(files) {
+        // Create a temporary link to download the ZIP file
+        const link = document.createElement('a');
+        link.href = 'data:application/zip;base64,' + files.zip_data;
+        link.download = files.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
+    // Function to show alerts
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert at the top of the form
+        const form = document.getElementById('backtestForm');
+        form.insertBefore(alertDiv, form.firstChild);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+    
+    // PHASE 3: Display signal analysis results in table format
+    function displaySignalAnalysis(analysis, symbol) {
+        console.log('Displaying signal analysis for:', symbol, analysis);
+        
+        // Store analysis data globally
+        currentAnalysisData = analysis;
+        
+        // Remove existing analysis container if it exists
+        const existingContainer = document.getElementById('signalAnalysisContainer');
+        if (existingContainer) {
+            existingContainer.remove();
+        }
+        
+        // Hide and cleanup pie chart section
+        const pieChartSection = document.getElementById('signalDistributionSection');
+        if (pieChartSection) {
+            pieChartSection.style.display = 'none';
+        }
+        if (signalDistributionChart) {
+            signalDistributionChart.destroy();
+            signalDistributionChart = null;
+        }
+        
+        // Create analysis container as part of the results section
+        const analysisContainer = document.createElement('div');
+        analysisContainer.id = 'signalAnalysisContainer';
+        analysisContainer.className = 'mt-4';
+        
+        const summary = analysis.total_summary;
+        const quality = analysis.strategy_quality;
+        
+        // Calculate rates
+        const totalSignals = summary.total_signals;
+        const profitRate = totalSignals > 0 ? (summary.profit_signals / totalSignals * 100) : 0;
+        const lossRate = totalSignals > 0 ? (summary.loss_signals / totalSignals * 100) : 0;
+        const notOpenedRate = totalSignals > 0 ? (summary.not_opened_signals / totalSignals * 100) : 0;
+        
+        analysisContainer.innerHTML = `
+            <h5 class="mb-3">
+                <i class="fas fa-chart-line me-2"></i>Signal Analysis Results - ${symbol}
+            </h5>
+            
+            <!-- Analysis Summary Table -->
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th colspan="2">Signal Status Breakdown</th>
+                            <th colspan="2">Financial Summary</th>
+                            <th colspan="2">Strategy Quality</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="clickable-row" data-signal-type="profit" style="cursor: pointer;">
+                            <td><i class="fas fa-arrow-up text-success me-1"></i>Profit Signals</td>
+                            <td class="text-success fw-bold">${summary.profit_signals} (${profitRate.toFixed(1)}%)</td>
+                            <td>Total Investment</td>
+                            <td class="fw-bold">$${summary.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td>Quality Score</td>
+                            <td class="fw-bold ${quality.quality_score >= 70 ? 'text-success' : quality.quality_score >= 50 ? 'text-warning' : 'text-danger'}">${quality.quality_score.toFixed(1)}/100</td>
+                        </tr>
+                        <tr class="clickable-row" data-signal-type="loss" style="cursor: pointer;">
+                            <td><i class="fas fa-arrow-down text-danger me-1"></i>Loss Signals</td>
+                            <td class="text-danger fw-bold">${summary.loss_signals} (${lossRate.toFixed(1)}%)</td>
+                            <td>Total Profit/Loss</td>
+                            <td class="fw-bold ${summary.total_profit_loss >= 0 ? 'text-success' : 'text-danger'}">$${summary.total_profit_loss.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td>Quality Rating</td>
+                            <td class="fw-bold ${quality.quality_rating === 'Excellent' ? 'text-success' : quality.quality_rating === 'Good' ? 'text-primary' : quality.quality_rating === 'Fair' ? 'text-warning' : 'text-danger'}">${quality.quality_rating}</td>
+                        </tr>
+                        <tr class="clickable-row" data-signal-type="not_opened" style="cursor: pointer;">
+                            <td><i class="fas fa-pause text-warning me-1"></i>Not Opened</td>
+                            <td class="text-warning fw-bold">${summary.not_opened_signals} (${notOpenedRate.toFixed(1)}%)</td>
+                            <td>Profit Percentage</td>
+                            <td class="fw-bold ${summary.total_profit_percentage >= 0 ? 'text-success' : 'text-danger'}">${summary.total_profit_percentage.toFixed(2)}%</td>
+                            <td>Analysis Date</td>
+                            <td class="small">${analysis.analysis_date}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Progress Bars -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="mb-2">
+                        <small class="text-muted">Profit Signals</small>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: ${profitRate}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-2">
+                        <small class="text-muted">Loss Signals</small>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-danger" style="width: ${lossRate}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-2">
+                        <small class="text-muted">Not Opened</small>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-warning" style="width: ${notOpenedRate}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="mb-3">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="downloadAnalysisBtn">
+                        <i class="fas fa-download me-1"></i>Download Analysis CSV
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" id="downloadSignalsBtn">
+                        <i class="fas fa-table me-1"></i>Signals Only CSV
+                    </button>
+                    <button type="button" class="btn btn-outline-info btn-sm" id="downloadSummaryBtn">
+                        <i class="fas fa-chart-bar me-1"></i>Summary CSV
+                    </button>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-2" id="toggleSignalsBtn">
+                    <i class="fas fa-list me-1"></i>Show Individual Signals
+                </button>
+            </div>
+            
+            <!-- Individual Signal Details Table -->
+            <div id="signalDetailsContainer" style="display: none;">
+                <h6><i class="fas fa-list me-2"></i>Individual Signal Details</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Entry Price</th>
+                                <th>Status</th>
+                                <th>P/L Amount</th>
+                                <th>P/L %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="signalDetailsTable">
+                            <!-- Individual signals will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Signal Details Message Container -->
+            <div id="filteredSignalsContainer" style="display: none;">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i><span id="filteredSignalsTitle">Signal Details</span></h6>
+                        <button type="button" class="btn btn-sm btn-outline-light" id="closeFilteredSignalsBtn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="card-body" id="signalDetailsMessage">
+                        <!-- Signal details will be populated here in message format -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pie Chart Section - Displayed automatically after analysis -->
+            <div id="signalDistributionSection" class="mt-4 mb-4" style="display: none;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <h6 class="text-center mb-3 text-white"><i class="fas fa-chart-pie me-2"></i>Signal Distribution for <span id="pieChartSymbol" class="fw-bold"></span></h6>
+                    <div style="max-width: 350px; margin: 0 auto; background: white; padding: 15px; border-radius: 10px;">
+                        <canvas id="signalDistributionChart"></canvas>
+                    </div>
+                    <div class="text-center mt-3" id="pieChartStats">
+                        <!-- Stats will be populated here -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add to page under the signals table
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection) {
+            resultsSection.appendChild(analysisContainer);
+        } else {
+            // Fallback: add after the form
+            const form = document.getElementById('backtestForm');
+            form.parentNode.insertBefore(analysisContainer, form.nextSibling);
+        }
+        
+        // Store analysis data for CSV download
+        window.currentAnalysisData = analysis;
+        window.currentSymbol = symbol;
+        
+        console.log('Analysis data stored:', window.currentAnalysisData);
+        
+        // Bind button event handlers
+        bindAnalysisButtonHandlers();
+        
+        // Populate individual signals table
+        populateSignalDetailsTable(analysis.individual_signals);
+        
+        // Show and render the pie chart automatically after analysis
+        document.getElementById('signalDistributionSection').style.display = 'block';
+        renderSignalDistributionPieChart(symbol);
+        
+        // Scroll to analysis
+        analysisContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Setup clickable rows and close button after a short delay
+        setTimeout(() => {
+            setupClickableSignalRows();
+            
+            // Setup close button
+            const closeBtn = document.getElementById('closeFilteredSignalsBtn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeFilteredSignals);
+            }
+        }, 100);
+    }
+    
+    // Function to populate individual signals table
+    function populateSignalDetailsTable(signals) {
+        const tbody = document.getElementById('signalDetailsTable');
+        if (!tbody || !signals) return;
+        
+        tbody.innerHTML = '';
+        
+        signals.forEach(signal => {
+            const statusIcon = signal.status === 'PROFIT' ? '✅' : 
+                              signal.status === 'LOSS' ? '❌' : '⏸️';
+            const statusClass = signal.status === 'PROFIT' ? 'text-success' : 
+                               signal.status === 'LOSS' ? 'text-danger' : 'text-warning';
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${signal.date}</td>
+                <td>${signal.time}</td>
+                <td>${signal.signal_type}</td>
+                <td>$${signal.entry_price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td class="${statusClass}">${statusIcon} ${signal.status}</td>
+                <td class="${signal.profit_loss_amount >= 0 ? 'text-success' : 'text-danger'}">
+                    $${signal.profit_loss_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </td>
+                <td class="${signal.profit_loss_percentage >= 0 ? 'text-success' : 'text-danger'}">
+                    ${signal.profit_loss_percentage.toFixed(2)}%
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    // Function to bind analysis button event handlers
+    function bindAnalysisButtonHandlers() {
+        console.log('Binding analysis button handlers');
+        
+        // Download Analysis CSV button
+        const downloadAnalysisBtn = document.getElementById('downloadAnalysisBtn');
+        if (downloadAnalysisBtn) {
+            downloadAnalysisBtn.addEventListener('click', function() {
+                console.log('Download Analysis CSV clicked');
+                downloadAnalysisCSV(window.currentSymbol);
+            });
+        }
+        
+        // Download Signals Only CSV button
+        const downloadSignalsBtn = document.getElementById('downloadSignalsBtn');
+        if (downloadSignalsBtn) {
+            downloadSignalsBtn.addEventListener('click', function() {
+                console.log('Download Signals Only CSV clicked');
+                downloadSignalsOnlyCSV(window.currentSymbol);
+            });
+        }
+        
+        // Download Summary CSV button
+        const downloadSummaryBtn = document.getElementById('downloadSummaryBtn');
+        if (downloadSummaryBtn) {
+            downloadSummaryBtn.addEventListener('click', function() {
+                console.log('Download Summary CSV clicked');
+                downloadSummaryCSV(window.currentSymbol);
+            });
+        }
+        
+        // Toggle Signal Details button
+        const toggleSignalsBtn = document.getElementById('toggleSignalsBtn');
+        if (toggleSignalsBtn) {
+            toggleSignalsBtn.addEventListener('click', function() {
+                console.log('Toggle Signal Details clicked');
+                toggleSignalDetails();
+            });
+        }
+    }
+    
+    // Function to toggle signal details visibility
+    function toggleSignalDetails() {
+        const container = document.getElementById('signalDetailsContainer');
+        const button = document.getElementById('toggleSignalsBtn');
+        
+        if (!container || !button) return;
+        
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            button.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Hide Individual Signals';
+        } else {
+            container.style.display = 'none';
+            button.innerHTML = '<i class="fas fa-list me-1"></i>Show Individual Signals';
+        }
+    }
+    
+    // Function to download analysis CSV
+    function downloadAnalysisCSV(symbol) {
+        console.log('downloadAnalysisCSV called with symbol:', symbol);
+        console.log('Current analysis data:', window.currentAnalysisData);
+        
+        const analysisData = window.currentAnalysisData;
+        const currentSymbol = symbol || window.currentSymbol;
+        
+        if (!analysisData) {
+            console.error('No analysis data available');
+            showAlert('error', 'No analysis data available for download');
+            return;
+        }
+        
+        if (!currentSymbol) {
+            console.error('No symbol available');
+            showAlert('error', 'No symbol information available');
+            return;
+        }
+        
+        try {
+            // Generate CSV content
+            const csvContent = generateAnalysisCSV(analysisData, currentSymbol);
+            
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSymbol}_signal_analysis_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log('Analysis CSV downloaded successfully');
+            showAlert('success', `Analysis CSV downloaded for ${currentSymbol}`);
+        } catch (error) {
+            console.error('Error downloading analysis CSV:', error);
+            showAlert('error', 'Error downloading analysis CSV: ' + error.message);
+        }
+    }
+    
+    // Function to generate CSV content
+    function generateAnalysisCSV(analysis, symbol) {
+        const summary = analysis.total_summary;
+        const signals = analysis.individual_signals;
+        const quality = analysis.strategy_quality;
+        
+        let csv = `Signal Analysis Report - ${symbol}\n`;
+        csv += `Analysis Date: ${analysis.analysis_date}\n`;
+        csv += `Period: ${analysis.period.start_date} to ${analysis.period.end_date}\n`;
+        csv += `Generated Signals: ${summary.total_signals}\n\n`;
+        
+        // Summary section
+        csv += 'SIGNAL SUMMARY\n';
+        csv += 'Metric,Value\n';
+        csv += `Total Signals Generated,${summary.total_signals}\n`;
+        csv += `Profit Signals,${summary.profit_signals}\n`;
+        csv += `Loss Signals,${summary.loss_signals}\n`;
+        csv += `Not Opened Signals,${summary.not_opened_signals}\n`;
+        csv += `Total Investment,${summary.total_investment}\n`;
+        csv += `Total Profit/Loss,${summary.total_profit_loss}\n`;
+        csv += `Total Profit Percentage %,${summary.total_profit_percentage}\n\n`;
+        
+        // Strategy quality section
+        csv += 'STRATEGY QUALITY\n';
+        csv += 'Metric,Value\n';
+        csv += `Quality Score,${quality.quality_score}\n`;
+        csv += `Quality Rating,${quality.quality_rating}\n`;
+        csv += `Recommendation,${quality.recommendation}\n\n`;
+        
+        // Individual signals
+        csv += 'INDIVIDUAL SIGNAL ANALYSIS\n';
+        csv += 'Signal ID,Date,Time,Signal Type,Entry Price,Target Price,Stop Loss,Execution Price,Is Executed,Status,Profit/Loss Amount,Profit/Loss %,Confidence Score,Risk/Reward Ratio\n';
+        
+        signals.forEach(signal => {
+            csv += `${signal.signal_id},${signal.date},${signal.time},${signal.signal_type},${signal.entry_price},${signal.target_price},${signal.stop_loss},${signal.execution_price},${signal.is_executed ? 'Yes' : 'No'},${signal.status},${signal.profit_loss_amount},${signal.profit_loss_percentage},${signal.confidence_score},${signal.risk_reward_ratio}\n`;
+        });
+        
+        return csv;
+    }
+    
+    // PHASE 4: Enhanced CSV download functions
+    function downloadSignalsOnlyCSV(symbol) {
+        console.log('downloadSignalsOnlyCSV called with symbol:', symbol);
+        
+        const analysisData = window.currentAnalysisData;
+        const currentSymbol = symbol || window.currentSymbol;
+        
+        if (!analysisData) {
+            console.error('No analysis data available');
+            showAlert('error', 'No analysis data available for download');
+            return;
+        }
+        
+        if (!currentSymbol) {
+            console.error('No symbol available');
+            showAlert('error', 'No symbol information available');
+            return;
+        }
+        
+        try {
+            // Generate signals-only CSV content
+            const csvContent = generateSignalsOnlyCSV(analysisData, currentSymbol);
+            
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSymbol}_signals_only_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log('Signals-only CSV downloaded successfully');
+            showAlert('success', `Signals-only CSV downloaded for ${currentSymbol}`);
+        } catch (error) {
+            console.error('Error downloading signals-only CSV:', error);
+            showAlert('error', 'Error downloading signals-only CSV: ' + error.message);
+        }
+    }
+    
+    function downloadSummaryCSV(symbol) {
+        console.log('downloadSummaryCSV called with symbol:', symbol);
+        
+        const analysisData = window.currentAnalysisData;
+        const currentSymbol = symbol || window.currentSymbol;
+        
+        if (!analysisData) {
+            console.error('No analysis data available');
+            showAlert('error', 'No analysis data available for download');
+            return;
+        }
+        
+        if (!currentSymbol) {
+            console.error('No symbol available');
+            showAlert('error', 'No symbol information available');
+            return;
+        }
+        
+        try {
+            // Generate summary-only CSV content
+            const csvContent = generateSummaryCSV(analysisData, currentSymbol);
+            
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSymbol}_summary_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log('Summary CSV downloaded successfully');
+            showAlert('success', `Summary CSV downloaded for ${currentSymbol}`);
+        } catch (error) {
+            console.error('Error downloading summary CSV:', error);
+            showAlert('error', 'Error downloading summary CSV: ' + error.message);
+        }
+    }
+    
+    function generateSignalsOnlyCSV(analysis, symbol) {
+        const signals = analysis.individual_signals;
+        
+        let csv = `Individual Signals Report - ${symbol}\n`;
+        csv += `Analysis Date: ${analysis.analysis_date}\n`;
+        csv += `Period: ${analysis.period.start_date} to ${analysis.period.end_date}\n`;
+        csv += `Total Signals: ${signals.length}\n\n`;
+        
+        // Headers
+        csv += 'Signal ID,Date,Time,Signal Type,Entry Price,Target Price,Stop Loss,Execution Price,Is Executed,Status,Profit/Loss Amount,Profit/Loss %,Confidence Score,Risk/Reward Ratio,Quality Score\n';
+        
+        // Signal data
+        signals.forEach(signal => {
+            csv += `${signal.signal_id},${signal.date},${signal.time},${signal.signal_type},${signal.entry_price},${signal.target_price},${signal.stop_loss},${signal.execution_price},${signal.is_executed ? 'Yes' : 'No'},${signal.status},${signal.profit_loss_amount},${signal.profit_loss_percentage},${signal.confidence_score},${signal.risk_reward_ratio},${signal.quality_score || 'N/A'}\n`;
+        });
+        
+        return csv;
+    }
+    
+    function generateSummaryCSV(analysis, symbol) {
+        const summary = analysis.total_summary;
+        const quality = analysis.strategy_quality;
+        
+        let csv = `Strategy Performance Summary - ${symbol}\n`;
+        csv += `Analysis Date: ${analysis.analysis_date}\n`;
+        csv += `Period: ${analysis.period.start_date} to ${analysis.period.end_date}\n`;
+        csv += `Days Analyzed: ${analysis.period.days}\n\n`;
+        
+        // Performance metrics
+        csv += 'PERFORMANCE METRICS\n';
+        csv += 'Metric,Value,Percentage\n';
+        csv += `Total Signals Generated,${summary.total_signals},100.00%\n`;
+        csv += `Profit Signals,${summary.profit_signals},${summary.total_signals > 0 ? (summary.profit_signals / summary.total_signals * 100).toFixed(2) : '0.00'}%\n`;
+        csv += `Loss Signals,${summary.loss_signals},${summary.total_signals > 0 ? (summary.loss_signals / summary.total_signals * 100).toFixed(2) : '0.00'}%\n`;
+        csv += `Not Opened Signals,${summary.not_opened_signals},${summary.total_signals > 0 ? (summary.not_opened_signals / summary.total_signals * 100).toFixed(2) : '0.00'}%\n\n`;
+        
+        // Financial metrics
+        csv += 'FINANCIAL METRICS\n';
+        csv += 'Metric,Value\n';
+        csv += `Total Investment,$${summary.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+        csv += `Total Profit/Loss,$${summary.total_profit_loss.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+        csv += `Total Profit Percentage,${summary.total_profit_percentage.toFixed(2)}%\n`;
+        csv += `Average Profit per Signal,$${summary.total_signals > 0 ? (summary.total_profit_loss / summary.total_signals).toFixed(2) : '0.00'}\n\n`;
+        
+        // Strategy quality metrics
+        csv += 'STRATEGY QUALITY ASSESSMENT\n';
+        csv += 'Metric,Value\n';
+        csv += `Quality Score,${quality.quality_score}/100\n`;
+        csv += `Quality Rating,${quality.quality_rating}\n`;
+        csv += `Recommendation,"${quality.recommendation}"\n`;
+        
+        if (quality.metrics) {
+            csv += `Profit Rate,${quality.metrics.profit_rate}%\n`;
+            csv += `Execution Rate,${quality.metrics.execution_rate}%\n`;
+            csv += `Profit Percentage,${quality.metrics.profit_percentage}%\n`;
+        }
+        
+        return csv;
+    }
+    
+    // Enhanced analysis CSV with better formatting
+    function generateEnhancedAnalysisCSV(analysis, symbol) {
+        const summary = analysis.total_summary;
+        const signals = analysis.individual_signals;
+        const quality = analysis.strategy_quality;
+        
+        let csv = `COMPREHENSIVE SIGNAL ANALYSIS REPORT\n`;
+        csv += `=====================================\n\n`;
+        csv += `Symbol: ${symbol}\n`;
+        csv += `Analysis Date: ${analysis.analysis_date}\n`;
+        csv += `Period: ${analysis.period.start_date} to ${analysis.period.end_date}\n`;
+        csv += `Days Analyzed: ${analysis.period.days}\n`;
+        csv += `Generated Signals: ${summary.total_signals}\n\n`;
+        
+        // Executive Summary
+        csv += `EXECUTIVE SUMMARY\n`;
+        csv += `================\n`;
+        csv += `Total Signals: ${summary.total_signals}\n`;
+        csv += `Profitable Signals: ${summary.profit_signals} (${summary.total_signals > 0 ? (summary.profit_signals / summary.total_signals * 100).toFixed(1) : '0.0'}%)\n`;
+        csv += `Loss Signals: ${summary.loss_signals} (${summary.total_signals > 0 ? (summary.loss_signals / summary.total_signals * 100).toFixed(1) : '0.0'}%)\n`;
+        csv += `Not Opened Signals: ${summary.not_opened_signals} (${summary.total_signals > 0 ? (summary.not_opened_signals / summary.total_signals * 100).toFixed(1) : '0.0'}%)\n`;
+        csv += `Total Investment: $${summary.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+        csv += `Total Profit/Loss: $${summary.total_profit_loss.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+        csv += `Overall Performance: ${summary.total_profit_percentage.toFixed(2)}%\n`;
+        csv += `Strategy Quality: ${quality.quality_score}/100 (${quality.quality_rating})\n\n`;
+        
+        // Detailed breakdown
+        csv += `DETAILED BREAKDOWN\n`;
+        csv += `==================\n`;
+        csv += `Metric,Value,Percentage\n`;
+        csv += `Total Signals,${summary.total_signals},100.00%\n`;
+        csv += `Profit Signals,${summary.profit_signals},${summary.total_signals > 0 ? (summary.profit_signals / summary.total_signals * 100).toFixed(2) : '0.00'}%\n`;
+        csv += `Loss Signals,${summary.loss_signals},${summary.total_signals > 0 ? (summary.loss_signals / summary.total_signals * 100).toFixed(2) : '0.00'}%\n`;
+        csv += `Not Opened Signals,${summary.not_opened_signals},${summary.total_signals > 0 ? (summary.not_opened_signals / summary.total_signals * 100).toFixed(2) : '0.00'}%\n\n`;
+        
+        // Financial analysis
+        csv += `FINANCIAL ANALYSIS\n`;
+        csv += `==================\n`;
+        csv += `Total Investment,$${summary.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+        csv += `Total Profit/Loss,$${summary.total_profit_loss.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+        csv += `Profit Percentage,${summary.total_profit_percentage.toFixed(2)}%\n`;
+        csv += `Average Profit per Signal,$${summary.total_signals > 0 ? (summary.total_profit_loss / summary.total_signals).toFixed(2) : '0.00'}\n`;
+        csv += `Average Investment per Signal,$${summary.total_signals > 0 ? (summary.total_investment / summary.total_signals).toFixed(2) : '0.00'}\n\n`;
+        
+        // Strategy quality assessment
+        csv += `STRATEGY QUALITY ASSESSMENT\n`;
+        csv += `==========================\n`;
+        csv += `Quality Score,${quality.quality_score}/100\n`;
+        csv += `Quality Rating,${quality.quality_rating}\n`;
+        csv += `Recommendation,"${quality.recommendation}"\n\n`;
+        
+        // Individual signals
+        csv += `INDIVIDUAL SIGNAL ANALYSIS\n`;
+        csv += `==========================\n`;
+        csv += `Signal ID,Date,Time,Signal Type,Entry Price,Target Price,Stop Loss,Execution Price,Is Executed,Status,Profit/Loss Amount,Profit/Loss %,Confidence Score,Risk/Reward Ratio\n`;
+        
+        signals.forEach(signal => {
+            csv += `${signal.signal_id},${signal.date},${signal.time},${signal.signal_type},${signal.entry_price},${signal.target_price},${signal.stop_loss},${signal.execution_price},${signal.is_executed ? 'Yes' : 'No'},${signal.status},${signal.profit_loss_amount},${signal.profit_loss_percentage},${signal.confidence_score},${signal.risk_reward_ratio}\n`;
+        });
+        
+        return csv;
+    }
+    
+    // Override the original downloadAnalysisCSV to use enhanced version
+    const originalDownloadAnalysisCSV = downloadAnalysisCSV;
+    downloadAnalysisCSV = function(symbol) {
+        console.log('Enhanced downloadAnalysisCSV called with symbol:', symbol);
+        
+        const analysisData = window.currentAnalysisData;
+        const currentSymbol = symbol || window.currentSymbol;
+        
+        if (!analysisData) {
+            console.error('No analysis data available');
+            showAlert('error', 'No analysis data available for download');
+            return;
+        }
+        
+        if (!currentSymbol) {
+            console.error('No symbol available');
+            showAlert('error', 'No symbol information available');
+            return;
+        }
+        
+        try {
+            // Generate enhanced CSV content
+            const csvContent = generateEnhancedAnalysisCSV(analysisData, currentSymbol);
+            
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSymbol}_comprehensive_analysis_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log('Comprehensive analysis CSV downloaded successfully');
+            showAlert('success', `Comprehensive analysis CSV downloaded for ${currentSymbol}`);
+        } catch (error) {
+            console.error('Error downloading comprehensive analysis CSV:', error);
+            showAlert('error', 'Error downloading comprehensive analysis CSV: ' + error.message);
+        }
+    };
+    
+    // NEW: Update signal count information
+    function updateSignalCountInfo(maxPossible, desired) {
+        const signalCountInfo = document.getElementById('signalCountInfo');
+        if (maxPossible > 0) {
+            signalCountInfo.innerHTML = `
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Max Possible:</strong><br>
+                        <span class="badge bg-primary">${maxPossible}</span>
+                    </div>
+                    <div class="col-6">
+                        <strong>Requested:</strong><br>
+                        <span class="badge bg-success">${desired || 'All'}</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            signalCountInfo.innerHTML = '<small class="text-muted">No signals available</small>';
+        }
+    }
+    
+    // NEW: Display summarizing results
+    function displaySummarizingResults(summary) {
+        const summarizingResults = document.getElementById('summarizingResults');
+        summarizingResults.style.display = 'block';
+        
+        // Update summary cards
+        document.getElementById('summaryTotalSignals').textContent = summary.total_signals;
+        document.getElementById('summaryAvgConfidence').textContent = (summary.avg_confidence * 100).toFixed(1) + '%';
+        document.getElementById('summaryAvgRiskReward').textContent = summary.avg_risk_reward.toFixed(2);
+        document.getElementById('summaryBestSignalType').textContent = summary.best_signal?.type || '-';
+        
+        // Update signal distribution
+        const signalDistribution = document.getElementById('signalDistribution');
+        let distributionHtml = '';
+        for (const [type, count] of Object.entries(summary.signal_distribution)) {
+            const percentage = ((count / summary.total_signals) * 100).toFixed(1);
+            distributionHtml += `
+                <div class="d-flex justify-content-between mb-1">
+                    <span>${type}</span>
+                    <span><strong>${count}</strong> (${percentage}%)</span>
+                </div>
+            `;
+        }
+        signalDistribution.innerHTML = distributionHtml;
+        
+        // Update quality breakdown
+        const qualityBreakdown = document.getElementById('qualityBreakdown');
+        const total = summary.quality_breakdown.high_quality + summary.quality_breakdown.medium_quality + summary.quality_breakdown.low_quality;
+        qualityBreakdown.innerHTML = `
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-success">High Quality (≥80%)</span>
+                <span><strong>${summary.quality_breakdown.high_quality}</strong></span>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-warning">Medium Quality (60-79%)</span>
+                <span><strong>${summary.quality_breakdown.medium_quality}</strong></span>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-danger">Low Quality (<60%)</span>
+                <span><strong>${summary.quality_breakdown.low_quality}</strong></span>
+            </div>
+        `;
+    }
+    
+    // Store current analysis data globally
+    let currentAnalysisData = null;
+    
+    // Function to handle clickable signal status rows
+    function setupClickableSignalRows() {
+        const clickableRows = document.querySelectorAll('.clickable-row');
+        
+        clickableRows.forEach(row => {
+            row.addEventListener('click', function() {
+                const signalType = this.getAttribute('data-signal-type');
+                showFilteredSignals(signalType);
+            });
+        });
+    }
+    
+    // Function to render signal distribution pie chart
+    function renderSignalDistributionPieChart(symbol) {
+        if (!currentAnalysisData || !currentAnalysisData.individual_signals) {
+            console.warn('No analysis data available for pie chart');
+            return;
+        }
+        
+        const signals = currentAnalysisData.individual_signals;
+        
+        // Calculate counts for each status
+        const profitCount = signals.filter(s => s.status === 'PROFIT').length;
+        const lossCount = signals.filter(s => s.status === 'LOSS').length;
+        const notOpenedCount = signals.filter(s => s.status === 'NOT_OPENED').length;
+        const totalCount = signals.length;
+        
+        // Calculate percentages
+        const profitPercentage = totalCount > 0 ? ((profitCount / totalCount) * 100).toFixed(2) : 0;
+        const lossPercentage = totalCount > 0 ? ((lossCount / totalCount) * 100).toFixed(2) : 0;
+        const notOpenedPercentage = totalCount > 0 ? ((notOpenedCount / totalCount) * 100).toFixed(2) : 0;
+        
+        // Update symbol name
+        document.getElementById('pieChartSymbol').textContent = symbol || currentSymbol || 'All Signals';
+        
+        // Update stats
+        const statsDiv = document.getElementById('pieChartStats');
+        statsDiv.innerHTML = `
+            <div class="row text-center">
+                <div class="col-4">
+                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 8px; padding: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="color: #28a745; font-size: 1.1rem; font-weight: bold;">
+                            <i class="fas fa-check-circle me-1"></i>Profit
+                        </div>
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-top: 0.25rem;">
+                            ${profitCount}
+                        </div>
+                        <div style="color: #666; font-size: 0.9rem;">
+                            ${profitPercentage}%
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 8px; padding: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="color: #dc3545; font-size: 1.1rem; font-weight: bold;">
+                            <i class="fas fa-times-circle me-1"></i>Loss
+                        </div>
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-top: 0.25rem;">
+                            ${lossCount}
+                        </div>
+                        <div style="color: #666; font-size: 0.9rem;">
+                            ${lossPercentage}%
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div style="background: rgba(255, 255, 255, 0.95); border-radius: 8px; padding: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="color: #ffc107; font-size: 1.1rem; font-weight: bold;">
+                            <i class="fas fa-pause-circle me-1"></i>Not Opened
+                        </div>
+                        <div style="font-size: 1.3rem; font-weight: bold; color: #333; margin-top: 0.25rem;">
+                            ${notOpenedCount}
+                        </div>
+                        <div style="color: #666; font-size: 0.9rem;">
+                            ${notOpenedPercentage}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Destroy previous chart instance if exists
+        if (signalDistributionChart) {
+            signalDistributionChart.destroy();
+        }
+        
+        // Get canvas element
+        const ctx = document.getElementById('signalDistributionChart');
+        if (!ctx) {
+            console.error('Canvas element not found');
+            return;
+        }
+        
+        // Create new chart
+        signalDistributionChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Profit', 'Loss', 'Not Opened'],
+                datasets: [{
+                    label: 'Signal Distribution',
+                    data: [profitCount, lossCount, notOpenedCount],
+                    backgroundColor: [
+                        'rgba(40, 167, 69, 0.8)',   // Green for profit
+                        'rgba(220, 53, 69, 0.8)',   // Red for loss
+                        'rgba(255, 193, 7, 0.8)'    // Yellow for not opened
+                    ],
+                    borderColor: [
+                        'rgba(40, 167, 69, 1)',
+                        'rgba(220, 53, 69, 1)',
+                        'rgba(255, 193, 7, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 13,
+                                weight: 'bold'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const percentage = totalCount > 0 ? ((value / totalCount) * 100).toFixed(2) : 0;
+                                return `${label}: ${value} signals (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Function to show filtered signals
+    function showFilteredSignals(signalType) {
+        if (!currentAnalysisData || !currentAnalysisData.individual_signals) {
+            console.warn('No analysis data available');
+            return;
+        }
+        
+        const signals = currentAnalysisData.individual_signals;
+        let filteredSignals = [];
+        let title = '';
+        
+        // Filter signals based on type
+        switch(signalType) {
+            case 'profit':
+                filteredSignals = signals.filter(s => s.status === 'PROFIT');
+                title = `Profit Signals (${filteredSignals.length})`;
+                break;
+            case 'loss':
+                filteredSignals = signals.filter(s => s.status === 'LOSS');
+                title = `Loss Signals (${filteredSignals.length})`;
+                break;
+            case 'not_opened':
+                filteredSignals = signals.filter(s => s.status === 'NOT_OPENED');
+                title = `Not Opened Signals (${filteredSignals.length})`;
+                break;
+            default:
+                return;
+        }
+        
+        // Update title
+        document.getElementById('filteredSignalsTitle').innerHTML = `<i class="fas fa-filter me-2"></i>${title}`;
+        
+        // Populate filtered signals table
+        populateFilteredSignalsTable(filteredSignals);
+        
+        // Show the container
+        document.getElementById('filteredSignalsContainer').style.display = 'block';
+        
+        // Scroll to the filtered signals
+        document.getElementById('filteredSignalsContainer').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }
+    
+    // Function to populate signal details in message format
+    function populateFilteredSignalsTable(signals) {
+        const messageContainer = document.getElementById('signalDetailsMessage');
+        if (!messageContainer) return;
+        
+        messageContainer.innerHTML = '';
+        
+        if (signals.length === 0) {
+            messageContainer.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle fa-2x mb-3"></i>
+                    <h6>No signals found for this category</h6>
+                    <p class="mb-0">Try adjusting your backtesting parameters to generate more signals.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        signals.forEach((signal, index) => {
+            const statusIcon = signal.status === 'PROFIT' ? '✅' : 
+                              signal.status === 'LOSS' ? '❌' : '⏸️';
+            const statusClass = signal.status === 'PROFIT' ? 'text-success' : 
+                               signal.status === 'LOSS' ? 'text-danger' : 'text-warning';
+            const statusBgClass = signal.status === 'PROFIT' ? 'bg-success' : 
+                                  signal.status === 'LOSS' ? 'bg-danger' : 'bg-warning';
+            
+            // Parse execution date and time
+            let executionDate = 'N/A';
+            let executionTime = 'N/A';
+            
+            if (signal.executed_at) {
+                try {
+                    const execDate = new Date(signal.executed_at);
+                    executionDate = execDate.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    });
+                    executionTime = execDate.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    });
+                } catch (e) {
+                    console.warn('Error parsing execution date:', e);
+                }
+            }
+            
+            const signalCard = document.createElement('div');
+            signalCard.className = 'mb-4';
+            signalCard.innerHTML = `
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header ${statusBgClass} text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Signal #${index + 1} - ${signal.status}
+                            </h6>
+                            <span class="badge bg-light text-dark">${signal.date} ${signal.time}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary mb-3"><i class="fas fa-info-circle me-2"></i>Signal Information</h6>
+                                <div class="mb-2">
+                                    <strong>Type:</strong> 
+                                    <span class="badge ${signal.signal_type.includes('BUY') ? 'bg-success' : 'bg-danger'} ms-2">
+                                        ${signal.signal_type}
+                                    </span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Status:</strong> 
+                                    <span class="${statusClass} ms-2">${statusIcon} ${signal.status}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Confidence:</strong> 
+                                    <div class="progress mt-1" style="height: 20px;">
+                                        <div class="progress-bar ${signal.confidence_score >= 0.8 ? 'bg-success' : signal.confidence_score >= 0.6 ? 'bg-warning' : 'bg-danger'}" 
+                                             style="width: ${signal.confidence_score * 100}%">
+                                            ${Math.round(signal.confidence_score * 100)}%
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Generated Date:</strong> 
+                                    <span class="text-info ms-2">${signal.date} ${signal.time}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Executed Date:</strong> 
+                                    <span class="text-warning ms-2">${executionDate} ${executionTime}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Closed Date:</strong> 
+                                    <span class="text-secondary ms-2">${signal.closed_date || 'N/A'}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Validation Date:</strong> 
+                                    <span class="text-success ms-2">${signal.validation_date || 'N/A'}</span>
+                                    <small class="text-muted d-block">When signal reached ${signal.status === 'PROFIT' ? 'target price' : 'stop loss'}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-primary mb-3"><i class="fas fa-dollar-sign me-2"></i>Price Information</h6>
+                                <div class="mb-2">
+                                    <strong>Entry Price:</strong> 
+                                    <span class="text-success ms-2">$${signal.entry_price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Target Price:</strong> 
+                                    <span class="text-info ms-2">$${signal.target_price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Execution Price:</strong> 
+                                    <span class="text-primary ms-2">${signal.execution_price ? '$' + signal.execution_price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Closed Price:</strong> 
+                                    <span class="text-secondary ms-2">${signal.closed_price ? '$' + signal.closed_price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Reached Price:</strong> 
+                                    <span class="${signal.status === 'PROFIT' ? 'text-success' : 'text-danger'} ms-2">
+                                        ${signal.status === 'PROFIT' ? '$' + signal.target_price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4}) : '$' + signal.stop_loss.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})}
+                                        <i class="fas fa-check-circle ms-1"></i>
+                                    </span>
+                                    <small class="text-muted d-block">${signal.status === 'PROFIT' ? 'Target Price Reached' : 'Stop Loss Hit'}</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3"><i class="fas fa-chart-bar me-2"></i>Performance Summary</h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <h5 class="${signal.profit_loss_percentage >= 0 ? 'text-success' : 'text-danger'} mb-1">
+                                                ${signal.profit_loss_percentage ? signal.profit_loss_percentage.toFixed(2) + '%' : 'N/A'}
+                                            </h5>
+                                            <small class="text-muted">P/L Percentage</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <h5 class="${signal.profit_loss_amount >= 0 ? 'text-success' : 'text-danger'} mb-1">
+                                                ${signal.profit_loss_amount ? '$' + signal.profit_loss_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}
+                                            </h5>
+                                            <small class="text-muted">P/L Amount</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <h5 class="text-info mb-1">
+                                                ${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}
+                                            </h5>
+                                            <small class="text-muted">Risk/Reward Ratio</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            messageContainer.appendChild(signalCard);
+        });
+    }
+    
+    // Function to close filtered signals
+    function closeFilteredSignals() {
+        document.getElementById('filteredSignalsContainer').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

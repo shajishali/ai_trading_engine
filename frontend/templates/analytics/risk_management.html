@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+
+{% block title %}Risk Management - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <main class="col-12 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">
+                    <i class="fas fa-shield-alt me-2"></i>Risk Management
+                </h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary">Export Report</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary">Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Overview Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Portfolio Risk</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ portfolio_risk|floatformat:2 }}%</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-shield-alt fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        Risk per Trade</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ risk_per_trade }}%</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        Stop Loss</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stop_loss_pct }}%</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-stop-circle fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Total Value</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">${{ total_value|floatformat:2 }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Analysis Charts -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mb-4">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Portfolio Risk Distribution</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="riskDistributionChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Risk Metrics</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Value at Risk (VaR)</label>
+                                <div class="progress mb-2">
+                                    <div class="progress-bar bg-danger" role="progressbar" style="width: 15%">15%</div>
+                                </div>
+                                <small class="text-muted">95% confidence level</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Maximum Drawdown</label>
+                                <div class="progress mb-2">
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: 8%">8%</div>
+                                </div>
+                                <small class="text-muted">Historical maximum</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Sharpe Ratio</label>
+                                <div class="progress mb-2">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 75%">1.8</div>
+                                </div>
+                                <small class="text-muted">Risk-adjusted return</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Position Risk Table -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Position Risk Analysis</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if positions %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover" width="100%" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Position Size</th>
+                                            <th>Market Value</th>
+                                            <th>Risk Level</th>
+                                            <th>Stop Loss</th>
+                                            <th>Risk Amount</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for position in positions %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ position.symbol }}</strong>
+                                            </td>
+                                            <td>{{ position.quantity|floatformat:2 }}</td>
+                                            <td>${{ position.market_value|floatformat:2 }}</td>
+                                            <td>
+                                                {% if position.market_value > 10000 %}
+                                                    <span class="badge badge-danger">High</span>
+                                                {% elif position.market_value > 5000 %}
+                                                    <span class="badge badge-warning">Medium</span>
+                                                {% else %}
+                                                    <span class="badge badge-success">Low</span>
+                                                {% endif %}
+                                            </td>
+                                                                                         <td>${{ position.stop_loss_price|floatformat:2 }}</td>
+                                             <td>${{ position.risk_amount|floatformat:2 }}</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-primary" title="Adjust Stop Loss">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-warning" title="Reduce Position">
+                                                        <i class="fas fa-minus"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger" title="Close Position">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-shield-alt fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No positions to analyze</h5>
+                                <p class="text-muted">Risk analysis will appear here once you have open positions.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Management Rules -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Risk Management Rules</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Position Sizing Rules</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-check text-success me-2"></i>Maximum 2% risk per trade</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Maximum 5% portfolio exposure per position</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Stop loss at 5% below entry price</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Take profit at 2:1 risk-reward ratio</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Portfolio Rules</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-check text-success me-2"></i>Maximum 20% total portfolio risk</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Diversify across 5+ different assets</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Rebalance portfolio monthly</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Monitor correlation between positions</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Risk Distribution Chart
+const ctx = document.getElementById('riskDistributionChart').getContext('2d');
+const riskChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Low Risk', 'Medium Risk', 'High Risk'],
+        datasets: [{
+            data: [60, 25, 15],
+            backgroundColor: [
+                '#28a745',
+                '#ffc107',
+                '#dc3545'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            },
+            title: {
+                display: true,
+                text: 'Portfolio Risk Distribution'
+            }
+        }
+    }
+});
+
+// Risk alerts
+function checkRiskLevels() {
+    const portfolioRisk = {{ portfolio_risk|default:0 }};
+    const totalValue = {{ total_value|default:0 }};
+    
+    if (portfolioRisk > 20) {
+        showAlert('High portfolio risk detected! Consider reducing positions.', 'danger');
+    }
+    
+    if (totalValue < 1000) {
+        showAlert('Low portfolio value. Consider adding more capital.', 'warning');
+    }
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.row'));
+}
+
+// Initialize risk checks
+document.addEventListener('DOMContentLoaded', function() {
+    checkRiskLevels();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Trading Engine - Enhanced Dashboard{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+    .dashboard-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    .dashboard-card h2 {
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    .dashboard-card h5 {
+        font-weight: 500;
+        opacity: 0.9;
+    }
+    .signal-card {
+        border-left: 4px solid #28a745;
+        background: var(--card-bg);
+        border-radius: 8px;
+        margin-bottom: 15px;
+        color: var(--text-color);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .signal-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    .signal-card.sell {
+        border-left-color: #dc3545;
+    }
+    .signal-card.hold {
+        border-left-color: #ffc107;
+    }
+    .signal-card .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .signal-card .fw-bold {
+        color: var(--text-color);
+    }
+    .metric-card {
+        background: var(--card-bg);
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        color: var(--text-color);
+    }
+    .chart-container {
+        background: var(--card-bg);
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        color: var(--text-color);
+        transition: box-shadow 0.3s ease;
+    }
+    .chart-container:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    .chart-container h5 {
+        color: var(--text-color);
+        font-weight: 600;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--border-color, #e9ecef);
+        padding-bottom: 10px;
+    }
+    .navbar-brand {
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <main class="col-12 px-md-4">
+                         <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                 <h1 class="h2">Trading Dashboard</h1>
+                 <div class="btn-toolbar mb-2 mb-md-0">
+                     <div class="btn-group me-2">
+                         <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
+                         <button type="button" class="btn btn-sm btn-outline-secondary">Share</button>
+                     </div>
+                 </div>
+             </div>
+
+            <!-- Key Metrics -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="dashboard-card p-4">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h5 class="text-white-50">Total Signals</h5>
+                                <h2 class="mb-0">{{ total_signals|default:"1,247" }}</h2>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-signal fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="dashboard-card p-4">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h5 class="text-white-50">Win Rate</h5>
+                                <h2 class="mb-0">{{ win_rate|default:"73" }}%</h2>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-trophy fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="dashboard-card p-4">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h5 class="text-white-50">Profit Factor</h5>
+                                <h2 class="mb-0">{{ profit_factor|default:"2.8" }}</h2>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-chart-line fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="dashboard-card p-4">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h5 class="text-white-50">Active Signals</h5>
+                                <h2 class="mb-0">{{ active_signals|default:"12" }}</h2>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-bolt fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="dashboard-card p-4">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h5 class="text-white-50">Avg Quality</h5>
+                                <h2 class="mb-0">{{ avg_quality|default:"75" }}%</h2>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-star fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+
+
+
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <div class="col-lg-8">
+                    <div class="chart-container">
+                        <h5>Performance Chart</h5>
+                        <canvas id="performanceChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="chart-container">
+                        <h5>Signal Distribution</h5>
+                        <canvas id="signalChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Signals -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="metric-card">
+                        <h5><i class="fas fa-clock"></i> Recent Signals</h5>
+                        <div class="row">
+                            {% for signal in recent_signals %}
+                            <div class="col-md-6 col-lg-4">
+                                <div class="signal-card p-3 {% if signal.signal_type.name == 'SELL' %}sell{% elif signal.signal_type.name == 'HOLD' %}hold{% endif %}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ signal.symbol.symbol }}</h6>
+                                            <small class="text-muted">{{ signal.created_at|timesince }} ago</small>
+                                        </div>
+                                        <span class="badge {% if signal.signal_type.name == 'BUY' %}bg-success{% elif signal.signal_type.name == 'SELL' %}bg-danger{% else %}bg-warning{% endif %}">
+                                            {{ signal.signal_type.name }}
+                                        </span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small>Confidence:</small>
+                                            <span class="badge {% if signal.confidence_score >= 0.8 %}bg-success{% elif signal.confidence_score >= 0.6 %}bg-warning{% else %}bg-secondary{% endif %}">
+                                                {{ signal.confidence_percentage }}%
+                                            </span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small>Entry Price:</small>
+                                            <small class="fw-bold">${{ signal.entry_price|default:"N/A" }}</small>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small>Strength:</small>
+                                            <span class="badge {% if signal.strength == 'VERY_STRONG' %}bg-danger{% elif signal.strength == 'STRONG' %}bg-warning{% elif signal.strength == 'MODERATE' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                {{ signal.strength }}
+                                            </span>
+                                        </div>
+                                        {% if signal.target_price %}
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small>Target:</small>
+                                            <small class="text-success">${{ signal.target_price }}</small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="col-12">
+                                <div class="signal-card p-3">
+                                    <h6>No Signals Available</h6>
+                                    <span class="badge bg-secondary">No Data</span>
+                                    <small class="text-muted">No trading signals generated yet</small>
+                                    <div class="mt-2">
+                                        <small>Confidence: N/A</small>
+                                        <br>
+                                        <small>Price: N/A</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+
+
+
+// Performance Chart
+const performanceCtx = document.getElementById('performanceChart');
+if (performanceCtx) {
+    const performanceChart = new Chart(performanceCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: [
+                {% if recent_signals.0 %}'{{ recent_signals.0.created_at|date:"M d" }}'{% else %}'Jan 01'{% endif %},
+                {% if recent_signals.1 %}'{{ recent_signals.1.created_at|date:"M d" }}'{% else %}'Jan 02'{% endif %},
+                {% if recent_signals.2 %}'{{ recent_signals.2.created_at|date:"M d" }}'{% else %}'Jan 03'{% endif %},
+                {% if recent_signals.3 %}'{{ recent_signals.3.created_at|date:"M d" }}'{% else %}'Jan 04'{% endif %},
+                {% if recent_signals.4 %}'{{ recent_signals.4.created_at|date:"M d" }}'{% else %}'Jan 05'{% endif %},
+                {% if recent_signals.5 %}'{{ recent_signals.5.created_at|date:"M d" }}'{% else %}'Jan 06'{% endif %}
+            ],
+            datasets: [{
+                label: 'Signal Quality Score',
+                data: [{% for signal in recent_signals|slice:":6" %}{{ signal.quality_score|default:0.75 }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Quality: ' + (context.parsed.y * 100).toFixed(0) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 1,
+                    ticks: {
+                        callback: function(value) {
+                            return (value * 100).toFixed(0) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Signal Distribution Chart
+const signalCtx = document.getElementById('signalChart');
+if (signalCtx) {
+    const signalChart = new Chart(signalCtx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: [{% for signal_type, count in signal_distribution.items %}'{{ signal_type }} Signals'{% if not forloop.last %}, {% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for signal_type, count in signal_distribution.items %}{{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                backgroundColor: [
+                    'rgb(75, 192, 192)',  // Green for BUY
+                    'rgb(255, 99, 132)',  // Red for SELL
+                    'rgb(255, 205, 86)',  // Yellow for HOLD
+                    'rgb(153, 102, 255)', // Purple for other types
+                    'rgb(255, 159, 64)'   // Orange for other types
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

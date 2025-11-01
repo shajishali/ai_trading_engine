@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate Signal Removal</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.danger {
+            background-color: #dc3545;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        button.warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        button.warning:hover {
+            background-color: #e0a800;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .results.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .results.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .results.warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .duplicate-groups {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .duplicate-group {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .duplicate-group:last-child {
+            border-bottom: none;
+        }
+        .group-header {
+            font-weight: bold;
+            color: #333;
+        }
+        .group-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Duplicate Signal Removal Tool</h1>
+        
+        <!-- Statistics Section -->
+        <div class="section">
+            <h2>Current Statistics</h2>
+            <button onclick="loadStatistics()">Refresh Statistics</button>
+            <div id="statisticsResults" class="results"></div>
+            <div id="statisticsLoading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading statistics...</p>
+            </div>
+        </div>
+        
+        <!-- Identify Duplicates Section -->
+        <div class="section">
+            <h2>Identify Duplicates</h2>
+            <form id="identifyForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="identifySymbol">Symbol (optional):</label>
+                        <input type="text" id="identifySymbol" placeholder="e.g., AAVEUSDT">
+                    </div>
+                    <div class="form-group">
+                        <label for="identifyTolerance">Tolerance (%):</label>
+                        <input type="number" id="identifyTolerance" value="1" step="0.1" min="0.1" max="10">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="identifyStartDate">Start Date (optional):</label>
+                        <input type="date" id="identifyStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="identifyEndDate">End Date (optional):</label>
+                        <input type="date" id="identifyEndDate">
+                    </div>
+                </div>
+                <button type="submit">Identify Duplicates</button>
+            </form>
+            <div id="identifyResults" class="results"></div>
+            <div id="identifyLoading" class="loading">
+                <div class="spinner"></div>
+                <p>Identifying duplicates...</p>
+            </div>
+        </div>
+        
+        <!-- Remove Duplicates Section -->
+        <div class="section">
+            <h2>Remove Duplicates</h2>
+            <form id="removeForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="removeSymbol">Symbol (optional):</label>
+                        <input type="text" id="removeSymbol" placeholder="e.g., AAVEUSDT">
+                    </div>
+                    <div class="form-group">
+                        <label for="removeTolerance">Tolerance (%):</label>
+                        <input type="number" id="removeTolerance" value="1" step="0.1" min="0.1" max="10">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="removeStartDate">Start Date (optional):</label>
+                        <input type="date" id="removeStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="removeEndDate">End Date (optional):</label>
+                        <input type="date" id="removeEndDate">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="dryRun" checked> Dry Run (preview only)
+                    </label>
+                </div>
+                <button type="submit" class="warning">Preview Removal</button>
+                <button type="button" onclick="confirmRemoval()" class="danger" style="display: none;" id="confirmButton">Confirm Removal</button>
+            </form>
+            <div id="removeResults" class="results"></div>
+            <div id="removeLoading" class="loading">
+                <div class="spinner"></div>
+                <p>Processing removal...</p>
+            </div>
+        </div>
+        
+        <!-- Cleanup Old Duplicates Section -->
+        <div class="section">
+            <h2>Cleanup Old Duplicates</h2>
+            <form id="cleanupForm">
+                <div class="form-group">
+                    <label for="cleanupDays">Days Old:</label>
+                    <input type="number" id="cleanupDays" value="30" min="1" max="365">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="cleanupDryRun" checked> Dry Run (preview only)
+                    </label>
+                </div>
+                <button type="submit" class="warning">Preview Cleanup</button>
+                <button type="button" onclick="confirmCleanup()" class="danger" style="display: none;" id="confirmCleanupButton">Confirm Cleanup</button>
+            </form>
+            <div id="cleanupResults" class="results"></div>
+            <div id="cleanupLoading" class="loading">
+                <div class="spinner"></div>
+                <p>Processing cleanup...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load statistics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatistics();
+        });
+
+        function showLoading(elementId) {
+            document.getElementById(elementId).style.display = 'block';
+        }
+
+        function hideLoading(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        function showResults(elementId, content, type = 'success') {
+            const element = document.getElementById(elementId);
+            element.className = `results ${type}`;
+            element.innerHTML = content;
+            element.style.display = 'block';
+        }
+
+        function loadStatistics() {
+            showLoading('statisticsLoading');
+            
+            fetch('/signals/api/duplicates/?action=statistics')
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('statisticsLoading');
+                    
+                    if (data.success) {
+                        const stats = data.overall_statistics;
+                        const content = `
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value">${stats.total_signals || 0}</div>
+                                    <div class="stat-label">Total Signals</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value">${stats.total_duplicates || 0}</div>
+                                    <div class="stat-label">Total Duplicates</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value">${(stats.duplicate_percentage || 0).toFixed(2)}%</div>
+                                    <div class="stat-label">Duplicate %</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value">${stats.duplicate_groups_count || 0}</div>
+                                    <div class="stat-label">Duplicate Groups</div>
+                                </div>
+                            </div>
+                            ${stats.symbols_with_duplicates && stats.symbols_with_duplicates.length > 0 ? 
+                                `<p><strong>Symbols with duplicates:</strong> ${stats.symbols_with_duplicates.join(', ')}</p>` : ''}
+                            ${stats.avg_duplicate_time_span_hours ? 
+                                `<p><strong>Average duplicate time span:</strong> ${stats.avg_duplicate_time_span_hours} hours</p>` : ''}
+                        `;
+                        showResults('statisticsResults', content, 'success');
+                    } else {
+                        showResults('statisticsResults', `Error: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading('statisticsLoading');
+                    showResults('statisticsResults', `Error: ${error.message}`, 'error');
+                });
+        }
+
+        document.getElementById('identifyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const symbol = document.getElementById('identifySymbol').value;
+            const tolerance = document.getElementById('identifyTolerance').value;
+            const startDate = document.getElementById('identifyStartDate').value;
+            const endDate = document.getElementById('identifyEndDate').value;
+            
+            showLoading('identifyLoading');
+            
+            let url = `/signals/api/duplicates/?action=identify&tolerance=${tolerance / 100}`;
+            if (symbol) url += `&symbol=${symbol}`;
+            if (startDate) url += `&start_date=${startDate}T00:00:00Z`;
+            if (endDate) url += `&end_date=${endDate}T23:59:59Z`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('identifyLoading');
+                    
+                    if (data.success) {
+                        let content = `
+                            <h3>Identification Results</h3>
+                            <p><strong>Total signals analyzed:</strong> ${data.total_signals_analyzed}</p>
+                            <p><strong>Duplicate groups found:</strong> ${data.duplicate_groups_found}</p>
+                            <p><strong>Total duplicate signals:</strong> ${data.total_duplicate_signals}</p>
+                            <p><strong>Duplicate percentage:</strong> ${data.statistics.duplicate_percentage.toFixed(2)}%</p>
+                        `;
+                        
+                        if (data.duplicate_groups && data.duplicate_groups.length > 0) {
+                            content += '<h4>Example Duplicate Groups:</h4><div class="duplicate-groups">';
+                            data.duplicate_groups.slice(0, 10).forEach((group, index) => {
+                                const signal = group.signals[0];
+                                const dates = group.signals.map(s => new Date(s.created_at).toLocaleDateString());
+                                content += `
+                                    <div class="duplicate-group">
+                                        <div class="group-header">Group ${index + 1}: ${signal.symbol.symbol} - ${signal.signal_type.name}</div>
+                                        <div class="group-details">
+                                            Strength: ${signal.strength} | Entry: $${signal.entry_price} | 
+                                            Duplicates: ${group.count} | Date range: ${dates[0]} to ${dates[dates.length - 1]}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            content += '</div>';
+                        }
+                        
+                        showResults('identifyResults', content, 'success');
+                    } else {
+                        showResults('identifyResults', `Error: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading('identifyLoading');
+                    showResults('identifyResults', `Error: ${error.message}`, 'error');
+                });
+        });
+
+        document.getElementById('removeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            performRemoval(true);
+        });
+
+        function performRemoval(dryRun) {
+            const symbol = document.getElementById('removeSymbol').value;
+            const tolerance = document.getElementById('removeTolerance').value;
+            const startDate = document.getElementById('removeStartDate').value;
+            const endDate = document.getElementById('removeEndDate').value;
+            
+            showLoading('removeLoading');
+            
+            const data = {
+                action: 'remove',
+                tolerance: tolerance / 100,
+                dry_run: dryRun
+            };
+            
+            if (symbol) data.symbol = symbol;
+            if (startDate) data.start_date = `${startDate}T00:00:00Z`;
+            if (endDate) data.end_date = `${endDate}T23:59:59Z`;
+            
+            fetch('/signals/api/duplicates/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('removeLoading');
+                    
+                    if (data.success) {
+                        let content = `
+                            <h3>${dryRun ? 'Preview' : 'Removal'} Results</h3>
+                            <p><strong>Total signals analyzed:</strong> ${data.total_signals_analyzed || 'N/A'}</p>
+                            <p><strong>Duplicate groups found:</strong> ${data.duplicate_groups_found || 'N/A'}</p>
+                            <p><strong>Total duplicate signals:</strong> ${data.total_duplicate_signals || 'N/A'}</p>
+                            <p><strong>Signals ${dryRun ? 'would be' : ''} removed:</strong> ${data.removed_count || 0}</p>
+                            <p><strong>Signals ${dryRun ? 'would be' : ''} kept:</strong> ${data.kept_count || 0}</p>
+                        `;
+                        
+                        if (dryRun && data.removed_count > 0) {
+                            content += '<p><strong>This is a preview. Uncheck "Dry Run" and click "Confirm Removal" to actually remove duplicates.</strong></p>';
+                            document.getElementById('confirmButton').style.display = 'inline-block';
+                        } else if (!dryRun) {
+                            content += '<p><strong>Duplicates have been successfully removed!</strong></p>';
+                            document.getElementById('confirmButton').style.display = 'none';
+                            loadStatistics(); // Refresh statistics
+                        }
+                        
+                        showResults('removeResults', content, dryRun ? 'warning' : 'success');
+                    } else {
+                        showResults('removeResults', `Error: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading('removeLoading');
+                    showResults('removeResults', `Error: ${error.message}`, 'error');
+                });
+        }
+
+        function confirmRemoval() {
+            performRemoval(false);
+        }
+
+        document.getElementById('cleanupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            performCleanup(true);
+        });
+
+        function performCleanup(dryRun) {
+            const daysOld = document.getElementById('cleanupDays').value;
+            
+            showLoading('cleanupLoading');
+            
+            const data = {
+                action: 'cleanup_old',
+                days_old: parseInt(daysOld),
+                dry_run: dryRun
+            };
+            
+            fetch('/signals/api/duplicates/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading('cleanupLoading');
+                    
+                    if (data.success) {
+                        let content = `
+                            <h3>${dryRun ? 'Preview' : 'Cleanup'} Results</h3>
+                            <p><strong>Signals ${dryRun ? 'would be' : ''} removed:</strong> ${data.removed_count || 0}</p>
+                            <p><strong>Signals ${dryRun ? 'would be' : ''} kept:</strong> ${data.kept_count || 0}</p>
+                        `;
+                        
+                        if (dryRun && data.removed_count > 0) {
+                            content += '<p><strong>This is a preview. Uncheck "Dry Run" and click "Confirm Cleanup" to actually remove duplicates.</strong></p>';
+                            document.getElementById('confirmCleanupButton').style.display = 'inline-block';
+                        } else if (!dryRun) {
+                            content += '<p><strong>Old duplicates have been successfully cleaned up!</strong></p>';
+                            document.getElementById('confirmCleanupButton').style.display = 'none';
+                            loadStatistics(); // Refresh statistics
+                        }
+                        
+                        showResults('cleanupResults', content, dryRun ? 'warning' : 'success');
+                    } else {
+                        showResults('cleanupResults', `Error: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading('cleanupLoading');
+                    showResults('cleanupResults', `Error: ${error.message}`, 'error');
+                });
+        }
+
+        function confirmCleanup() {
+            performCleanup(false);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

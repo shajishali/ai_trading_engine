@@ -1,0 +1,628 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Market Sentiment Analysis - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sentiment-card {
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+    }
+    
+    .sentiment-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .fear-greed-indicator {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+        color: white;
+        margin: 0 auto;
+    }
+    
+    .fear-greed-extreme-fear { background: linear-gradient(135deg, #dc3545, #c82333); }
+    .fear-greed-fear { background: linear-gradient(135deg, #fd7e14, #e55a00); }
+    .fear-greed-neutral { background: linear-gradient(135deg, #ffc107, #e0a800); }
+    .fear-greed-greed { background: linear-gradient(135deg, #28a745, #1e7e34); }
+    .fear-greed-extreme-greed { background: linear-gradient(135deg, #20c997, #138496); }
+    
+    .vix-indicator {
+        padding: 10px 15px;
+        border-radius: 10px;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .vix-low { background: #d4edda; color: #155724; }
+    .vix-medium { background: #fff3cd; color: #856404; }
+    .vix-high { background: #f8d7da; color: #721c24; }
+    .vix-extreme { background: #721c24; color: #f8d7da; }
+    
+    .put-call-indicator {
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .put-call-bullish { background: #d4edda; color: #155724; }
+    .put-call-neutral { background: #fff3cd; color: #856404; }
+    .put-call-bearish { background: #f8d7da; color: #721c24; }
+    
+    .sentiment-score {
+        font-size: 2.5rem;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .sentiment-bullish { color: #28a745; }
+    .sentiment-neutral { color: #ffc107; }
+    .sentiment-bearish { color: #dc3545; }
+    
+    .chart-container {
+        height: 300px;
+        margin-bottom: 20px;
+    }
+    
+    .component-score {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .component-bar {
+        flex: 1;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        margin: 0 15px;
+        position: relative;
+    }
+    
+    .component-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .component-fill.fear-greed { background: #28a745; }
+    .component-fill.vix { background: #17a2b8; }
+    .component-fill.put-call { background: #6f42c1; }
+    
+    .signal-card {
+        border-left: 4px solid;
+        border-radius: 8px;
+    }
+    
+    .signal-buy { border-left-color: #28a745; }
+    .signal-sell { border-left-color: #dc3545; }
+    .signal-hold { border-left-color: #ffc107; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Market Sentiment Analysis</h1>
+                    <p class="text-muted">Comprehensive market sentiment indicators and analysis</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="updateSentimentData()">
+                        <i class="fas fa-sync-alt"></i> Update Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Sentiment Overview -->
+    {% if current_sentiment %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card sentiment-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            <div class="sentiment-score sentiment-{{ current_sentiment.market_mood|lower }}">
+                                {{ current_sentiment.composite_score }}
+                            </div>
+                            <h5 class="mt-2">Composite Score</h5>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h4 class="text-{{ current_sentiment.market_mood|lower }}">
+                                {{ current_sentiment.market_mood }}
+                            </h4>
+                            <p class="text-muted mb-0">Market Mood</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h4 class="text-info">{{ current_sentiment.volatility_regime }}</h4>
+                            <p class="text-muted mb-0">Volatility Regime</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h4 class="text-warning">{{ current_sentiment.confidence_score }}</h4>
+                            <p class="text-muted mb-0">Confidence Score</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sentiment Components -->
+    <div class="row mb-4">
+        <!-- Fear & Greed Index -->
+        <div class="col-md-4 mb-3">
+            <div class="card sentiment-card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-brain"></i> Fear & Greed Index
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if fear_greed_data %}
+                    <div class="fear-greed-indicator fear-greed-{{ fear_greed_data.label|lower|cut:" " }}">
+                        {{ fear_greed_data.value }}
+                    </div>
+                    <h5 class="mt-3">{{ fear_greed_data.label }}</h5>
+                    <p class="text-muted">{{ fear_greed_data.classification }}</p>
+                    
+                    <!-- Component Scores -->
+                    <div class="mt-3">
+                        <h6>Component Scores</h6>
+                        {% for name, score in fear_greed_data.component_scores.items %}
+                        <div class="component-score">
+                            <small class="text-muted">{{ name|title }}</small>
+                            <div class="component-bar">
+                                <div class="component-fill fear-greed" style="width: {{ score }}%"></div>
+                            </div>
+                            <small class="text-muted">{{ score }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- VIX Volatility Index -->
+        <div class="col-md-4 mb-3">
+            <div class="card sentiment-card h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line"></i> VIX Volatility Index
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if vix_data %}
+                    <h2 class="text-warning mb-3">{{ vix_data.close_value }}</h2>
+                    <div class="vix-indicator vix-{{ vix_data.close_value|vix_regime|lower|cut:" " }}">
+                        {{ vix_data.close_value|vix_regime }}
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <small class="text-muted">Change</small>
+                            <div class="text-{{ vix_data.change|change_color }}">
+                                {{ vix_data.change|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">% Change</small>
+                            <div class="text-{{ vix_data.change_percent|change_color }}">
+                                {{ vix_data.change_percent|floatformat:2 }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">SMA 20: {{ vix_data.sma_20|floatformat:2 }}</small><br>
+                        <small class="text-muted">SMA 50: {{ vix_data.sma_50|floatformat:2 }}</small>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Put/Call Ratio -->
+        <div class="col-md-4 mb-3">
+            <div class="card sentiment-card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-balance-scale"></i> Put/Call Ratio
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if put_call_data %}
+                    <h2 class="text-info mb-3">{{ put_call_data.total_put_call_ratio }}</h2>
+                    <div class="put-call-indicator put-call-{{ put_call_data.total_put_call_ratio|put_call_sentiment|lower|cut:" " }}">
+                        {{ put_call_data.total_put_call_ratio|put_call_sentiment }}
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <small class="text-muted">Change</small>
+                            <div class="text-{{ put_call_data.change|change_color }}">
+                                {{ put_call_data.change|floatformat:3 }}
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">% Change</small>
+                            <div class="text-{{ put_call_data.change_percent|change_color }}">
+                                {{ put_call_data.change_percent|floatformat:2 }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">Volume: {{ put_call_data.total_put_volume|floatformat:0 }}</small><br>
+                        <small class="text-muted">SMA 10: {{ put_call_data.sma_10|floatformat:3 }}</small>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sentiment Signal -->
+    {% if sentiment_signal %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card signal-card signal-{{ sentiment_signal.signal_type|lower }}">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            <h4 class="text-{{ sentiment_signal.signal_type|signal_color }}">
+                                {{ sentiment_signal.signal_type }}
+                            </h4>
+                            <small class="text-muted">{{ sentiment_signal.signal_strength }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Market Sentiment Signal</h6>
+                            <p class="mb-0">{{ sentiment_signal.reasoning }}</p>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h5 class="text-info">{{ sentiment_signal.confidence|floatformat:2 }}</h5>
+                            <small class="text-muted">Confidence</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h5 class="text-warning">{{ sentiment_signal.sentiment_score|floatformat:1 }}</h5>
+                            <small class="text-muted">Sentiment Score</small>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <h5 class="text-{{ sentiment_signal.market_mood|lower }}">{{ sentiment_signal.market_mood }}</h5>
+                            <small class="text-muted">Market Mood</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <!-- Composite Sentiment Chart -->
+        <div class="col-md-6 mb-3">
+            <div class="card sentiment-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Composite Sentiment Trend</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fear & Greed Chart -->
+        <div class="col-md-6 mb-3">
+            <div class="card sentiment-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Fear & Greed Index Trend</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="fearGreedChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIX and Put/Call Charts -->
+    <div class="row mb-4">
+        <!-- VIX Chart -->
+        <div class="col-md-6 mb-3">
+            <div class="card sentiment-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">VIX Volatility Index</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="vixChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Put/Call Ratio Chart -->
+        <div class="col-md-6 mb-3">
+            <div class="card sentiment-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Put/Call Ratio Trend</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="putCallChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historical Data Tables -->
+    <div class="row">
+        <!-- Recent Sentiment Data -->
+        <div class="col-md-6 mb-3">
+            <div class="card sentiment-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Sentiment Indicators</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Score</th>
+                                    <th>Mood</th>
+                                    <th>Confidence</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in historical_sentiment %}
+                                <tr>
+                                    <td>{{ item.timestamp|date:"M d" }}</td>
+                                    <td>{{ item.fear_greed_index|default:"-" }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ item.market_mood|lower }}">
+                                            {{ item.market_mood }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.confidence_score|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No historical data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent VIX Data -->
+        <div class="col-md-6 mb-3">
+            <div class="card sentiment-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent VIX Data</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Close</th>
+                                    <th>Change</th>
+                                    <th>% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in historical_vix %}
+                                <tr>
+                                    <td>{{ item.date|date:"M d" }}</td>
+                                    <td>{{ item.close_value|floatformat:2 }}</td>
+                                    <td class="text-{{ item.change|change_color }}">
+                                        {{ item.change|floatformat:2 }}
+                                    </td>
+                                    <td class="text-{{ item.change_percent|change_color }}">
+                                        {{ item.change_percent|floatformat:2 }}%
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No historical data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Chart data from Django context
+    const sentimentChartData = {{ sentiment_chart_data|safe }};
+    const fearGreedChartData = {{ fear_greed_chart_data|safe }};
+    const vixChartData = {{ vix_chart_data|safe }};
+    const putCallChartData = {{ put_call_chart_data|safe }};
+
+    // Initialize charts when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCharts();
+    });
+
+    function initializeCharts() {
+        // Composite Sentiment Chart
+        const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+        new Chart(sentimentCtx, {
+            type: 'line',
+            data: {
+                labels: sentimentChartData.labels,
+                datasets: [{
+                    label: 'Composite Score',
+                    data: sentimentChartData.composite_scores,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'Confidence Score',
+                    data: sentimentChartData.confidence_scores,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        max: 1,
+                        position: 'right'
+                    }
+                }
+            }
+        });
+
+        // Fear & Greed Chart
+        const fearGreedCtx = document.getElementById('fearGreedChart').getContext('2d');
+        new Chart(fearGreedCtx, {
+            type: 'line',
+            data: {
+                labels: fearGreedChartData.labels,
+                datasets: [{
+                    label: 'Fear & Greed Index',
+                    data: fearGreedChartData.values,
+                    borderColor: '#6f42c1',
+                    backgroundColor: 'rgba(111, 66, 193, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // VIX Chart
+        const vixCtx = document.getElementById('vixChart').getContext('2d');
+        new Chart(vixCtx, {
+            type: 'line',
+            data: {
+                labels: vixChartData.labels,
+                datasets: [{
+                    label: 'VIX Close',
+                    data: vixChartData.close_values,
+                    borderColor: '#fd7e14',
+                    backgroundColor: 'rgba(253, 126, 20, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'SMA 20',
+                    data: vixChartData.sma_20,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                    tension: 0.4,
+                    borderDash: [5, 5]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Put/Call Ratio Chart
+        const putCallCtx = document.getElementById('putCallChart').getContext('2d');
+        new Chart(putCallCtx, {
+            type: 'line',
+            data: {
+                labels: putCallChartData.labels,
+                datasets: [{
+                    label: 'Put/Call Ratio',
+                    data: putCallChartData.ratios,
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'SMA 10',
+                    data: putCallChartData.sma_10,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                    tension: 0.4,
+                    borderDash: [5, 5]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    function updateSentimentData() {
+        fetch('{% url "analytics:update_sentiment_data" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Reload page to show updated data
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating sentiment data');
+        });
+    }
+</script>
+{% endblock %}

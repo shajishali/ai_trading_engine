@@ -1,0 +1,875 @@
+{% extends 'base.html' %}
+{% load price_filters %}
+
+{% block title %}Signal History - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Signal History Table Styling */
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    #history-table {
+        margin-bottom: 0;
+        background: white;
+        border-collapse: collapse;
+        width: 100%;
+    }
+    
+    #history-table thead th {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 15px 12px;
+        border: none;
+        text-align: center;
+        vertical-align: middle;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    #history-table thead th:first-child {
+        text-align: left;
+        padding-left: 20px;
+    }
+    
+    #history-table thead th:last-child {
+        text-align: center;
+        padding-right: 20px;
+    }
+    
+    #history-table tbody tr {
+        border-bottom: 1px solid #e9ecef;
+        transition: all 0.2s ease;
+    }
+    
+    #history-table tbody tr:hover {
+        background-color: #f8f9fa;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    #history-table tbody td {
+        padding: 15px 12px;
+        vertical-align: middle;
+        border: none;
+        text-align: center;
+    }
+    
+    #history-table tbody td:first-child {
+        text-align: left;
+        padding-left: 20px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    #history-table tbody td:last-child {
+        text-align: center;
+        padding-right: 20px;
+    }
+    
+    /* Column-specific alignment */
+    #history-table tbody td:nth-child(1) { /* Symbol */
+        text-align: left;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    #history-table tbody td:nth-child(2) { /* Signal Type */
+        text-align: center;
+    }
+    
+    #history-table tbody td:nth-child(3) { /* Confidence */
+        text-align: center;
+    }
+    
+    #history-table tbody td:nth-child(4) { /* Entry Price */
+        text-align: center;
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        color: #2c3e50;
+        background-color: rgba(52, 152, 219, 0.05);
+        border-left: 3px solid #3498db;
+        border-right: 3px solid #3498db;
+    }
+    
+    #history-table tbody td:nth-child(5) { /* Target */
+        text-align: right;
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+    }
+    
+    #history-table tbody td:nth-child(6) { /* Stop Loss */
+        text-align: right;
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+    }
+    
+    #history-table tbody td:nth-child(7) { /* Timeframe */
+        text-align: center;
+        background-color: rgba(23, 162, 184, 0.05);
+        border-left: 3px solid #17a2b8;
+        border-right: 3px solid #17a2b8;
+    }
+    
+    #history-table tbody td:nth-child(8) { /* Entry Point */
+        text-align: center;
+        background-color: rgba(108, 117, 125, 0.05);
+        border-left: 3px solid #6c757d;
+        border-right: 3px solid #6c757d;
+    }
+    
+    #history-table tbody td:nth-child(9) { /* Created */
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    #history-table tbody td:nth-child(10) { /* Status */
+        text-align: center;
+    }
+    
+    /* Badge styling */
+    .badge {
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        min-width: 80px;
+        display: inline-block;
+        text-align: center;
+    }
+    
+    /* Signal Type Badges */
+    .badge.bg-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+        color: white;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    }
+    
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%) !important;
+        color: white;
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+    
+    .badge.bg-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%) !important;
+        color: #212529;
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+    }
+    
+    .badge.bg-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%) !important;
+        color: white;
+        box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+    }
+    
+    .badge.bg-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        color: white;
+        box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+    }
+    
+    /* Action Buttons */
+    .btn-group {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-group .btn {
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        border: none;
+        transition: all 0.2s ease;
+        min-width: 35px;
+        height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-group .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    .btn-group .btn:active {
+        transform: translateY(0);
+    }
+    
+    /* Timeframe and Entry Point Badges */
+    .timeframe-badge {
+        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%) !important;
+        color: white;
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .entry-point-badge {
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        min-width: 80px;
+        display: inline-block;
+        text-align: center;
+    }
+    
+    .entry-point-info {
+        text-align: center;
+        line-height: 1.4;
+    }
+    
+    .entry-point-info small {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: #6c757d;
+    }
+    
+    /* Price formatting */
+    .price-value {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .entry-price {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        color: #2c3e50;
+        background-color: #f8f9fa;
+        padding: 8px;
+        border-radius: 4px;
+        border-left: 3px solid #007bff;
+    }
+    
+    /* Pagination styling */
+    .pagination {
+        justify-content: center;
+        margin-top: 20px;
+    }
+    
+    .page-link {
+        color: #667eea;
+        border: 1px solid #dee2e6;
+        padding: 0.5rem 0.75rem;
+        margin: 0 2px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+    
+    .page-link:hover {
+        color: #764ba2;
+        background-color: #e9ecef;
+        border-color: #adb5bd;
+        transform: translateY(-1px);
+    }
+    
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        color: white;
+    }
+    
+    /* Filter controls */
+    .filter-controls {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .filter-controls .form-control {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-controls .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    /* Empty state styling */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    /* Statistics cards */
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid #667eea;
+    }
+    
+    .stat-card h3 {
+        color: #667eea;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .stat-card p {
+        color: #6c757d;
+        margin-bottom: 0;
+        font-size: 0.9rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .table-responsive {
+            font-size: 0.9rem;
+        }
+        
+        #history-table thead th,
+        #history-table tbody td {
+            padding: 10px 8px;
+        }
+        
+        #history-table thead th:first-child,
+        #history-table tbody td:first-child {
+            padding-left: 15px;
+        }
+        
+        #history-table thead th:last-child,
+        #history-table tbody td:last-child {
+            padding-right: 15px;
+        }
+        
+        .badge {
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            min-width: 70px;
+        }
+        
+        .btn-group .btn {
+            padding: 5px 8px;
+            font-size: 0.75rem;
+            min-width: 30px;
+            height: 30px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Signal History</h2>
+        <div class="d-flex gap-2">
+            <a href="{% url 'signals:signal_dashboard' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Statistics Summary -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ total_count }}</h3>
+                <p>Total Archived Signals</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ total_pages }}</h3>
+                <p>Total Pages</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ page }}</h3>
+                <p>Current Page</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ recent_archived }}</h3>
+                <p>Archived Today</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+        <div class="row">
+            <div class="col-md-3">
+                <form method="get" class="d-flex gap-2">
+                    <div class="flex-grow-1">
+                        <label for="symbol" class="form-label">Symbol:</label>
+                        <input type="text" class="form-control" id="symbol" name="symbol" 
+                               value="{{ current_filters.symbol }}" placeholder="e.g., BTC">
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-3">
+                <form method="get" class="d-flex gap-2">
+                    <div class="flex-grow-1">
+                        <label for="signal_type" class="form-label">Signal Type:</label>
+                        <select class="form-control" id="signal_type" name="signal_type">
+                            <option value="">All Types</option>
+                            {% for type in unique_signal_types %}
+                            <option value="{{ type }}" {% if current_filters.signal_type == type %}selected{% endif %}>{{ type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-3">
+                <form method="get" class="d-flex gap-2">
+                    <div class="flex-grow-1">
+                        <label for="archived_reason" class="form-label">Reason:</label>
+                        <select class="form-control" id="archived_reason" name="archived_reason">
+                            <option value="">All Reasons</option>
+                            {% for reason in unique_reasons %}
+                            <option value="{{ reason }}" {% if current_filters.archived_reason == reason %}selected{% endif %}>{{ reason|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-3">
+                <form method="get" class="d-flex gap-2">
+                    <div class="flex-grow-1">
+                        <label for="days" class="form-label">Days:</label>
+                        <select class="form-control" id="days" name="days" onchange="this.form.submit()">
+                            <option value="1" {% if current_filters.days == 1 %}selected{% endif %}>Last 24 Hours</option>
+                            <option value="7" {% if current_filters.days == 7 %}selected{% endif %}>Last 7 Days</option>
+                            <option value="30" {% if current_filters.days == 30 %}selected{% endif %}>Last 30 Days</option>
+                            <option value="90" {% if current_filters.days == 90 %}selected{% endif %}>Last 90 Days</option>
+                        </select>
+                    </div>
+                    {% if current_filters.symbol %}
+                    <input type="hidden" name="symbol" value="{{ current_filters.symbol }}">
+                    {% endif %}
+                    {% if current_filters.signal_type %}
+                    <input type="hidden" name="signal_type" value="{{ current_filters.signal_type }}">
+                    {% endif %}
+                    {% if current_filters.archived_reason %}
+                    <input type="hidden" name="archived_reason" value="{{ current_filters.archived_reason }}">
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-12 text-center">
+                <button type="button" class="btn btn-primary" onclick="applyFilters()">
+                    <i class="fas fa-search me-1"></i>Apply Filters
+                </button>
+                <a href="{% url 'signals:signal_history' %}" class="btn btn-outline-secondary ms-2">
+                    <i class="fas fa-times me-1"></i>Clear All
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Signal History Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>Signal History
+                        {% if symbol %}
+                        <span class="badge bg-info ms-2">{{ symbol }}</span>
+                        {% endif %}
+                    </h5>
+                    <small class="text-muted">
+                        Showing {{ signals|length }} of {{ total_count }} archived signals
+                    </small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="history-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 8%;">Symbol</th>
+                                    <th style="width: 10%;">Signal Type</th>
+                                    <th style="width: 8%;">Confidence</th>
+                                    <th style="width: 12%;">Entry Price</th>
+                                    <th style="width: 10%;">Target</th>
+                                    <th style="width: 10%;">Stop Loss</th>
+                                    <th style="width: 8%;">Timeframe</th>
+                                    <th style="width: 10%;">Entry Point</th>
+                                    <th style="width: 10%;">Archived</th>
+                                    <th style="width: 8%;">Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if signals %}
+                                    {% for signal in signals %}
+                                    <tr>
+                                        <td><strong>{{ signal.symbol_name|default:"N/A" }}</strong></td>
+                                        <td>
+                                            <span class="badge {% if signal.signal_type_name == 'BUY' or signal.signal_type_name == 'STRONG_BUY' %}bg-success{% elif signal.signal_type_name == 'SELL' or signal.signal_type_name == 'STRONG_SELL' %}bg-danger{% else %}bg-warning{% endif %}">
+                                                {{ signal.signal_type_name|default:"N/A" }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if signal.confidence_score >= 0.8 %}bg-success{% elif signal.confidence_score >= 0.6 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                {% if signal.confidence_score %}{{ signal.confidence_score|floatformat:0 }}%{% else %}N/A{% endif %}
+                                            </span>
+                                        </td>
+                                        <td class="entry-price">
+                                            <strong>{{ signal.entry_price|price_with_symbol|default:"N/A" }}</strong>
+                                        </td>
+                                        <td class="price-value">{{ signal.target_price|price_with_symbol|default:"N/A" }}</td>
+                                        <td class="price-value">{{ signal.stop_loss|price_with_symbol|default:"N/A" }}</td>
+                                        <td class="timeframe-column">
+                                            <span class="badge timeframe-badge">
+                                                {{ signal.timeframe|default:"1H" }}
+                                            </span>
+                                        </td>
+                                        <td class="entry-point-column">
+                                            <div class="entry-point-info">
+                                                <span class="badge entry-point-badge {% if signal.entry_point_type == 'SUPPORT_BREAK' or signal.entry_point_type == 'RESISTANCE_BREAK' or signal.entry_point_type == 'BREAKOUT' %}bg-success{% elif signal.entry_point_type == 'SUPPORT_BOUNCE' or signal.entry_point_type == 'RESISTANCE_REJECTION' or signal.entry_point_type == 'BREAKDOWN' %}bg-danger{% else %}bg-info{% endif %}">
+                                                    {{ signal.entry_point_type|default:"UNKNOWN"|title }}
+                                                </span>
+                                                {% if signal.entry_confidence %}
+                                                <br><small class="text-muted">{{ signal.entry_confidence|floatformat:0 }}% confidence</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div>Archived: {{ signal.archived_at|date:"M d, Y H:i" }}</div>
+                                            <div><small class="text-muted">Analyzed: {{ signal.analyzed_at|date:"M d, Y H:i:s" }} (SL)</small></div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if signal.archived_reason == 'HOURLY_ROTATION' %}bg-primary{% elif signal.archived_reason == 'EXPIRED' %}bg-warning{% elif signal.archived_reason == 'MANUAL_ARCHIVE' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                {{ signal.archived_reason|title }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="10" class="empty-state">
+                                            <i class="fas fa-chart-line"></i>
+                                            <h5>No Signal History Available</h5>
+                                            <p>No signals found matching your criteria.</p>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="Signal history pagination">
+                <ul class="pagination">
+                    {% if has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}{% if current_filters.archived_reason %}&archived_reason={{ current_filters.archived_reason }}{% endif %}{% if current_filters.days %}&days={{ current_filters.days }}{% endif %}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page|add:'-1' }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}{% if current_filters.archived_reason %}&archived_reason={{ current_filters.archived_reason }}{% endif %}{% if current_filters.days %}&days={{ current_filters.days }}{% endif %}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_range %}
+                        {% if page == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}{% if current_filters.archived_reason %}&archived_reason={{ current_filters.archived_reason }}{% endif %}{% if current_filters.days %}&days={{ current_filters.days }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page|add:'1' }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}{% if current_filters.archived_reason %}&archived_reason={{ current_filters.archived_reason }}{% endif %}{% if current_filters.days %}&days={{ current_filters.days }}{% endif %}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ total_pages }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}{% if current_filters.archived_reason %}&archived_reason={{ current_filters.archived_reason }}{% endif %}{% if current_filters.days %}&days={{ current_filters.days }}{% endif %}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Signal Details Modal -->
+<div class="modal fade" id="signalModal" tabindex="-1" role="dialog" aria-labelledby="signalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="signalModalLabel">Signal Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="signalModalBody">
+                <!-- Signal details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications Container -->
+<div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
+
+<script>
+// Apply filters
+function formatPrice(price) {
+    if (!price && price !== 0) return 'N/A';
+    if (typeof price !== 'number' && typeof price !== 'string') return 'N/A';
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice)) return 'N/A';
+    
+    // Handle very small prices (like BONK, PEPE, etc.)
+    if (numPrice < 0.0001) {
+        // For prices less than 0.0001, show up to 8 decimal places
+        return numPrice.toFixed(8).replace(/\.?0+$/, '');
+    } else if (numPrice < 0.01) {
+        // For prices less than 0.01, show up to 6 decimal places
+        return numPrice.toFixed(6).replace(/\.?0+$/, '');
+    } else if (numPrice < 1) {
+        // For prices less than 1, show up to 4 decimal places
+        return numPrice.toFixed(4).replace(/\.?0+$/, '');
+    } else if (numPrice < 100) {
+        // For prices less than 100, show up to 3 decimal places
+        return numPrice.toFixed(3).replace(/\.?0+$/, '');
+    } else {
+        // For prices 100+, show up to 2 decimal places
+        return numPrice.toFixed(2).replace(/\.?0+$/, '');
+    }
+}
+
+function applyFilters() {
+    const symbol = document.getElementById('symbol').value;
+    const signalType = document.getElementById('signal_type').value;
+    const archivedReason = document.getElementById('archived_reason').value;
+    const days = document.getElementById('days').value;
+    
+    let url = '{% url "signals:signal_history" %}?';
+    const params = [];
+    
+    if (symbol) params.push('symbol=' + encodeURIComponent(symbol));
+    if (signalType) params.push('signal_type=' + encodeURIComponent(signalType));
+    if (archivedReason) params.push('archived_reason=' + encodeURIComponent(archivedReason));
+    if (days) params.push('days=' + encodeURIComponent(days));
+    
+    if (params.length > 0) {
+        url += params.join('&');
+    }
+    
+    window.location.href = url;
+}
+
+// View signal details
+function viewSignal(signalId) {
+    console.log('Viewing signal:', signalId);
+    
+    // Load signal details via AJAX
+    fetch(`/signals/api/signals/${signalId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success || !data.signal) {
+                showNotification('Signal not found', 'danger');
+                return;
+            }
+            
+            const signal = data.signal;
+            const timeframe = signal.timeframe || '1H';
+            const entryPointType = signal.entry_point_type || 'TREND_FOLLOWING';
+            const entryConfidence = signal.entry_confidence || 0.8;
+    
+            // Populate modal with signal data
+            document.getElementById('signalModalBody').innerHTML = `
+                <!-- Timeframe and Entry Point Header -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Timeframe & Entry Point Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="text-center">
+                                            <h5 class="text-primary mb-2">Timeframe</h5>
+                                            <span class="badge bg-info fs-5 px-3 py-2">${timeframe}</span>
+                                            <p class="text-muted mt-2 mb-0">Analysis Period</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="text-center">
+                                            <h5 class="text-primary mb-2">Entry Point Type</h5>
+                                            <span class="badge bg-success fs-5 px-3 py-2">${entryPointType.replace(/_/g, ' ')}</span>
+                                            <p class="text-muted mt-2 mb-0">Entry Strategy</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <div class="text-center">
+                                            <h6 class="text-muted mb-2">Entry Confidence</h6>
+                                            <div class="progress" style="height: 25px;">
+                                                <div class="progress-bar ${entryConfidence >= 0.8 ? 'bg-success' : entryConfidence >= 0.6 ? 'bg-warning' : 'bg-danger'}" 
+                                                     role="progressbar" 
+                                                     style="width: ${entryConfidence * 100}%"
+                                                     aria-valuenow="${entryConfidence * 100}" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    ${(entryConfidence * 100).toFixed(0)}%
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="text-center">
+                                            <h6 class="text-muted mb-2">Entry Zone</h6>
+                                            ${signal.entry_zone_low && signal.entry_zone_high ? `
+                                                <div class="border rounded p-2">
+                                                    <span class="text-success">$${signal.entry_zone_low.toFixed(2)}</span>
+                                                    <span class="text-muted mx-2">to</span>
+                                                    <span class="text-success">$${signal.entry_zone_high.toFixed(2)}</span>
+                                                </div>
+                                            ` : '<span class="text-muted">Not specified</span>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Signal Information</h6>
+                        <p><strong>Symbol:</strong> ${signal.symbol}</p>
+                        <p><strong>Type:</strong> ${signal.signal_type}</p>
+                        <p><strong>Confidence:</strong> ${(signal.confidence_score * 100).toFixed(0)}%</p>
+                        <p><strong>Created:</strong> ${new Date(signal.created_at).toLocaleString()}</p>
+                        <p><strong>Analyzed:</strong> ${new Date(signal.analyzed_at || signal.created_at).toLocaleString('en-US', {timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'})} (SL Time)</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Trading Parameters</h6>
+                        <p><strong>Price Target:</strong> $${formatPrice(signal.target_price)}</p>
+                        <p><strong>Stop Loss:</strong> $${formatPrice(signal.stop_loss)}</p>
+                        <p><strong>Risk/Reward:</strong> ${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}</p>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>Detailed Signal Explanation</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                ${signal.detailed_explanation ? signal.detailed_explanation : 'No detailed explanation available.'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Multi-Timeframe Analysis</h6>
+                        <p><strong>Timeframe:</strong> <span class="badge bg-info">${timeframe}</span></p>
+                        <p><strong>Entry Point Type:</strong> <span class="badge bg-success">${entryPointType.replace(/_/g, ' ')}</span></p>
+                        <p><strong>Entry Confidence:</strong> ${(entryConfidence * 100).toFixed(0)}%</p>
+                        ${signal.entry_zone_low && signal.entry_zone_high ? `
+                            <p><strong>Entry Zone:</strong> $${signal.entry_zone_low.toFixed(2)} - $${signal.entry_zone_high.toFixed(2)}</p>
+                        ` : ''}
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Technical Analysis</h6>
+                        <p>${signal.technical_score ? `Technical Score: ${signal.technical_score.toFixed(2)}` : 'No technical analysis available.'}</p>
+                        <p>${signal.sentiment_score ? `Sentiment Score: ${signal.sentiment_score.toFixed(2)}` : 'No sentiment analysis available.'}</p>
+                        <p>${signal.volume_score ? `Volume Score: ${signal.volume_score.toFixed(2)}` : 'No volume analysis available.'}</p>
+                        <p>${signal.pattern_score ? `Pattern Score: ${signal.pattern_score.toFixed(2)}` : 'No pattern analysis available.'}</p>
+                    </div>
+                </div>
+            `;
+    
+            // Show modal using Bootstrap 5
+            const modal = new bootstrap.Modal(document.getElementById('signalModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error loading signal details:', error);
+            showNotification('Error loading signal details', 'danger');
+        });
+}
+
+// Share signal (placeholder)
+function shareSignal(signalId) {
+    showNotification('Share functionality coming soon!', 'info');
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notifications-container');
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show`;
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+    
+    // Remove on close button click
+    notification.querySelector('.btn-close').addEventListener('click', () => {
+        notification.remove();
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,447 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Advanced Analytics - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Main content -->
+    <main role="main" class="px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">
+                    <i class="fas fa-chart-line text-primary"></i> Advanced Analytics Dashboard
+                </h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group mr-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshData()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="exportData()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Overview Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Portfolio Value</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">${{ portfolio.current_balance|floatformat:2 }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        Total Return</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ portfolio.total_return|floatformat:2 }}%</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        Active Positions</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_positions }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-chart-pie fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Unrealized P&L</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">${{ total_pnl|floatformat:2 }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <!-- Portfolio Performance Chart -->
+                <div class="col-xl-8 col-lg-7">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 font-weight-bold text-primary">Portfolio Performance</h6>
+                            <div class="dropdown no-arrow">
+                                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                                    <div class="dropdown-header">Chart Options:</div>
+                                    <a class="dropdown-item" href="#" onclick="updateChart('1M')">1 Month</a>
+                                    <a class="dropdown-item" href="#" onclick="updateChart('3M')">3 Months</a>
+                                    <a class="dropdown-item" href="#" onclick="updateChart('6M')">6 Months</a>
+                                    <a class="dropdown-item" href="#" onclick="updateChart('1Y')">1 Year</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-area">
+                                <canvas id="portfolioChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Overview -->
+                <div class="col-xl-4 col-lg-5">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Market Overview</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="market-indicators">
+                                <div class="market-item">
+                                    <span class="market-label">S&P 500:</span>
+                                    <span class="market-value {% if market_overview.sp500_change > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ market_overview.sp500_change|floatformat:2 }}%
+                                    </span>
+                                </div>
+                                <div class="market-item">
+                                    <span class="market-label">NASDAQ:</span>
+                                    <span class="market-value {% if market_overview.nasdaq_change > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ market_overview.nasdaq_change|floatformat:2 }}%
+                                    </span>
+                                </div>
+                                <div class="market-item">
+                                    <span class="market-label">DOW:</span>
+                                    <span class="market-value {% if market_overview.dow_change > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ market_overview.dow_change|floatformat:2 }}%
+                                    </span>
+                                </div>
+                                <div class="market-item">
+                                    <span class="market-label">VIX:</span>
+                                    <span class="market-value">{{ market_overview.vix|floatformat:1 }}</span>
+                                </div>
+                                <div class="market-item">
+                                    <span class="market-label">Sentiment:</span>
+                                    <span class="market-value text-info">{{ market_overview.market_sentiment }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Positions and Recent Trades -->
+            <div class="row">
+                <!-- Current Positions -->
+                <div class="col-xl-6 col-lg-6">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Current Positions</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if positions %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered" width="100%" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Quantity</th>
+                                            <th>Entry Price</th>
+                                            <th>Current Price</th>
+                                            <th>P&L</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for position in positions %}
+                                        <tr>
+                                            <td><strong>{{ position.symbol }}</strong></td>
+                                            <td>{{ position.quantity|floatformat:4 }}</td>
+                                            <td>${{ position.entry_price|floatformat:2 }}</td>
+                                            <td>${{ position.current_price|floatformat:2 }}</td>
+                                            <td class="{% if position.unrealized_pnl > 0 %}text-success{% else %}text-danger{% endif %}">
+                                                ${{ position.unrealized_pnl|floatformat:2 }}
+                                                <br>
+                                                <small>({{ position.unrealized_pnl_percent|floatformat:2 }}%)</small>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No positions</h5>
+                                <p class="text-muted">Start trading to see your positions here.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Trades -->
+                <div class="col-xl-6 col-lg-6">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">Recent Trades</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_trades %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered" width="100%" cellspacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>Symbol</th>
+                                            <th>Type</th>
+                                            <th>Quantity</th>
+                                            <th>Price</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for trade in recent_trades %}
+                                        <tr>
+                                            <td><strong>{{ trade.symbol }}</strong></td>
+                                            <td>
+                                                <span class="badge badge-{% if trade.trade_type == 'BUY' %}success{% else %}danger{% endif %}">
+                                                    {{ trade.trade_type }}
+                                                </span>
+                                            </td>
+                                            <td>{{ trade.quantity|floatformat:4 }}</td>
+                                            <td>${{ trade.price|floatformat:2 }}</td>
+                                            <td>{{ trade.timestamp|date:"M d, H:i" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No trades</h5>
+                                <p class="text-muted">Your recent trades will appear here.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Section -->
+            {% if alerts %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">
+                                <i class="fas fa-bell text-warning"></i> Recent Alerts
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% for alert in alerts %}
+                            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                                <strong>{{ alert.title }}</strong> - {{ alert.message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let portfolioChart;
+
+// Initialize charts when document is ready
+$(document).ready(function() {
+    initializePortfolioChart();
+    setupEventListeners();
+});
+
+function initializePortfolioChart() {
+    const ctx = document.getElementById('portfolioChart').getContext('2d');
+    
+    // Sample data - in real implementation, this would come from API
+    const chartData = {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+            label: 'Portfolio Value',
+            data: [10000, 10500, 10200, 10800, 11200, 11500],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+        }]
+    };
+    
+    portfolioChart = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            }
+        }
+    });
+}
+
+function setupEventListeners() {
+    // Auto-refresh data every 30 seconds
+    setInterval(refreshData, 30000);
+}
+
+function refreshData() {
+    // Refresh portfolio data
+    fetch('/analytics/api/portfolio-data/')
+        .then(response => response.json())
+        .then(data => {
+            updatePortfolioChart(data);
+            showNotification('Data refreshed successfully', 'success');
+        })
+        .catch(error => {
+            console.error('Error refreshing data:', error);
+            showNotification('Error refreshing data', 'danger');
+        });
+}
+
+function updatePortfolioChart(data) {
+    if (portfolioChart && data.labels) {
+        portfolioChart.data.labels = data.labels;
+        portfolioChart.data.datasets[0].data = data.values;
+        portfolioChart.update();
+    }
+}
+
+function updateChart(timeframe) {
+    // Update chart based on timeframe selection
+    showNotification(`Loading ${timeframe} data...`, 'info');
+    // In real implementation, fetch data for specific timeframe
+}
+
+function exportData() {
+    showNotification('Exporting data...', 'info');
+    // In real implementation, generate and download report
+    setTimeout(() => {
+        showNotification('Data exported successfully', 'success');
+    }, 2000);
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+</script>
+
+<style>
+.chart-area {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+.market-indicators {
+    font-size: 0.9rem;
+}
+
+.market-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.market-item:last-child {
+    border-bottom: none;
+}
+
+.market-label {
+    font-weight: 600;
+    color: #5a5c69;
+}
+
+.market-value {
+    font-weight: 700;
+}
+
+.sidebar .nav-link {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+</style>
+{% endblock %}

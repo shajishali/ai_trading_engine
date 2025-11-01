@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sentiment Analysis - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4 text-white">Sentiment Analysis</h1>
+        </div>
+    </div>
+
+    <!-- Overall Sentiment Score -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Overall Sentiment</h5>
+                </div>
+                <div class="card-body">
+                    <div class="display-4 text-success mb-2" id="overall-sentiment">75</div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 75%"></div>
+                    </div>
+                    <p class="text-muted">Positive</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Social Media</h5>
+                </div>
+                <div class="card-body">
+                    <div class="display-4 text-info mb-2" id="social-sentiment">68</div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: 68%"></div>
+                    </div>
+                    <p class="text-muted">Moderately Positive</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">News Sentiment</h5>
+                </div>
+                <div class="card-body">
+                    <div class="display-4 text-warning mb-2" id="news-sentiment">82</div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: 82%"></div>
+                    </div>
+                    <p class="text-muted">Very Positive</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sentiment Timeline Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Sentiment Timeline (Last 30 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="sentimentChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sentiment Sources -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Sentiment by Source</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="sourceChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Top Keywords</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge bg-success me-2">Bitcoin</span>
+                        <span class="badge bg-success me-2">Ethereum</span>
+                        <span class="badge bg-success me-2">Bull Market</span>
+                        <span class="badge bg-success me-2">Innovation</span>
+                        <span class="badge bg-success me-2">Technology</span>
+                    </div>
+                    <div class="mb-3">
+                        <span class="badge bg-warning me-2">Regulation</span>
+                        <span class="badge bg-warning me-2">Volatility</span>
+                        <span class="badge bg-warning me-2">Uncertainty</span>
+                    </div>
+                    <div class="mb-3">
+                        <span class="badge bg-danger me-2">FUD</span>
+                        <span class="badge bg-danger me-2">Crash</span>
+                        <span class="badge bg-danger me-2">Bear Market</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sentiment Events -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Sentiment Events</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Event</th>
+                                    <th>Impact</th>
+                                    <th>Sentiment Change</th>
+                                    <th>Confidence</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2025-08-14</td>
+                                    <td>Bitcoin ETF Approval News</td>
+                                    <td><span class="badge bg-success">Positive</span></td>
+                                    <td class="text-success">+15</td>
+                                    <td>95%</td>
+                                </tr>
+                                <tr>
+                                    <td>2025-08-13</td>
+                                    <td>Ethereum Network Upgrade</td>
+                                    <td><span class="badge bg-success">Positive</span></td>
+                                    <td class="text-success">+12</td>
+                                    <td>88%</td>
+                                </tr>
+                                <tr>
+                                    <td>2025-08-12</td>
+                                    <td>Regulatory Concerns</td>
+                                    <td><span class="badge bg-warning">Neutral</span></td>
+                                    <td class="text-warning">-5</td>
+                                    <td>75%</td>
+                                </tr>
+                                <tr>
+                                    <td>2025-08-11</td>
+                                    <td>Institutional Adoption</td>
+                                    <td><span class="badge bg-success">Positive</span></td>
+                                    <td class="text-success">+18</td>
+                                    <td>92%</td>
+                                </tr>
+                                <tr>
+                                    <td>2025-08-10</td>
+                                    <td>Market Volatility</td>
+                                    <td><span class="badge bg-info">Mixed</span></td>
+                                    <td class="text-info">-2</td>
+                                    <td>70%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sentiment Analysis Tools -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Fear & Greed Index</h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-6 text-success mb-2">75</div>
+                    <p class="text-success fw-bold">Greed</p>
+                    <small class="text-muted">Extreme Fear: 0 | Extreme Greed: 100</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Social Volume</h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-6 text-info mb-2">High</div>
+                    <p class="text-info fw-bold">Increasing</p>
+                    <small class="text-muted">Social media mentions trending up</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">News Sentiment</h6>
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-6 text-warning mb-2">82</div>
+                    <p class="text-warning fw-bold">Very Positive</p>
+                    <small class="text-muted">Major news outlets bullish</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sentiment timeline chart
+    const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+    const sentimentChart = new Chart(sentimentCtx, {
+        type: 'line',
+        data: {
+            labels: ['Day 1', 'Day 5', 'Day 10', 'Day 15', 'Day 20', 'Day 25', 'Day 30'],
+            datasets: [{
+                label: 'Overall Sentiment',
+                data: [65, 70, 68, 75, 78, 80, 75],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Social Media',
+                data: [60, 65, 62, 68, 70, 72, 68],
+                borderColor: '#17a2b8',
+                backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                tension: 0.4,
+                fill: false
+            }, {
+                label: 'News Sentiment',
+                data: [70, 75, 78, 82, 85, 88, 82],
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                tension: 0.4,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // Source chart
+    const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+    const sourceChart = new Chart(sourceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Twitter', 'Reddit', 'News', 'Forums', 'Telegram'],
+            datasets: [{
+                data: [30, 25, 20, 15, 10],
+                backgroundColor: [
+                    '#1da1f2',
+                    '#ff4500',
+                    '#28a745',
+                    '#6f42c1',
+                    '#0088cc'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+

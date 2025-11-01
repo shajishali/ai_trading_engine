@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+
+{% block title %}AI-Enhanced Trading Signal Engine - Home{% endblock %}
+
+{% block content %}
+<style>
+    /* Fix button margins and spacing in cards */
+    .card .btn {
+        margin: 15px 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .card-body .btn {
+        margin: 20px auto;
+        width: auto;
+        min-width: 200px;
+    }
+    
+    /* Ensure proper spacing in Quick Access cards */
+    .col-md-3 .card .btn {
+        margin: 20px auto;
+        display: block;
+    }
+    
+    /* Fix Quick Access card alignment */
+    .col-md-3 .card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .col-md-3 .card .card-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        flex: 1;
+    }
+    
+    .col-md-3 .card .card-text {
+        flex: 1;
+        margin-bottom: 20px;
+        text-align: center;
+        width: 100%;
+    }
+    
+    .col-md-3 .card .btn {
+        margin-top: auto;
+        align-self: center;
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    /* Ensure consistent card heights and alignment */
+    .col-md-3 .card {
+        min-height: 300px;
+    }
+    
+    .col-md-3 .card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .col-md-3 .card .card-title {
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    
+    .col-md-3 .card .card-text {
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Fix any remaining alignment issues */
+    .col-md-3 .card .card-body > * {
+        text-align: center;
+    }
+    
+    .col-md-3 .card .card-body .btn {
+        text-align: center;
+        justify-content: center;
+    }
+    
+    /* Ensure icons are centered */
+    .col-md-3 .card .fa-3x {
+        display: block;
+        margin: 0 auto;
+    }
+    
+    /* Fix Call to Action button spacing */
+    .bg-primary .btn {
+        margin: 10px;
+        min-width: 220px;
+    }
+    
+    /* Hero section button spacing */
+    .hero-buttons .btn {
+        margin: 0 10px;
+    }
+</style>
+
+<div class="container">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-4 fw-bold text-primary mb-3">
+                <i class="fas fa-chart-line me-3"></i>
+                Welcome to AI Trading Engine
+            </h1>
+            <p class="lead text-muted mb-4">
+                Your advanced trading platform with AI-powered signals, real-time analytics, and machine learning insights.
+            </p>
+            <div class="d-flex justify-content-center gap-3 align-items-center hero-buttons">
+                <a href="{% url 'dashboard:dashboard' %}" class="btn btn-primary btn-lg px-5 py-3">
+                    <i class="fas fa-tachometer-alt me-2"></i>Go to Trading Dashboard
+                </a>
+                <a href="/signals/" class="btn btn-outline-primary btn-lg px-5 py-3">
+                    <i class="fas fa-signal me-2"></i>View Trading Signals
+                </a>
+                {% if not user.is_authenticated %}
+                    <button class="btn btn-outline-secondary btn-lg px-4 py-3" id="theme-toggle-home" title="Toggle Dark/Light Mode">
+                        <i class="fas fa-moon" id="theme-icon-home"></i>
+                    </button>
+
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Cryptocurrency Prices (Home Page Only) -->
+    {% include 'components/live_crypto_prices.html' %}
+
+    <!-- Quick Access Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">Quick Access</h2>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column align-items-center text-center">
+                    <i class="fas fa-tachometer-alt fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Trading Dashboard</h5>
+                    <p class="card-text flex-grow-1">
+                        Real-time portfolio overview, performance metrics, and market insights.
+                    </p>
+                    <a href="{% url 'dashboard:dashboard' %}" class="btn btn-primary px-4 py-2 mt-auto">
+                        <i class="fas fa-arrow-right me-2"></i>Access Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column align-items-center text-center">
+                    <i class="fas fa-signal fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Trading Signals</h5>
+                    <p class="card-text flex-grow-1">
+                        AI-generated buy/sell signals with confidence scores and market analysis.
+                    </p>
+                    <a href="/signals/" class="btn btn-success px-4 py-2 mt-auto">
+                        <i class="fas fa-arrow-right me-2"></i>View Signals
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column align-items-center text-center">
+                    <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Analytics</h5>
+                    <p class="card-text flex-grow-1">
+                        Advanced portfolio analytics, risk management, and performance tracking.
+                    </p>
+                    <a href="{% url 'analytics:dashboard' %}" class="btn btn-info px-4 py-2 mt-auto">
+                        <i class="fas fa-arrow-right me-2"></i>Open Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column align-items-center text-center">
+                    <i class="fas fa-robot fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">AI/ML Models</h5>
+                    <p class="card-text flex-grow-1">
+                        Machine learning models for price prediction and market regime detection.
+                    </p>
+                    <a href="{% url 'analytics:ml_dashboard' %}" class="btn btn-warning px-4 py-2 mt-auto">
+                        <i class="fas fa-arrow-right me-2"></i>AI/ML Tools
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trading Overview Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">Trading Overview</h2>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stats-card text-center">
+                <h3>8</h3>
+                <p>Active Symbols</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stats-card text-center">
+                <h3>24/7</h3>
+                <p>Signal Generation</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stats-card text-center">
+                <h3>5+</h3>
+                <p>ML Models</p>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stats-card text-center">
+                <h3>32+</h3>
+                <p>Technical Indicators</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technology Stack -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">Technology Stack</h2>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-server me-2"></i>Backend</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Django 4.2.7</li>
+                        <li><i class="fas fa-check text-success me-2"></i>MySQL Database</li>
+                        <li><i class="fas fa-check text-success me-2"></i>RESTful API</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Celery Task Queue</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-robot me-2"></i>AI/ML</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>scikit-learn</li>
+                        <li><i class="fas fa-check text-success me-2"></i>pandas & numpy</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Technical Indicators</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Pattern Recognition</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call to Action -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-5">
+                    <h3 class="mb-4">Ready to Access Your Trading Dashboard?</h3>
+                    <p class="mb-5">Get real-time insights, AI-powered signals, and advanced analytics for your trading strategy.</p>
+                    <div class="d-flex justify-content-center gap-4 flex-wrap">
+                        <a href="{% url 'dashboard:dashboard' %}" class="btn btn-light btn-lg px-5 py-3">
+                            <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                        </a>
+                        <a href="{% url 'dashboard:signals' %}" class="btn btn-success btn-lg px-5 py-3">
+                            <i class="fas fa-signal me-2"></i>View Signals
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Theme Toggle Script for Home Page (only for non-authenticated users) -->
+{% if not user.is_authenticated %}
+<script>
+    // Theme toggle functionality for home page
+    const themeToggleHome = document.getElementById('theme-toggle-home');
+    const themeIconHome = document.getElementById('theme-icon-home');
+    const body = document.body;
+    
+    // Check for saved theme preference or default to light mode
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    body.setAttribute('data-theme', currentTheme);
+    updateThemeIconHome(currentTheme);
+    
+    themeToggleHome.addEventListener('click', () => {
+        const currentTheme = body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        body.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeIconHome(newTheme);
+    });
+    
+    function updateThemeIconHome(theme) {
+        if (theme === 'dark') {
+            themeIconHome.className = 'fas fa-sun';
+            themeToggleHome.title = 'Switch to Light Mode';
+        } else {
+            themeIconHome.className = 'fas fa-moon';
+            themeToggleHome.title = 'Switch to Dark Mode';
+        }
+    }
+    
+
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,497 @@
+{% if has_live_prices and global_crypto_prices %}
+<!-- Live Cryptocurrency Prices Component -->
+<div class="live-crypto-prices-component mb-4">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                <i class="fas fa-chart-line me-2"></i>
+                Live Market Prices
+            </h6>
+                         <div class="d-flex align-items-center">
+                 <span class="badge live-status-badge me-2">
+                     <i class="fas fa-circle text-success me-1"></i> Live
+                 </span>
+                 <button class="btn btn-sm btn-outline-light" onclick="refreshGlobalCryptoPrices()">
+                     <i class="fas fa-sync-alt"></i>
+                 </button>
+             </div>
+        </div>
+        <div class="card-body p-3">
+            <!-- Horizontal Scrollable Container for All Coins -->
+            <div class="crypto-prices-scroll-container" id="crypto-scroll" data-total="{{ global_crypto_prices|length }}">
+                <div class="crypto-prices-row">
+                    {% for symbol, data in global_crypto_prices.items %}
+                    <div class="crypto-price-card-wrapper" data-symbol="{{ symbol }}">
+                        <div class="crypto-price-card text-center p-2 border rounded h-100">
+                            <div class="crypto-symbol fw-bold text-primary mb-1">{{ symbol }}</div>
+                            <div class="crypto-price h6 mb-1 fw-bold">${{ data.price|floatformat:2 }}</div>
+                            <div class="crypto-change mb-1">
+                                <span class="badge {% if data.change_24h >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if data.change_24h >= 0 %}+{% endif %}{{ data.change_24h|floatformat:2 }}%
+                                </span>
+                            </div>
+                            <div class="crypto-volume small text-muted">
+                                Vol: {{ data.volume_24h|floatformat:0 }}
+                            </div>
+                            <div class="crypto-source small text-info">{{ data.source }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Scroll Navigation -->
+            <div class="crypto-scroll-controls mt-3 text-center">
+                <button class="btn btn-sm btn-outline-primary me-2" onclick="scrollCryptoLeft()" id="scroll-left-btn">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <span class="text-muted small me-2">
+                    <i class="fas fa-info-circle"></i> Scroll or use arrows to see all {{ global_crypto_prices|length }} coins
+                </span>
+                <button class="btn btn-sm btn-outline-primary" onclick="scrollCryptoRight()" id="scroll-right-btn">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            
+            <!-- Scroll Progress Indicator -->
+            <div class="scroll-progress-container mt-2">
+                <div class="scroll-progress-bar">
+                    <div class="scroll-progress-fill" id="scroll-progress-fill"></div>
+                </div>
+                <div class="scroll-position-text small text-muted mt-1">
+                    <span id="scroll-position-text">Showing 1-6 of {{ global_crypto_prices|length }}</span>
+                </div>
+            </div>
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-clock"></i> Updates every 30 seconds
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Market Status Summary -->
+{% if market_status %}
+<div class="market-status-summary mb-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-2 col-md-3 col-sm-6 mb-2">
+            <div class="market-stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Market Sentiment</div>
+                    <div class="stat-value sentiment-{{ market_status.sentiment }}">
+                        {{ market_status.sentiment|title }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-3 col-sm-6 mb-2">
+            <div class="market-stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Avg Change</div>
+                    <div class="stat-value {% if market_status.average_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if market_status.average_change >= 0 %}+{% endif %}{{ market_status.average_change }}%
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-3 col-sm-6 mb-2">
+            <div class="market-stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Positive</div>
+                    <div class="stat-value text-success">{{ market_status.positive_symbols }}/{{ market_status.total_symbols }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-3 col-sm-6 mb-2">
+            <div class="market-stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Status</div>
+                    <div class="stat-value text-info">{{ market_status.last_updated }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- CSS for Horizontal Scrolling -->
+<style>
+:root {
+    /* Light Mode Variables */
+    --light-card-bg: #ffffff;
+    --light-card-text: #333333;
+    --light-card-border: #e9ecef;
+    --light-card-hover-bg: #f8f9fa;
+    --light-card-shadow: rgba(0,0,0,0.1);
+    --light-scrollbar-track: #f8f9fa;
+    --light-scrollbar-thumb: #007bff;
+    
+    /* Dark Mode Variables */
+    --dark-card-bg: #2d3748;
+    --dark-card-text: #e2e8f0;
+    --dark-card-border: #4a5568;
+    --dark-card-hover-bg: #374151;
+    --dark-card-shadow: rgba(0,0,0,0.3);
+    --dark-scrollbar-track: #1a202c;
+    --dark-scrollbar-thumb: #3182ce;
+}
+
+.crypto-prices-scroll-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb, #007bff) var(--scrollbar-track, #f8f9fa);
+    -webkit-overflow-scrolling: touch;
+}
+
+.crypto-prices-scroll-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.crypto-prices-scroll-container::-webkit-scrollbar-track {
+    background: var(--scrollbar-track, #f8f9fa);
+    border-radius: 4px;
+}
+
+.crypto-prices-scroll-container::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb, #007bff);
+    border-radius: 4px;
+}
+
+.crypto-prices-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover, #0056b3);
+}
+
+.crypto-prices-row {
+    display: flex;
+    gap: 15px;
+    padding: 5px;
+    min-width: max-content;
+}
+
+.crypto-price-card-wrapper {
+    flex: 0 0 auto;
+    width: 200px;
+    min-width: 200px;
+}
+
+.crypto-price-card {
+    background: var(--card-bg, white);
+    color: var(--card-text, #333);
+    transition: all 0.3s ease;
+    border: 1px solid var(--card-border, #e9ecef) !important;
+}
+
+.crypto-price-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--card-shadow, rgba(0,0,0,0.1));
+    border-color: #007bff !important;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .crypto-price-card {
+    background: var(--dark-card-bg, #2d3748);
+    color: var(--dark-card-text, #e2e8f0);
+    border-color: var(--dark-card-border, #4a5568) !important;
+}
+
+[data-theme="dark"] .crypto-price-card:hover {
+    background: var(--dark-card-hover-bg, #374151);
+    box-shadow: 0 4px 15px var(--dark-card-shadow, rgba(0,0,0,0.3));
+}
+
+[data-theme="dark"] .crypto-symbol {
+    color: #60a5fa !important; /* Blue text for symbols in dark mode */
+}
+
+[data-theme="dark"] .crypto-price {
+    color: #fbbf24 !important; /* Yellow text for prices in dark mode */
+}
+
+[data-theme="dark"] .crypto-volume {
+    color: #9ca3af !important; /* Gray text for volume in dark mode */
+}
+
+[data-theme="dark"] .crypto-source {
+    color: #34d399 !important; /* Green text for source in dark mode */
+}
+
+/* Light Mode Support */
+[data-theme="light"] .crypto-price-card {
+    background: var(--light-card-bg, white);
+    color: var(--light-card-text, #333);
+    border-color: var(--light-card-hover-bg, #e9ecef) !important;
+}
+
+[data-theme="light"] .crypto-price-card:hover {
+    background: var(--light-card-hover-bg, #f8f9fa);
+    box-shadow: 0 4px 15px var(--light-card-shadow, rgba(0,0,0,0.1));
+}
+
+.crypto-scroll-controls {
+    border-top: 1px solid #e9ecef;
+    padding-top: 15px;
+}
+
+.crypto-scroll-controls .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.crypto-scroll-controls .btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Dark mode scroll controls */
+[data-theme="dark"] .crypto-scroll-controls {
+    border-top-color: #4a5568;
+}
+
+[data-theme="dark"] .crypto-scroll-controls .text-muted {
+    color: #9ca3af !important;
+}
+
+/* Progress bar dark mode */
+[data-theme="dark"] .scroll-progress-bar {
+    background-color: #4a5568;
+}
+
+[data-theme="dark"] .scroll-progress-fill {
+    background: linear-gradient(90deg, #3182ce, #1e40af);
+}
+
+/* Scroll Progress Indicator */
+.scroll-progress-container {
+    padding: 0 20px;
+}
+
+.scroll-progress-bar {
+    width: 100%;
+    height: 4px;
+    background-color: #e9ecef;
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.scroll-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.scroll-position-text {
+    text-align: center;
+    font-size: 0.8rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .crypto-price-card-wrapper {
+        width: 160px;
+        min-width: 160px;
+    }
+    
+    .crypto-prices-row {
+        gap: 10px;
+    }
+}
+</style>
+
+<!-- JavaScript for Auto-refresh and Scrolling -->
+<script>
+function refreshGlobalCryptoPrices() {
+    // Refresh the page to get updated prices
+    location.reload();
+}
+
+function scrollCryptoLeft() {
+    const container = document.querySelector('.crypto-prices-scroll-container');
+    container.scrollBy({ left: -400, behavior: 'smooth' });
+    setTimeout(updateScrollProgress, 500); // Update after scroll animation
+}
+
+function scrollCryptoRight() {
+    const container = document.querySelector('.crypto-prices-scroll-container');
+    container.scrollBy({ left: 400, behavior: 'smooth' });
+    setTimeout(updateScrollProgress, 500); // Update after scroll animation
+}
+
+// Add keyboard navigation
+document.addEventListener('keydown', function(e) {
+    if (e.target.closest('.live-crypto-prices-component')) {
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            scrollCryptoLeft();
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            scrollCryptoRight();
+        }
+    }
+});
+
+// Update scroll progress indicator
+function updateScrollProgress() {
+    const container = document.querySelector('.crypto-prices-scroll-container');
+    const progressFill = document.getElementById('scroll-progress-fill');
+    const positionText = document.getElementById('scroll-position-text');
+    
+    if (container && progressFill && positionText) {
+        const scrollLeft = container.scrollLeft;
+        const maxScroll = container.scrollWidth - container.clientWidth;
+        const progress = maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0;
+        
+        progressFill.style.width = progress + '%';
+        
+        // Calculate visible range
+        const cardWidth = 215; // 200px card + 15px gap
+        const visibleCards = Math.floor(container.clientWidth / cardWidth);
+        const startCard = Math.floor(scrollLeft / cardWidth) + 1;
+        const totalCoins = parseInt((document.getElementById('crypto-scroll') || {}).dataset?.total || '0', 10);
+        const endCard = Math.min(startCard + visibleCards - 1, totalCoins);
+        
+        positionText.textContent = 'Showing ' + startCard + '-' + endCard + ' of ' + totalCoins;
+        
+        // Update button states
+        const leftBtn = document.getElementById('scroll-left-btn');
+        const rightBtn = document.getElementById('scroll-right-btn');
+        
+        if (leftBtn) leftBtn.disabled = scrollLeft <= 0;
+        if (rightBtn) rightBtn.disabled = scrollLeft >= maxScroll;
+    }
+}
+
+// Add scroll event listener
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.querySelector('.crypto-prices-scroll-container');
+    if (container) {
+        container.addEventListener('scroll', updateScrollProgress);
+        updateScrollProgress(); // Initial update
+    }
+    
+    // Initialize theme support
+    initializeThemeSupport();
+});
+
+// Theme support for dark/light mode
+function initializeThemeSupport() {
+    const root = document.documentElement;
+    
+    // Function to update theme variables
+    function updateThemeVariables(theme) {
+        if (theme === 'dark') {
+            root.style.setProperty('--card-bg', 'var(--dark-card-bg)');
+            root.style.setProperty('--card-text', 'var(--dark-card-text)');
+            root.style.setProperty('--card-border', 'var(--dark-card-border)');
+            root.style.setProperty('--card-hover-bg', 'var(--dark-card-hover-bg)');
+            root.style.setProperty('--card-shadow', 'var(--dark-card-shadow)');
+            root.style.setProperty('--scrollbar-track', 'var(--dark-scrollbar-track)');
+            root.style.setProperty('--scrollbar-thumb', 'var(--dark-scrollbar-thumb)');
+            root.style.setProperty('--scrollbar-thumb-hover', '#1e40af');
+        } else {
+            root.style.setProperty('--card-bg', 'var(--light-card-bg)');
+            root.style.setProperty('--card-text', 'var(--light-card-text)');
+            root.style.setProperty('--card-border', 'var(--light-card-border)');
+            root.style.setProperty('--card-hover-bg', 'var(--light-card-hover-bg)');
+            root.style.setProperty('--card-shadow', 'var(--light-card-shadow)');
+            root.style.setProperty('--scrollbar-track', 'var(--light-scrollbar-track)');
+            root.style.setProperty('--scrollbar-thumb', 'var(--light-scrollbar-thumb)');
+            root.style.setProperty('--scrollbar-thumb-hover', '#0056b3');
+        }
+    }
+    
+    // Check current theme
+    function checkCurrentTheme() {
+        const themeToggle = document.getElementById('theme-toggle') || document.getElementById('theme-toggle-home');
+        if (themeToggle) {
+            const icon = themeToggle.querySelector('i');
+            if (icon && icon.classList.contains('fa-sun')) {
+                updateThemeVariables('dark');
+            } else {
+                updateThemeVariables('light');
+            }
+        }
+    }
+    
+    // Initial theme check
+    checkCurrentTheme();
+    
+    // Watch for theme changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                checkCurrentTheme();
+            }
+        });
+    });
+    
+    // Observe theme toggle buttons
+    const themeToggles = document.querySelectorAll('[id*="theme-toggle"]');
+    themeToggles.forEach(toggle => {
+        observer.observe(toggle, { attributes: true });
+    });
+    
+    // Also listen for click events on theme toggles
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('[id*="theme-toggle"]')) {
+            setTimeout(checkCurrentTheme, 100); // Small delay to allow theme change
+        }
+    });
+}
+
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    // Update prices without full page reload
+    fetch('/data/api/live-prices/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.live_prices) {
+                updateGlobalCryptoPrices(data.live_prices);
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing global crypto prices:', error);
+        });
+}, 30000);
+
+function updateGlobalCryptoPrices(livePrices) {
+    Object.keys(livePrices).forEach(symbol => {
+        const priceData = livePrices[symbol];
+        const priceElement = document.querySelector(`[data-symbol="${symbol}"] .crypto-price`);
+        const changeElement = document.querySelector(`[data-symbol="${symbol}"] .crypto-change .badge`);
+        const volumeElement = document.querySelector(`[data-symbol="${symbol}"] .crypto-volume`);
+        
+        if (priceElement) {
+            priceElement.textContent = `$${parseFloat(priceData.price).toFixed(2)}`;
+        }
+        
+        if (changeElement) {
+            const change = parseFloat(priceData.change_24h);
+            changeElement.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+            changeElement.className = `badge ${change >= 0 ? 'bg-success' : 'bg-danger'}`;
+        }
+        
+        if (volumeElement) {
+            volumeElement.textContent = `Vol: ${parseFloat(priceData.volume_24h).toLocaleString()}`;
+        }
+    });
+}
+</script>
+{% endif %}

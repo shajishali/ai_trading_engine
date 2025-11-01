@@ -1,0 +1,504 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Join AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .signup-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .signup-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+    }
+    
+    .signup-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .signup-header h1 {
+        color: #2d3748;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    
+    .signup-header p {
+        color: #718096;
+        font-size: 1.1rem;
+    }
+    
+    .social-login-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .btn-social {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 15px 20px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .btn-google {
+        background: #ffffff;
+        color: #374151;
+        border-color: #d1d5db;
+    }
+    
+    .btn-google:hover {
+        background: #f9fafb;
+        border-color: #9ca3af;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-facebook {
+        background: #1877f2;
+        color: white;
+    }
+    
+    .btn-facebook:hover {
+        background: #166fe5;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(24, 119, 242, 0.3);
+    }
+    
+    .divider {
+        text-align: center;
+        margin: 30px 0;
+        position: relative;
+    }
+    
+    .divider::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #e2e8f0;
+    }
+    
+    .divider span {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 0 20px;
+        color: #718096;
+        font-weight: 500;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #374151;
+        font-weight: 600;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .btn-primary {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .login-link {
+        text-align: center;
+        margin-top: 20px;
+        color: #718096;
+    }
+    
+    .login-link a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    
+    .login-link a:hover {
+        text-decoration: underline;
+    }
+    
+    .features-list {
+        margin-top: 30px;
+        padding: 20px;
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 12px;
+    }
+    
+    .features-list h3 {
+        color: #2d3748;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+    }
+    
+    .features-list ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .features-list li {
+        color: #4a5568;
+        margin-bottom: 8px;
+        padding-left: 20px;
+        position: relative;
+    }
+    
+    .features-list li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: #48bb78;
+        font-weight: bold;
+    }
+    
+    .coming-soon {
+        opacity: 0.6;
+        font-style: italic;
+    }
+    
+    .error-message {
+        color: #e53e3e;
+        background: #fed7d7;
+        border: 1px solid #feb2b2;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+    }
+    
+    .success-message {
+        color: #38a169;
+        background: #c6f6d5;
+        border: 1px solid #9ae6b4;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+    }
+
+    /* Dark mode fixes for signup page */
+    [data-theme="dark"] .signup-card {
+        background: rgba(45, 45, 45, 0.95) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    [data-theme="dark"] .signup-header h1 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .signup-header p {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .btn-google {
+        background: #2d2d2d !important;
+        color: #ffffff !important;
+        border-color: #555 !important;
+    }
+
+    [data-theme="dark"] .btn-google:hover {
+        background: #444 !important;
+        border-color: #777 !important;
+    }
+
+    [data-theme="dark"] .divider::before {
+        background: #555 !important;
+    }
+
+    [data-theme="dark"] .divider span {
+        background: rgba(45, 45, 45, 0.95) !important;
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .form-group label {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .form-control {
+        background-color: #2d2d2d !important;
+        color: #ffffff !important;
+        border-color: #555 !important;
+    }
+
+    [data-theme="dark"] .form-control:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2) !important;
+    }
+
+    [data-theme="dark"] .form-control::placeholder {
+        color: #999 !important;
+    }
+
+    [data-theme="dark"] .login-link {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .login-link a {
+        color: #4da6ff !important;
+    }
+
+    [data-theme="dark"] .features-list {
+        background: rgba(102, 126, 234, 0.1) !important;
+    }
+
+    [data-theme="dark"] .features-list h3 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .features-list li {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .coming-soon {
+        color: #999 !important;
+    }
+
+    [data-theme="dark"] .error-message {
+        color: #ff6b6b !important;
+        background: rgba(255, 107, 107, 0.1) !important;
+        border-color: #ff6b6b !important;
+    }
+
+    [data-theme="dark"] .success-message {
+        color: #51cf66 !important;
+        background: rgba(81, 207, 102, 0.1) !important;
+        border-color: #51cf66 !important;
+    }
+
+    /* Light mode specific fixes */
+    body:not([data-theme="dark"]) .signup-card {
+        background: rgba(255, 255, 255, 0.95) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    body:not([data-theme="dark"]) .signup-header h1 {
+        color: #2d3748 !important;
+    }
+
+    body:not([data-theme="dark"]) .signup-header p {
+        color: #718096 !important;
+    }
+
+    body:not([data-theme="dark"]) .btn-google {
+        background: #ffffff !important;
+        color: #374151 !important;
+        border-color: #d1d5db !important;
+    }
+
+    body:not([data-theme="dark"]) .btn-google:hover {
+        background: #f9fafb !important;
+        border-color: #9ca3af !important;
+    }
+
+    body:not([data-theme="dark"]) .divider::before {
+        background: #e2e8f0 !important;
+    }
+
+    body:not([data-theme="dark"]) .divider span {
+        background: rgba(255, 255, 255, 0.95) !important;
+        color: #718096 !important;
+    }
+
+    body:not([data-theme="dark"]) .form-group label {
+        color: #374151 !important;
+    }
+
+    body:not([data-theme="dark"]) .form-control {
+        background-color: #ffffff !important;
+        color: #374151 !important;
+        border-color: #e2e8f0 !important;
+    }
+
+    body:not([data-theme="dark"]) .form-control:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+    }
+
+    body:not([data-theme="dark"]) .form-control::placeholder {
+        color: #9ca3af !important;
+    }
+
+    body:not([data-theme="dark"]) .login-link {
+        color: #718096 !important;
+    }
+
+    body:not([data-theme="dark"]) .login-link a {
+        color: #667eea !important;
+    }
+
+    body:not([data-theme="dark"]) .features-list {
+        background: rgba(102, 126, 234, 0.05) !important;
+    }
+
+    body:not([data-theme="dark"]) .features-list h3 {
+        color: #2d3748 !important;
+    }
+
+    body:not([data-theme="dark"]) .features-list li {
+        color: #4a5568 !important;
+    }
+
+    body:not([data-theme="dark"]) .coming-soon {
+        color: #9ca3af !important;
+    }
+
+    body:not([data-theme="dark"]) .error-message {
+        color: #e53e3e !important;
+        background: #fed7d7 !important;
+        border-color: #feb2b2 !important;
+    }
+
+    body:not([data-theme="dark"]) .success-message {
+        color: #38a169 !important;
+        background: #c6f6d5 !important;
+        border-color: #9ae6b4 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="signup-container">
+    <div class="signup-card">
+        <div class="signup-header">
+            <h1>🚀 Join AI Trading Engine</h1>
+            <p>Start your journey with AI-powered trading signals</p>
+        </div>
+        
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="{% if message.tags == 'error' %}error-message{% else %}success-message{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <!-- Social Login Buttons -->
+        <div class="social-login-buttons">
+            <a href="#" class="btn-social btn-google" onclick="alert('Google login coming soon!')">
+                <i class="fab fa-google" style="color: #ea4335;"></i>
+                Continue with Google
+                <span class="coming-soon">(Coming Soon)</span>
+            </a>
+            <a href="#" class="btn-social btn-facebook" onclick="alert('Facebook login coming soon!')">
+                <i class="fab fa-facebook"></i>
+                Continue with Facebook
+                <span class="coming-soon">(Coming Soon)</span>
+            </a>
+        </div>
+        
+        <div class="divider">
+            <span>OR</span>
+        </div>
+        
+        <!-- Traditional Signup Form -->
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}">Username</label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                    <div class="error-message">{{ form.username.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.password1.id_for_label }}">Password</label>
+                {{ form.password1 }}
+                {% if form.password1.errors %}
+                    <div class="error-message">{{ form.password1.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.password2.id_for_label }}">Confirm Password</label>
+                {{ form.password2 }}
+                {% if form.password2.errors %}
+                    <div class="error-message">{{ form.password2.errors.0 }}</div>
+                {% endif %}
+            </div>
+            
+            <button type="submit" class="btn-primary">Create Account</button>
+        </form>
+        
+        <div class="login-link">
+            Already have an account? <a href="{% url 'dashboard:login' %}">Sign In</a>
+        </div>
+        
+        <!-- Features List -->
+        <div class="features-list">
+            <h3>What you'll get:</h3>
+            <ul>
+                <li>AI-powered trading signals</li>
+                <li>Real-time market analysis</li>
+                <li>Portfolio tracking & analytics</li>
+                <li>Risk management tools</li>
+                <li>7-day free trial</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add form-control class to form fields
+document.addEventListener('DOMContentLoaded', function() {
+    const formFields = document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"]');
+    formFields.forEach(function(field) {
+        field.classList.add('form-control');
+    });
+});
+</script>
+{% endblock %}

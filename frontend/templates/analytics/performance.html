@@ -1,0 +1,335 @@
+{% extends 'base.html' %}
+
+{% block title %}Performance Analytics - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Performance Analytics
+                    </h1>
+                    <p class="text-muted">Advanced portfolio performance metrics and analysis</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary" onclick="updateChart('1M')">1M</button>
+                    <button class="btn btn-outline-primary" onclick="updateChart('3M')">3M</button>
+                    <button class="btn btn-outline-primary" onclick="updateChart('6M')">6M</button>
+                    <button class="btn btn-outline-primary active" onclick="updateChart('1Y')">1Y</button>
+                    <button class="btn btn-outline-primary" onclick="updateChart('ALL')">ALL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Performance Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0 text-primary">{{ portfolio.current_balance|floatformat:2 }}</h3>
+                            <p class="text-muted mb-0">Current Balance</p>
+                        </div>
+                        <i class="fas fa-wallet fa-2x text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0 text-success">{{ win_rate|floatformat:1 }}%</h3>
+                            <p class="text-muted mb-0">Win Rate</p>
+                        </div>
+                        <i class="fas fa-trophy fa-2x text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0 text-info">{{ sharpe_ratio|floatformat:2 }}</h3>
+                            <p class="text-muted mb-0">Sharpe Ratio</p>
+                        </div>
+                        <i class="fas fa-chart-bar fa-2x text-info opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h3 class="mb-0 text-warning">{{ max_drawdown|floatformat:2 }}%</h3>
+                            <p class="text-muted mb-0">Max Drawdown</p>
+                        </div>
+                        <i class="fas fa-arrow-down fa-2x text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-area me-2"></i>Portfolio Value Over Time</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="portfolioChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie me-2"></i>Trade Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="tradeDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-shield-alt me-2"></i>Risk Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Volatility</label>
+                                <h4 class="text-info">{{ volatility|floatformat:2 }}%</h4>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">VaR (95%)</label>
+                                <h4 class="text-danger">{{ var_95|floatformat:2 }}%</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Total Trades</label>
+                                <h4 class="text-primary">{{ total_trades }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Winning Trades</label>
+                                <h4 class="text-success">{{ winning_trades }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-trending-up me-2"></i>Performance Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td>Initial Balance:</td>
+                                    <td class="text-end">${{ portfolio.initial_balance|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Current Balance:</td>
+                                    <td class="text-end">${{ portfolio.current_balance|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Total Return:</td>
+                                    <td class="text-end {% if portfolio.current_balance > portfolio.initial_balance %}text-success{% else %}text-danger{% endif %}">
+                                        {{ portfolio.current_balance|add:portfolio.initial_balance|floatformat:2 }}%
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Sharpe Ratio:</td>
+                                    <td class="text-end text-info">{{ sharpe_ratio|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Max Drawdown:</td>
+                                    <td class="text-end text-warning">{{ max_drawdown|floatformat:2 }}%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Performance Data -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-table me-2"></i>Recent Performance Data</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Total Value</th>
+                                    <th>Daily Return</th>
+                                    <th>Cumulative Return</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for metric in metrics|slice:":10" %}
+                                <tr>
+                                    <td>{{ metric.date|date:"M d, Y" }}</td>
+                                    <td>${{ metric.total_value|floatformat:2 }}</td>
+                                    <td class="{% if metric.daily_return > 0 %}text-success{% elif metric.daily_return < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                        {{ metric.daily_return|floatformat:2 }}%
+                                    </td>
+                                    <td class="{% if metric.cumulative_return > 0 %}text-success{% elif metric.cumulative_return < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                        {{ metric.cumulative_return|floatformat:2 }}%
+                                    </td>
+                                    <td>
+                                        {% if metric.daily_return > 0 %}
+                                            <span class="badge bg-success">Positive</span>
+                                        {% elif metric.daily_return < 0 %}
+                                            <span class="badge bg-danger">Negative</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Neutral</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        <i class="fas fa-info-circle me-2"></i>No performance data available yet
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Portfolio Value Chart
+const portfolioCtx = document.getElementById('portfolioChart').getContext('2d');
+const portfolioChart = new Chart(portfolioCtx, {
+    type: 'line',
+    data: {
+        labels: [{% for metric in metrics %}'{{ metric.date|date:"M d" }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Portfolio Value',
+            data: [{% for metric in metrics %}{{ metric.total_value }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Trade Distribution Chart
+const tradeCtx = document.getElementById('tradeDistributionChart').getContext('2d');
+const tradeChart = new Chart(tradeCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Winning Trades', 'Losing Trades'],
+        datasets: [{
+            data: [{{ winning_trades }}, {{ total_trades|add:"-"|add:winning_trades }}],
+            backgroundColor: ['#27ae60', '#e74c3c'],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Chart update function
+function updateChart(period) {
+    // Remove active class from all buttons
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+    
+    // Here you would typically make an AJAX call to get data for the selected period
+    // For now, we'll just show a message
+    console.log('Updating chart for period:', period);
+}
+
+
+
+
+
+// Auto-refresh performance data every 5 minutes
+setInterval(function() {
+    // You could add AJAX call here to refresh data
+    console.log('Refreshing performance data...');
+}, 300000);
+</script>
+{% endblock %}

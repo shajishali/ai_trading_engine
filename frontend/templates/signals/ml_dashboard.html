@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}ML Dashboard - Trading Signals{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ml-stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .ml-stats-card h3 {
+        margin: 0 0 10px 0;
+        font-size: 1.2em;
+    }
+    
+    .ml-stats-card .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        margin: 0;
+    }
+    
+    .model-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .model-card h4 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+    
+    .model-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+    }
+    
+    .status-trained { background-color: #d4edda; color: #155724; }
+    .status-deployed { background-color: #cce5ff; color: #004085; }
+    .status-training { background-color: #fff3cd; color: #856404; }
+    .status-failed { background-color: #f8d7da; color: #721c24; }
+    
+    .prediction-item {
+        border-left: 4px solid #007bff;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #f8f9fa;
+        border-radius: 0 4px 4px 0;
+    }
+    
+    .prediction-item.buy { border-left-color: #28a745; }
+    .prediction-item.sell { border-left-color: #dc3545; }
+    .prediction-item.hold { border-left-color: #6c757d; }
+    
+    .confidence-bar {
+        height: 6px;
+        background-color: #e9ecef;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        transition: width 0.3s ease;
+    }
+    
+    .training-session {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: white;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        transition: width 0.3s ease;
+    }
+    
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .metric-value {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: #333;
+        margin: 0;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 5px;
+    }
+    
+    .btn-train {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+    
+    .btn-train:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        color: white;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-brain"></i> ML Dashboard
+                <small class="text-muted">Machine Learning Model Management</small>
+            </h1>
+            
+            <!-- Quick Actions -->
+            <div class="mb-4">
+                <a href="#" class="btn-train" onclick="trainNewModel()">
+                    <i class="fas fa-plus"></i> Train New Model
+                </a>
+                <a href="{% url 'admin:signals_mlmodel_changelist' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-cog"></i> Manage Models
+                </a>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="ml-stats-card">
+                        <h3><i class="fas fa-brain"></i> Total Models</h3>
+                        <p class="stat-number">{{ total_models }}</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="ml-stats-card">
+                        <h3><i class="fas fa-play"></i> Active Models</h3>
+                        <p class="stat-number">{{ active_models }}</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="ml-stats-card">
+                        <h3><i class="fas fa-rocket"></i> Deployed</h3>
+                        <p class="stat-number">{{ deployed_models }}</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="ml-stats-card">
+                        <h3><i class="fas fa-chart-line"></i> Predictions</h3>
+                        <p class="stat-number">{{ recent_predictions|length }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Model Performance -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-chart-bar"></i> Model Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if model_performance %}
+                                {% for perf in model_performance %}
+                                <div class="model-card">
+                                    <h4>{{ perf.model.name }}</h4>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="model-status status-{{ perf.model.status|lower }}">
+                                            {{ perf.model.status }}
+                                        </span>
+                                        <small class="text-muted">{{ perf.model.model_type }}</small>
+                                    </div>
+                                    
+                                    <div class="metric-grid">
+                                        <div class="metric-card">
+                                            <p class="metric-value">{{ perf.recent_accuracy|floatformat:3 }}</p>
+                                            <p class="metric-label">Recent Accuracy</p>
+                                        </div>
+                                        <div class="metric-card">
+                                            <p class="metric-value">{{ perf.avg_confidence|floatformat:3 }}</p>
+                                            <p class="metric-label">Avg Confidence</p>
+                                        </div>
+                                        <div class="metric-card">
+                                            <p class="metric-value">{{ perf.total_predictions }}</p>
+                                            <p class="metric-label">Predictions</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="confidence-bar">
+                                        <div class="confidence-fill" style="width: {{ perf.recent_accuracy|floatformat:0 }}%"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No active models found.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Predictions -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-crystal-ball"></i> Recent Predictions</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_predictions %}
+                                {% for prediction in recent_predictions %}
+                                <div class="prediction-item {{ prediction.prediction_type|lower }}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong>{{ prediction.symbol.symbol }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ prediction.model.name }}</small>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="badge badge-primary">{{ prediction.prediction_type }}</span>
+                                            <br>
+                                            <small>{{ prediction.prediction_timestamp|date:"M d, H:i" }}</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-2">
+                                        <strong>Prediction:</strong> {{ prediction.prediction_value|floatformat:4 }}
+                                        <br>
+                                        <strong>Confidence:</strong> {{ prediction.confidence_score|floatformat:3 }}
+                                        
+                                        <div class="confidence-bar">
+                                            <div class="confidence-fill" style="width: {{ prediction.confidence_score|floatformat:0 }}%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if prediction.is_correct is not None %}
+                                    <div class="mt-2">
+                                        <span class="badge {% if prediction.is_correct %}badge-success{% else %}badge-danger{% endif %}">
+                                            {% if prediction.is_correct %}✓ Correct{% else %}✗ Incorrect{% endif %}
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No recent predictions found.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Training Sessions -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-cogs"></i> Recent Training Sessions</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_sessions %}
+                                {% for session in recent_sessions %}
+                                <div class="training-session">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ session.session_name }}</h6>
+                                            <small class="text-muted">{{ session.model.name }} - {{ session.model.model_type }}</small>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="model-status status-{{ session.status|lower }}">
+                                                {{ session.status }}
+                                            </span>
+                                            <br>
+                                            <small class="text-muted">{{ session.started_at|date:"M d, H:i" }}</small>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if session.status == 'TRAINING' %}
+                                    <div class="mt-2">
+                                        <small>{{ session.current_step }}</small>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: {{ session.progress_percentage }}%"></div>
+                                        </div>
+                                        <small>{{ session.progress_percentage|floatformat:1 }}%</small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if session.error_message %}
+                                    <div class="mt-2">
+                                        <small class="text-danger">{{ session.error_message }}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No training sessions found.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Train Model Modal -->
+<div class="modal fade" id="trainModelModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Train New ML Model</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="trainModelForm">
+                    <div class="form-group">
+                        <label for="modelType">Model Type</label>
+                        <select class="form-control" id="modelType" name="model_type" required>
+                            <option value="XGBOOST">XGBoost</option>
+                            <option value="LIGHTGBM">LightGBM</option>
+                            <option value="LSTM">LSTM</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="targetVariable">Target Variable</label>
+                        <select class="form-control" id="targetVariable" name="target_variable" required>
+                            <option value="signal_direction">Signal Direction</option>
+                            <option value="target_return">Price Return</option>
+                            <option value="target_volatility">Volatility</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="symbols">Symbols</label>
+                        <select class="form-control" id="symbols" name="symbols" multiple required>
+                            <option value="BTCUSDT">BTCUSDT</option>
+                            <option value="ETHUSDT">ETHUSDT</option>
+                            <option value="ADAUSDT">ADAUSDT</option>
+                            <option value="BNBUSDT">BNBUSDT</option>
+                            <option value="SOLUSDT">SOLUSDT</option>
+                        </select>
+                        <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple symbols</small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="predictionHorizon">Prediction Horizon (hours)</label>
+                                <input type="number" class="form-control" id="predictionHorizon" name="prediction_horizon" value="24" min="1" max="168">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="trainingDays">Training Days</label>
+                                <input type="number" class="form-control" id="trainingDays" name="training_days" value="180" min="30" max="365">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="modelName">Model Name (optional)</label>
+                        <input type="text" class="form-control" id="modelName" name="model_name" placeholder="Auto-generated if empty">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitTraining()">
+                    <i class="fas fa-play"></i> Start Training
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function trainNewModel() {
+    $('#trainModelModal').modal('show');
+}
+
+function submitTraining() {
+    const form = document.getElementById('trainModelForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        model_type: formData.get('model_type'),
+        target_variable: formData.get('target_variable'),
+        symbols: Array.from(document.getElementById('symbols').selectedOptions).map(option => option.value),
+        prediction_horizon: parseInt(formData.get('prediction_horizon')),
+        training_days: parseInt(formData.get('training_days')),
+        model_name: formData.get('model_name') || null
+    };
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#trainModelModal .btn-primary');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Training...';
+    submitBtn.disabled = true;
+    
+    fetch('{% url "ml_model_api" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Model training started successfully!');
+            $('#trainModelModal').modal('hide');
+            location.reload(); // Refresh to show new training session
+        } else {
+            alert('Error: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while starting training.');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    location.reload();
+}, 30000);
+</script>
+{% endblock %}
+

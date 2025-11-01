@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Feature Engineering - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4 text-white">Feature Engineering Dashboard</h1>
+        </div>
+    </div>
+
+    <!-- Feature Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Total Features</h6>
+                </div>
+                <div class="card-body">
+                    <div class="display-6 text-primary mb-2" id="total-features">156</div>
+                    <p class="text-muted">Engineered</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Active Features</h6>
+                </div>
+                <div class="card-body">
+                    <div class="display-6 text-success mb-2" id="active-features">89</div>
+                    <p class="text-muted">In Use</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Feature Importance</h6>
+                </div>
+                <div class="card-body">
+                    <div class="display-6 text-warning mb-2" id="avg-importance">0.73</div>
+                    <p class="text-muted">Average Score</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Correlation</h6>
+                </div>
+                <div class="card-body">
+                    <div class="display-6 text-info mb-2" id="avg-correlation">0.42</div>
+                    <p class="text-muted">Low Collinearity</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Categories -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Feature Categories</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Feature Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="performanceChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Features Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Top Performing Features</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Feature Name</th>
+                                    <th>Category</th>
+                                    <th>Importance</th>
+                                    <th>Correlation</th>
+                                    <th>Performance</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="badge bg-success">1</span></td>
+                                    <td>RSI_14</td>
+                                    <td>Technical</td>
+                                    <td>0.95</td>
+                                    <td>0.12</td>
+                                    <td>98%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-success">2</span></td>
+                                    <td>MACD_Signal</td>
+                                    <td>Technical</td>
+                                    <td>0.89</td>
+                                    <td>0.18</td>
+                                    <td>95%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-success">3</span></td>
+                                    <td>Volume_MA_20</td>
+                                    <td>Volume</td>
+                                    <td>0.87</td>
+                                    <td>0.25</td>
+                                    <td>93%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-warning">4</span></td>
+                                    <td>Bollinger_Upper</td>
+                                    <td>Technical</td>
+                                    <td>0.82</td>
+                                    <td>0.31</td>
+                                    <td>90%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-warning">5</span></td>
+                                    <td>Price_MA_50</td>
+                                    <td>Price</td>
+                                    <td>0.78</td>
+                                    <td>0.28</td>
+                                    <td>87%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-warning">6</span></td>
+                                    <td>Volatility_ATR</td>
+                                    <td>Volatility</td>
+                                    <td>0.75</td>
+                                    <td>0.35</td>
+                                    <td>85%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-warning">7</span></td>
+                                    <td>Sentiment_Score</td>
+                                    <td>Sentiment</td>
+                                    <td>0.72</td>
+                                    <td>0.22</td>
+                                    <td>82%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-warning">8</span></td>
+                                    <td>Market_Cap_Rank</td>
+                                    <td>Fundamental</td>
+                                    <td>0.68</td>
+                                    <td>0.19</td>
+                                    <td>78%</td>
+                                    <td><span class="badge bg-success">Active</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Engineering Tools -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Feature Creation</h5>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="featureName" class="form-label">Feature Name</label>
+                            <input type="text" class="form-control" id="featureName" placeholder="e.g., Custom_RSI">
+                        </div>
+                        <div class="mb-3">
+                            <label for="featureCategory" class="form-label">Category</label>
+                            <select class="form-select" id="featureCategory">
+                                <option>Technical</option>
+                                <option>Volume</option>
+                                <option>Price</option>
+                                <option>Volatility</option>
+                                <option>Sentiment</option>
+                                <option>Fundamental</option>
+                                <option>Custom</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="featureFormula" class="form-label">Formula/Logic</label>
+                            <textarea class="form-control" id="featureFormula" rows="3" placeholder="Describe the feature calculation logic"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Feature</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Feature Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="analysisType" class="form-label">Analysis Type</label>
+                        <select class="form-select" id="analysisType">
+                            <option>Importance Ranking</option>
+                            <option>Correlation Matrix</option>
+                            <option>Feature Selection</option>
+                            <option>Performance Metrics</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="timeRange" class="form-label">Time Range</label>
+                        <select class="form-select" id="timeRange">
+                            <option>Last 7 days</option>
+                            <option>Last 30 days</option>
+                            <option>Last 90 days</option>
+                            <option>Last 1 year</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-info">Run Analysis</button>
+                    <button type="button" class="btn btn-warning">Export Results</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Correlation Matrix -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Feature Correlation Heatmap</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNDAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q29ycmVsYXRpb24gSGVhdG1hcCBQbGFjZWhvbGRlcjwvdGV4dD4KICA8dGV4dCB4PSI0MDAiIHk9IjIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNmM3NTdkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5UaGlzIHdpbGwgYmUgcmVwbGFjZWQgd2l0aCBhIHJlYWwgY29ycmVsYXRpb24gbWF0cml4IGNoYXJ0PC90ZXh0Pgo8L3N2Zz4K" alt="Correlation Heatmap" class="img-fluid" style="max-width: 100%; height: auto;">
+                        <p class="text-muted mt-2">Feature correlation heatmap will be displayed here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Feature categories chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    const categoryChart = new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Technical', 'Volume', 'Price', 'Volatility', 'Sentiment', 'Fundamental'],
+            datasets: [{
+                data: [45, 20, 18, 12, 8, 7],
+                backgroundColor: [
+                    '#007bff',
+                    '#28a745',
+                    '#ffc107',
+                    '#dc3545',
+                    '#6f42c1',
+                    '#fd7e14'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Feature performance chart
+    const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+    const performanceChart = new Chart(performanceCtx, {
+        type: 'bar',
+        data: {
+            labels: ['RSI_14', 'MACD_Signal', 'Volume_MA_20', 'Bollinger_Upper', 'Price_MA_50'],
+            datasets: [{
+                label: 'Performance Score (%)',
+                data: [98, 95, 93, 90, 87],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(40, 167, 69, 0.7)',
+                    'rgba(40, 167, 69, 0.6)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(255, 193, 7, 0.7)'
+                ],
+                borderColor: [
+                    '#28a745',
+                    '#28a745',
+                    '#28a745',
+                    '#ffc107',
+                    '#ffc107'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+

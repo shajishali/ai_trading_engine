@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}Train ML Model - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-brain me-2"></i>Train ML Model
+                    </h1>
+                    <p class="text-muted">Train machine learning models for price prediction</p>
+                </div>
+                <a href="{% url 'analytics:ml_dashboard' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to ML Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training Form -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-cog me-2"></i>Model Training Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="symbol" class="form-label">Trading Symbol</label>
+                                    <select class="form-select" id="symbol" name="symbol" required>
+                                        <option value="">Select a symbol</option>
+                                        {% for symbol in symbols %}
+                                        <option value="{{ symbol }}">{{ symbol }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="model_type" class="form-label">Model Type</label>
+                                    <select class="form-select" id="model_type" name="model_type" required>
+                                        <option value="random_forest">Random Forest</option>
+                                        <option value="linear">Linear Regression</option>
+                                        <option value="svm">Support Vector Machine</option>
+                                        <option value="neural_network">Neural Network</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="lookback_days" class="form-label">Training Data Period (Days)</label>
+                                    <input type="number" class="form-control" id="lookback_days" name="lookback_days" 
+                                           value="365" min="30" max="1095" required>
+                                    <div class="form-text">Number of days of historical data to use for training</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="test_size" class="form-label">Test Set Size (%)</label>
+                                    <input type="number" class="form-control" id="test_size" name="test_size" 
+                                           value="20" min="10" max="50" required>
+                                    <div class="form-text">Percentage of data to use for testing</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="features" class="form-label">Features to Include</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="price_features" name="features" value="price" checked>
+                                        <label class="form-check-label" for="price_features">Price Data (OHLCV)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="technical_features" name="features" value="technical" checked>
+                                        <label class="form-check-label" for="technical_features">Technical Indicators</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="sentiment_features" name="features" value="sentiment">
+                                        <label class="form-check-label" for="sentiment_features">Sentiment Data</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="prediction_horizon" class="form-label">Prediction Horizon (Days)</label>
+                                    <input type="number" class="form-control" id="prediction_horizon" name="prediction_horizon" 
+                                           value="1" min="1" max="30" required>
+                                    <div class="form-text">How many days ahead to predict</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play me-2"></i>Start Training
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle me-2"></i>Training Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Training Tips:</h6>
+                        <ul class="mb-0">
+                            <li>Use at least 100 data points for reliable training</li>
+                            <li>Random Forest works well for most cases</li>
+                            <li>Include technical indicators for better accuracy</li>
+                            <li>Longer training periods may improve performance</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Important Notes:</h6>
+                        <ul class="mb-0">
+                            <li>Training may take several minutes</li>
+                            <li>Models are saved automatically</li>
+                            <li>You can retrain models anytime</li>
+                            <li>Past performance doesn't guarantee future results</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-line me-2"></i>Available Models</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">Random Forest</h6>
+                                <small class="text-muted">Good for most cases</small>
+                            </div>
+                            <span class="badge bg-success">Recommended</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">Linear Regression</h6>
+                                <small class="text-muted">Simple and fast</small>
+                            </div>
+                            <span class="badge bg-info">Fast</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">SVM</h6>
+                                <small class="text-muted">Good for complex patterns</small>
+                            </div>
+                            <span class="badge bg-warning">Complex</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">Neural Network</h6>
+                                <small class="text-muted">Most powerful but slow</small>
+                            </div>
+                            <span class="badge bg-danger">Slow</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    form.addEventListener('submit', function(e) {
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Training...';
+        
+        // Show loading message
+        const loadingAlert = document.createElement('div');
+        loadingAlert.className = 'alert alert-info alert-dismissible fade show';
+        loadingAlert.innerHTML = `
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            <strong>Training in progress...</strong> This may take several minutes. Please wait.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        form.insertBefore(loadingAlert, form.firstChild);
+    });
+});
+
+// Dynamic symbol selection
+document.getElementById('symbol').addEventListener('change', function() {
+    const symbol = this.value;
+    if (symbol) {
+        // You could add AJAX call here to get symbol-specific information
+        console.log('Selected symbol:', symbol);
+    }
+});
+</script>
+{% endblock %}

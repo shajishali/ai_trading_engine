@@ -1,0 +1,828 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ML Dashboard - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ml-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .ml-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .ml-card h3 {
+        color: white;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+    
+    .ml-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border-left: 4px solid #667eea;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #666;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .prediction-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border-left: 4px solid #28a745;
+    }
+    
+    .prediction-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .prediction-symbol {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .prediction-signal {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .signal-buy { background: #d4edda; color: #155724; }
+    .signal-sell { background: #f8d7da; color: #721c24; }
+    .signal-hold { background: #fff3cd; color: #856404; }
+    
+    .prediction-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .detail-item {
+        text-align: center;
+    }
+    
+    .detail-value {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .detail-label {
+        font-size: 0.8rem;
+        color: #666;
+        text-transform: uppercase;
+    }
+    
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin: 30px 0;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    /* Enhanced button styling */
+    .btn-ml {
+        padding: 15px 25px;
+        border: none;
+        border-radius: 25px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        min-width: 180px;
+        text-align: center;
+        white-space: nowrap;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-ml::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .btn-ml:hover::before {
+        left: 100%;
+    }
+    
+    .btn-ml:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Button icon spacing */
+    .btn-ml i {
+        margin-right: 8px;
+        font-size: 1.1em;
+    }
+    
+    /* Ensure consistent button heights */
+    .action-buttons .btn-ml {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-train {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .btn-predict {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    .btn-regime {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .btn-sentiment {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+    
+    .btn-features {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+    }
+    
+    .btn-ml:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+    
+    /* Responsive button layout */
+    @media (max-width: 768px) {
+        .action-buttons {
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .btn-ml {
+            min-width: 100%;
+            padding: 18px 25px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .action-buttons {
+            margin: 20px 0;
+        }
+        
+        .btn-ml {
+            font-size: 0.9rem;
+            padding: 16px 20px;
+        }
+    }
+    
+    .model-performance {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .performance-chart {
+        height: 300px;
+        margin-top: 20px;
+    }
+    
+    .feature-importance {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .importance-bar {
+        background: #f8f9fa;
+        border-radius: 10px;
+        height: 20px;
+        margin: 10px 0;
+        overflow: hidden;
+    }
+    
+    .importance-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.3s ease;
+    }
+    
+    .regime-indicator {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="ml-card">
+                <h3><i class="fas fa-brain"></i> Machine Learning Dashboard</h3>
+                <p>Advanced AI-powered analytics and predictions for your trading strategy</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ML Statistics -->
+    <div class="row">
+        <div class="col-12">
+            <div class="ml-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="trained-models">{{ model_performance.trained_models }}</div>
+                    <div class="stat-label">Trained Models</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avg-accuracy">{{ model_performance.avg_accuracy|floatformat:1 }}%</div>
+                    <div class="stat-label">Avg Accuracy</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="active-predictions">{{ model_performance.active_predictions }}</div>
+                    <div class="stat-label">Active Predictions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="available-symbols">{{ symbols|length }}</div>
+                    <div class="stat-label">Available Symbols</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12">
+            <div class="action-buttons">
+                <button class="btn-ml btn-train" onclick="showTrainModal()">
+                    <i class="fas fa-cogs"></i> Train Model
+                </button>
+                <button class="btn-ml btn-predict" onclick="showPredictModal()">
+                    <i class="fas fa-chart-line"></i> Make Prediction
+                </button>
+                <button class="btn-ml btn-regime" onclick="showRegimeModal()">
+                    <i class="fas fa-chart-area"></i> Market Regime
+                </button>
+                <button class="btn-ml btn-sentiment" onclick="showSentimentModal()">
+                    <i class="fas fa-smile"></i> Sentiment Analysis
+                </button>
+                <button class="btn-ml btn-features" onclick="showFeaturesModal()">
+                    <i class="fas fa-cogs"></i> Feature Engineering
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Predictions -->
+    <div class="row">
+        <div class="col-12">
+            <h4><i class="fas fa-clock"></i> Recent Predictions</h4>
+            <div id="predictions-container">
+                <div class="prediction-card">
+                    <div class="prediction-header">
+                        <div class="prediction-symbol">BTC</div>
+                        <div class="prediction-signal signal-buy">Strong Buy</div>
+                    </div>
+                    <div class="prediction-details">
+                        <div class="detail-item">
+                            <div class="detail-value">$45,250</div>
+                            <div class="detail-label">Current Price</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-value">+2.3%</div>
+                            <div class="detail-label">Predicted Return</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-value">$46,291</div>
+                            <div class="detail-label">Target Price</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-value">87%</div>
+                            <div class="detail-label">Confidence</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Performance -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="model-performance">
+                <h4><i class="fas fa-chart-bar"></i> Model Performance</h4>
+                <canvas id="performanceChart" class="performance-chart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="feature-importance">
+                <h4><i class="fas fa-weight-hanging"></i> Feature Importance</h4>
+                <div id="feature-importance-container">
+                    <div class="feature-item">
+                        <div class="d-flex justify-content-between">
+                            <span>RSI</span>
+                            <span>0.85</span>
+                        </div>
+                        <div class="importance-bar">
+                            <div class="importance-fill" style="width: 85%"></div>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="d-flex justify-content-between">
+                            <span>Volume Ratio</span>
+                            <span>0.72</span>
+                        </div>
+                        <div class="importance-bar">
+                            <div class="importance-fill" style="width: 72%"></div>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="d-flex justify-content-between">
+                            <span>MA Ratio</span>
+                            <span>0.68</span>
+                        </div>
+                        <div class="importance-bar">
+                            <div class="importance-fill" style="width: 68%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Regime -->
+    <div class="row">
+        <div class="col-12">
+            <div class="model-performance">
+                <h4><i class="fas fa-chart-area"></i> Current Market Regime</h4>
+                <div class="regime-indicator" style="background: #FF6B6B;"></div>
+                <span>High Volatility - Bear Market</span>
+                <p class="mt-2">Market is currently in a high volatility regime with negative returns. Consider defensive strategies.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading" id="loading-overlay">
+    <div class="spinner"></div>
+    <p>Processing your request...</p>
+</div>
+
+<!-- Train Model Modal -->
+<div class="modal fade" id="trainModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Train ML Model</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="train-form">
+                    <div class="mb-3">
+                        <label class="form-label">Symbol</label>
+                        <select class="form-select" name="symbol" required>
+                            <option value="">Select Symbol</option>
+                            {% for symbol in symbols %}
+                            <option value="{{ symbol }}">{{ symbol }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Model Type</label>
+                        <select class="form-select" name="model_type">
+                            <option value="random_forest">Random Forest</option>
+                            <option value="linear">Linear Regression</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lookback Days</label>
+                        <input type="number" class="form-control" name="lookback_days" value="365" min="100" max="1000">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="trainModel()">Train Model</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prediction Modal -->
+<div class="modal fade" id="predictModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Make Prediction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="predict-form">
+                    <div class="mb-3">
+                        <label class="form-label">Symbol</label>
+                        <select class="form-select" name="symbol" required>
+                            <option value="">Select Symbol</option>
+                            {% for symbol in symbols %}
+                            <option value="{{ symbol }}">{{ symbol }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Model Type</label>
+                        <select class="form-select" name="model_type">
+                            <option value="random_forest">Random Forest</option>
+                            <option value="linear">Linear Regression</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="makePrediction()">Make Prediction</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Global variables
+let performanceChart;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadModelPerformance();
+    loadRecentPredictions();
+});
+
+function initializeCharts() {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Model Accuracy',
+                data: [0.65, 0.68, 0.72, 0.75, 0.78, 0.82],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 1,
+                    ticks: {
+                        callback: function(value) {
+                            return (value * 100).toFixed(0) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showTrainModal() {
+    new bootstrap.Modal(document.getElementById('trainModal')).show();
+}
+
+function showPredictModal() {
+    new bootstrap.Modal(document.getElementById('predictModal')).show();
+}
+
+function showRegimeModal() {
+    try {
+        window.location.href = "{% url 'analytics:market_regime_analysis' %}";
+    } catch (error) {
+        console.error('Navigation error:', error);
+        // Fallback: show a notification
+        showNotification('Market Regime Analysis is loading...', 'info');
+    }
+}
+
+function showSentimentModal() {
+    try {
+        window.location.href = "{% url 'analytics:sentiment_ml_analysis' %}";
+    } catch (error) {
+        console.error('Navigation error:', error);
+        // Fallback: show a notification
+        showNotification('Sentiment Analysis is loading...', 'info');
+    }
+}
+
+function showFeaturesModal() {
+    try {
+        window.location.href = "{% url 'analytics:feature_engineering_dashboard' %}";
+    } catch (error) {
+        console.error('Navigation error:', error);
+        // Fallback: show a notification
+        showNotification('Feature Engineering is loading...', 'info');
+    }
+}
+
+function trainModel() {
+    const form = document.getElementById('train-form');
+    const formData = new FormData(form);
+    
+    // Get CSRF token
+    const csrfToken = getCookie('csrftoken');
+    if (!csrfToken) {
+        showNotification('CSRF token not found. Please refresh the page.', 'error');
+        return;
+    }
+    
+    showLoading();
+    
+    fetch("{% url 'analytics:train_model' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showNotification('Model trained successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('trainModal')).hide();
+            loadModelPerformance();
+        } else {
+            showNotification('Training failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Training error:', error);
+        showNotification('An error occurred during training: ' + error.message, 'error');
+    });
+}
+
+function makePrediction() {
+    const form = document.getElementById('predict-form');
+    const formData = new FormData(form);
+    
+    // Get CSRF token
+    const csrfToken = getCookie('csrftoken');
+    if (!csrfToken) {
+        showNotification('CSRF token not found. Please refresh the page.', 'error');
+        return;
+    }
+    
+    showLoading();
+    
+    fetch("{% url 'analytics:make_prediction' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showNotification('Prediction generated successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('predictModal')).hide();
+            addPredictionCard(data.prediction);
+        } else {
+            showNotification('Prediction failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        console.error('Prediction error:', error);
+        showNotification('An error occurred during prediction: ' + error.message, 'error');
+    });
+}
+
+function loadModelPerformance() {
+    fetch("{% url 'analytics:model_performance_api' %}")
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('trained-models').textContent = data.model_stats.total_models;
+        }
+    });
+}
+
+function loadRecentPredictions() {
+    fetch("{% url 'analytics:prediction_history_api' %}?days=5")
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update predictions container
+            const container = document.getElementById('predictions-container');
+            container.innerHTML = '';
+            
+            data.predictions.forEach(prediction => {
+                addPredictionCard(prediction);
+            });
+        }
+    });
+}
+
+function addPredictionCard(prediction) {
+    const container = document.getElementById('predictions-container');
+    const card = document.createElement('div');
+    card.className = 'prediction-card';
+    
+    const signalClass = prediction.signal.includes('BUY') ? 'signal-buy' : 
+                       prediction.signal.includes('SELL') ? 'signal-sell' : 'signal-hold';
+    
+    card.innerHTML = `
+        <div class="prediction-header">
+            <div class="prediction-symbol">${prediction.symbol}</div>
+            <div class="prediction-signal ${signalClass}">${prediction.signal}</div>
+        </div>
+        <div class="prediction-details">
+            <div class="detail-item">
+                <div class="detail-value">$${prediction.current_price.toFixed(2)}</div>
+                <div class="detail-label">Current Price</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-value">${(prediction.predicted_return * 100).toFixed(1)}%</div>
+                <div class="detail-label">Predicted Return</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-value">$${prediction.predicted_price.toFixed(2)}</div>
+                <div class="detail-label">Target Price</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-value">${prediction.confidence}%</div>
+                <div class="detail-label">Confidence</div>
+            </div>
+        </div>
+    `;
+    
+    container.insertBefore(card, container.firstChild);
+}
+
+function showLoading() {
+    document.getElementById('loading-overlay').style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'info' ? 'info' : 'success'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
+    
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Add to body
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+    
+    // Remove on close button click
+    notification.querySelector('.btn-close').addEventListener('click', () => {
+        notification.remove();
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

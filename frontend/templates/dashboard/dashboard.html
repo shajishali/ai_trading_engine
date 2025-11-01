@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+
+{% block title %}Trading Dashboard - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Trading Dashboard
+                    </h1>
+                    <p class="text-muted">Welcome back, {{ user.username }}! Here's your trading overview.</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'dashboard:signals' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-signal me-2"></i>Trading Signals
+                    </a>
+                    <a href="{% url 'analytics:ml_dashboard' %}" class="btn btn-outline-success">
+                        <i class="fas fa-robot me-2"></i>AI/ML Models
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">${{ portfolio.balance|default:"0.00" }}</h3>
+                        <p class="mb-0">Portfolio Balance</p>
+                    </div>
+                    <i class="fas fa-wallet fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ total_positions }}</h3>
+                        <p class="mb-0">Open Positions</p>
+                    </div>
+                    <i class="fas fa-chart-line fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0 {% if total_pnl >= 0 %}positive{% else %}negative{% endif %}">
+                            ${{ total_pnl|floatformat:2 }}
+                        </h3>
+                        <p class="mb-0">Unrealized P&L</p>
+                    </div>
+                    <i class="fas fa-chart-bar fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ active_models }}</h3>
+                        <p class="mb-0">Active AI Models</p>
+                    </div>
+                    <i class="fas fa-robot fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Portfolio Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="portfolioChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-pie-chart me-2"></i>Asset Allocation</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="allocationChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-signal me-2"></i>Recent Signals</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_signals %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Signal</th>
+                                        <th>Confidence</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for signal in recent_signals %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ signal.symbol.symbol }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if signal.signal_direction == 'BUY' %}bg-success{% elif signal.signal_direction == 'SELL' %}bg-danger{% else %}bg-warning{% endif %}">
+                                                {{ signal.signal_direction }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar" role="progressbar" 
+                                                     style="width: {{ signal.confidence_score|floatformat:0 }}%">
+                                                    {{ signal.confidence_score|floatformat:1 }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ signal.generated_at|timesince }} ago</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No recent signals available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Trades</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_trades %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Type</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for trade in recent_trades %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ trade.symbol.symbol }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if trade.trade_type == 'BUY' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ trade.trade_type }}
+                                            </span>
+                                        </td>
+                                        <td>{{ trade.quantity }}</td>
+                                        <td>${{ trade.price }}</td>
+                                        <td>
+                                            <small class="text-muted">{{ trade.executed_at|timesince }} ago</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No recent trades available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Portfolio Performance Chart
+const portfolioCtx = document.getElementById('portfolioChart').getContext('2d');
+const portfolioChart = new Chart(portfolioCtx, {
+    type: 'line',
+    data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+            label: 'Portfolio Value',
+            data: [10000, 10500, 11000, 10800, 11500, 12000],
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false
+            }
+        }
+    }
+});
+
+// Asset Allocation Chart
+const allocationCtx = document.getElementById('allocationChart').getContext('2d');
+const allocationChart = new Chart(allocationCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['BTC', 'ETH', 'AAPL', 'GOOGL', 'Cash'],
+        datasets: [{
+            data: [30, 25, 20, 15, 10],
+            backgroundColor: [
+                '#e74c3c',
+                '#3498db',
+                '#2ecc71',
+                '#f39c12',
+                '#95a5a6'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Auto-refresh dashboard stats every 30 seconds
+setInterval(function() {
+    fetch('{% url "dashboard:api_stats" %}')
+        .then(response => response.json())
+        .then(data => {
+            // Update statistics here
+            console.log('Dashboard stats updated:', data);
+        })
+        .catch(error => console.error('Error updating stats:', error));
+}, 30000);
+</script>
+{% endblock %}

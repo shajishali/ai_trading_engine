@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Trading Signals - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1>Trading Signals</h1>
+            <p>Total Signals: {{ total_signals }}</p>
+            <p>Active Signals: {{ active_signals }}</p>
+            <p>Win Rate: {{ win_rate }}%</p>
+            <p>Profit Factor: {{ profit_factor }}</p>
+            
+            {% if recent_signals %}
+                <h3>Recent Signals:</h3>
+                <ul>
+                {% for signal in recent_signals %}
+                    <li>{{ signal.symbol.symbol }} - {{ signal.signal_type.name }} ({{ signal.confidence_score }})</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p>No signals available.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

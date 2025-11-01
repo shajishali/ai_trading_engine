@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block title %}Market Analysis - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Market Analysis
+                    </h1>
+                    <p class="text-muted">Comprehensive market analysis and insights.</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'analytics:dashboard' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-chart-line me-2"></i>Analytics Dashboard
+                    </a>
+                    <a href="{% url 'analytics:ml_dashboard' %}" class="btn btn-outline-success">
+                        <i class="fas fa-robot me-2"></i>AI/ML Models
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ market_data.total_symbols|default:"0" }}</h3>
+                        <p class="mb-0">Active Symbols</p>
+                    </div>
+                    <i class="fas fa-coins fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ market_data.avg_volume|default:"0" }}</h3>
+                        <p class="mb-0">Avg Volume</p>
+                    </div>
+                    <i class="fas fa-chart-area fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ market_data.volatility_index|default:"0.00" }}</h3>
+                        <p class="mb-0">Volatility Index</p>
+                    </div>
+                    <i class="fas fa-wave-square fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">{{ market_data.market_sentiment|default:"Neutral" }}</h3>
+                        <p class="mb-0">Market Sentiment</p>
+                    </div>
+                    <i class="fas fa-smile fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Data Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-table me-2"></i>Market Data</h5>
+                </div>
+                <div class="card-body">
+                    {% if market_data.symbols %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Price</th>
+                                        <th>Change</th>
+                                        <th>Volume</th>
+                                        <th>Market Cap</th>
+                                        <th>RSI</th>
+                                        <th>MACD</th>
+                                        <th>Trend</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for symbol in market_data.symbols %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ symbol.symbol }}</strong>
+                                        </td>
+                                        <td>${{ symbol.price }}</td>
+                                        <td class="{% if symbol.change >= 0 %}positive{% else %}negative{% endif %}">
+                                            {{ symbol.change }}%
+                                        </td>
+                                        <td>{{ symbol.volume }}</td>
+                                        <td>${{ symbol.market_cap }}</td>
+                                        <td>{{ symbol.rsi|floatformat:1 }}</td>
+                                        <td>{{ symbol.macd|floatformat:3 }}</td>
+                                        <td>
+                                            <span class="badge {% if symbol.trend == 'Bullish' %}bg-success{% elif symbol.trend == 'Bearish' %}bg-danger{% else %}bg-warning{% endif %}">
+                                                {{ symbol.trend }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center">No market data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Regime Analysis -->
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Market Regime Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="regimeChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Volatility Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="volatilityChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Market Regime Chart
+const regimeCtx = document.getElementById('regimeChart').getContext('2d');
+const regimeChart = new Chart(regimeCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Bull Market', 'Bear Market', 'Sideways', 'Volatile'],
+        datasets: [{
+            data: [40, 20, 25, 15],
+            backgroundColor: [
+                '#2ecc71',
+                '#e74c3c',
+                '#f39c12',
+                '#9b59b6'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Volatility Trend Chart
+const volatilityCtx = document.getElementById('volatilityChart').getContext('2d');
+const volatilityChart = new Chart(volatilityCtx, {
+    type: 'line',
+    data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+            label: 'Volatility Index',
+            data: [15, 18, 22, 19, 25, 28],
+            borderColor: '#e74c3c',
+            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

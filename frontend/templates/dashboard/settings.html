@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Trading Engine - Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-card {
+        background: var(--card-bg);
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        color: var(--text-color);
+    }
+    
+    .settings-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 15px 15px 0 0;
+    }
+    
+    .settings-body {
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: var(--text-color);
+        margin-bottom: 8px;
+    }
+    
+    .form-control {
+        background-color: var(--card-bg);
+        border: 1px solid #ddd;
+        color: var(--text-color);
+    }
+    
+    .form-control:focus {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 10px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+    }
+    
+    .btn-save:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        color: white;
+    }
+    
+    .theme-preview {
+        width: 60px;
+        height: 40px;
+        border-radius: 8px;
+        border: 2px solid #ddd;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .theme-preview:hover {
+        transform: scale(1.1);
+    }
+    
+    .theme-preview.active {
+        border-color: #667eea;
+    }
+    
+    .theme-light {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    }
+    
+    .theme-dark {
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    }
+    
+    .alert {
+        border-radius: 10px;
+        border: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <main class="col-12 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Settings</h1>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Profile Settings -->
+            <div class="settings-card">
+                <div class="settings-header">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Profile Settings</h5>
+                </div>
+                <div class="settings-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_profile">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" class="form-control" name="first_name" value="{{ user.first_name }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" name="last_name" value="{{ user.last_name }}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" value="{{ user.email }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                            <small class="text-muted">Username cannot be changed</small>
+                        </div>
+                        <button type="submit" class="btn btn-save">
+                            <i class="fas fa-save me-2"></i>Update Profile
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Password Change -->
+            <div class="settings-card">
+                <div class="settings-header">
+                    <h5 class="mb-0"><i class="fas fa-lock me-2"></i>Change Password</h5>
+                </div>
+                <div class="settings-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="change_password">
+                        <div class="form-group">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" class="form-control" name="current_password" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">New Password</label>
+                                    <input type="password" class="form-control" name="new_password" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" name="confirm_password" required>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-save">
+                            <i class="fas fa-key me-2"></i>Change Password
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Trading Preferences -->
+            <div class="settings-card">
+                <div class="settings-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Trading Preferences</h5>
+                </div>
+                <div class="settings-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_preferences">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Risk Tolerance</label>
+                                    <select class="form-control" name="risk_tolerance">
+                                        <option value="low" {% if portfolio.risk_tolerance == 'low' %}selected{% endif %}>Low</option>
+                                        <option value="medium" {% if portfolio.risk_tolerance == 'medium' %}selected{% endif %}>Medium</option>
+                                        <option value="high" {% if portfolio.risk_tolerance == 'high' %}selected{% endif %}>High</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Max Position Size (%)</label>
+                                    <input type="number" class="form-control" name="max_position_size" 
+                                           value="{{ portfolio.max_position_size|default:5.0 }}" step="0.1" min="1" max="100">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Daily Loss Limit (%)</label>
+                            <input type="number" class="form-control" name="daily_loss_limit" 
+                                   value="{{ portfolio.daily_loss_limit|default:2.0 }}" step="0.1" min="0.1" max="10">
+                        </div>
+                        <button type="submit" class="btn btn-save">
+                            <i class="fas fa-save me-2"></i>Update Preferences
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Theme Settings -->
+            <div class="settings-card">
+                <div class="settings-header">
+                    <h5 class="mb-0"><i class="fas fa-palette me-2"></i>Theme Settings</h5>
+                </div>
+                <div class="settings-body">
+                    <div class="form-group">
+                        <label class="form-label">Choose Theme</label>
+                        <div class="d-flex gap-3">
+                            <div class="theme-preview theme-light active" data-theme="light" title="Light Theme">
+                                <div class="d-flex align-items-center justify-content-center h-100">
+                                    <i class="fas fa-sun text-warning"></i>
+                                </div>
+                            </div>
+                            <div class="theme-preview theme-dark" data-theme="dark" title="Dark Theme">
+                                <div class="d-flex align-items-center justify-content-center h-100">
+                                    <i class="fas fa-moon text-light"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted">Click on a theme to preview and apply</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div class="settings-card">
+                <div class="settings-header">
+                    <h5 class="mb-0"><i class="fas fa-bell me-2"></i>Notification Settings</h5>
+                </div>
+                <div class="settings-body">
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="email_notifications" checked>
+                            <label class="form-check-label" for="email_notifications">
+                                Email Notifications
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="signal_alerts" checked>
+                            <label class="form-check-label" for="signal_alerts">
+                                Signal Alerts
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="price_alerts">
+                            <label class="form-check-label" for="price_alerts">
+                                Price Alerts
+                            </label>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-save" onclick="saveNotificationSettings()">
+                        <i class="fas fa-save me-2"></i>Save Notification Settings
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Theme preview functionality
+    document.querySelectorAll('.theme-preview').forEach(preview => {
+        preview.addEventListener('click', function() {
+            const theme = this.getAttribute('data-theme');
+            
+            // Remove active class from all previews
+            document.querySelectorAll('.theme-preview').forEach(p => p.classList.remove('active'));
+            
+            // Add active class to clicked preview
+            this.classList.add('active');
+            
+            // Apply theme
+            document.body.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            // Update theme icon in navbar
+            const themeIcon = document.getElementById('theme-icon');
+            if (themeIcon) {
+                if (theme === 'dark') {
+                    themeIcon.className = 'fas fa-sun';
+                } else {
+                    themeIcon.className = 'fas fa-moon';
+                }
+            }
+        });
+    });
+
+    // Notification settings
+    function saveNotificationSettings() {
+        const emailNotifications = document.getElementById('email_notifications').checked;
+        const signalAlerts = document.getElementById('signal_alerts').checked;
+        const priceAlerts = document.getElementById('price_alerts').checked;
+        
+        // Save to localStorage (in a real app, this would be saved to database)
+        localStorage.setItem('email_notifications', emailNotifications);
+        localStorage.setItem('signal_alerts', signalAlerts);
+        localStorage.setItem('price_alerts', priceAlerts);
+        
+        // Show success message
+        alert('Notification settings saved successfully!');
+    }
+
+    // Load saved notification settings
+    document.addEventListener('DOMContentLoaded', function() {
+        const emailNotifications = localStorage.getItem('email_notifications') === 'true';
+        const signalAlerts = localStorage.getItem('signal_alerts') === 'true';
+        const priceAlerts = localStorage.getItem('price_alerts') === 'false';
+        
+        document.getElementById('email_notifications').checked = emailNotifications;
+        document.getElementById('signal_alerts').checked = signalAlerts;
+        document.getElementById('price_alerts').checked = priceAlerts;
+    });
+</script>
+{% endblock %}

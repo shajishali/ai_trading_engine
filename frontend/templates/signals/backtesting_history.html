@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtesting Signals History - AI Trading Engine</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .backtesting-badge {
+            background: #ff6b35;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .filters {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .signals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .signals-table th,
+        .signals-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .signals-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .signals-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .signal-type-buy {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .signal-type-sell {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .confidence-bar {
+            width: 100px;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .pagination a,
+        .pagination span {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            text-decoration: none;
+            color: #007bff;
+            border-radius: 4px;
+        }
+        .pagination .current {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .pagination a:hover {
+            background-color: #f8f9fa;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            min-width: 120px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .no-signals {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .backtesting-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Backtesting Signals History</h1>
+        
+        <div class="backtesting-info">
+            <strong>ℹ️ Backtesting Signals</strong><br>
+            These are signals generated during backtesting analysis. They are separate from your actual trading signals and are used for strategy validation and historical analysis.
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_count }}</div>
+                <div class="stat-label">Total Signals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ page }}</div>
+                <div class="stat-label">Current Page</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_pages }}</div>
+                <div class="stat-label">Total Pages</div>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="filters">
+            <form method="get">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="symbol">Symbol:</label>
+                        <input type="text" id="symbol" name="symbol" value="{{ current_filters.symbol }}" placeholder="e.g., AAVEUSDT">
+                    </div>
+                    <div class="filter-group">
+                        <label for="signal_type">Signal Type:</label>
+                        <select id="signal_type" name="signal_type">
+                            <option value="">All Types</option>
+                            {% for signal_type in unique_signal_types %}
+                                <option value="{{ signal_type }}" {% if current_filters.signal_type == signal_type %}selected{% endif %}>
+                                    {{ signal_type }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>&nbsp;</label>
+                        <button type="submit">Filter</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Signals Table -->
+        {% if signals %}
+            <table class="signals-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Symbol</th>
+                        <th>Type</th>
+                        <th>Strength</th>
+                        <th>Confidence</th>
+                        <th>Entry Price</th>
+                        <th>Target Price</th>
+                        <th>Stop Loss</th>
+                        <th>Risk/Reward</th>
+                        <th>Quality</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for signal in signals %}
+                        <tr>
+                            <td>{{ signal.created_at|date:"Y-m-d H:i" }}</td>
+                            <td><strong>{{ signal.symbol }}</strong></td>
+                            <td>
+                                <span class="{% if signal.signal_type == 'BUY' %}signal-type-buy{% else %}signal-type-sell{% endif %}">
+                                    {{ signal.signal_type }}
+                                </span>
+                            </td>
+                            <td>{{ signal.strength }}</td>
+                            <td>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: {{ signal.confidence_score|floatformat:0 }}%"></div>
+                                </div>
+                                {{ signal.confidence_score|floatformat:0 }}%
+                            </td>
+                            <td>${{ signal.entry_price|floatformat:2 }}</td>
+                            <td>${{ signal.target_price|floatformat:2 }}</td>
+                            <td>${{ signal.stop_loss|floatformat:2 }}</td>
+                            <td>{{ signal.risk_reward_ratio|floatformat:2 }}</td>
+                            <td>{{ signal.quality_score|floatformat:2 }}</td>
+                            <td>
+                                <span class="backtesting-badge">BACKTESTING</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+                <div class="pagination">
+                    {% if has_prev %}
+                        <a href="?page=1{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}">First</a>
+                        <a href="?page={{ page|add:-1 }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}">Previous</a>
+                    {% endif %}
+                    
+                    {% for page_num in page_range %}
+                        {% if page_num == page %}
+                            <span class="current">{{ page_num }}</span>
+                        {% else %}
+                            <a href="?page={{ page_num }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}">{{ page_num }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if has_next %}
+                        <a href="?page={{ page|add:1 }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}">Next</a>
+                        <a href="?page={{ total_pages }}{% if current_filters.symbol %}&symbol={{ current_filters.symbol }}{% endif %}{% if current_filters.signal_type %}&signal_type={{ current_filters.signal_type }}{% endif %}">Last</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="no-signals">
+                <h3>No Backtesting Signals Found</h3>
+                <p>No backtesting signals match your current filters.</p>
+            </div>
+        {% endif %}
+        
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="/signals/" style="color: #007bff; text-decoration: none;">← Back to Main Signals</a>
+        </div>
+    </div>
+</body>
+</html>

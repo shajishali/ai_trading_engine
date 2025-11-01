@@ -1,0 +1,453 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Upgraded Backtesting - Enhanced Signal Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .upgraded-features {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .feature-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .feature-highlight {
+        background: #e8f5e8;
+        border-left: 4px solid #28a745;
+        padding: 10px;
+        margin: 10px 0;
+    }
+    
+    .backtest-results {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .signal-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+    }
+    
+    .status-executed { background: #d4edda; color: #155724; }
+    .status-expired { background: #f8d7da; color: #721c24; }
+    .status-take-profit { background: #d1ecf1; color: #0c5460; }
+    .status-stop-loss { background: #f8d7da; color: #721c24; }
+    
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+    
+    .metric-card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .metric-value {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">🚀 Upgraded Backtesting - Enhanced Signal Management</h1>
+            
+            <!-- Upgraded Features Banner -->
+            <div class="upgraded-features">
+                <h3>🎯 New Enhanced Features</h3>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="feature-highlight">
+                            <strong>⏰ 7-Day Signal Expiration</strong><br>
+                            Signals automatically expire after 7 days if not executed
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-highlight">
+                            <strong>💰 Fixed 60% Take Profit</strong><br>
+                            Take profit set to 60% of capital when signal reaches target
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-highlight">
+                            <strong>🛡️ Maximum 40% Stop Loss</strong><br>
+                            Stop loss limited to maximum 40% of capital loss
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Backtesting Form -->
+            <div class="feature-card">
+                <h4>📊 Run Enhanced Backtest</h4>
+                <form id="upgradedBacktestForm">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="symbol">Symbol:</label>
+                            <select id="symbol" name="symbol" class="form-control" required>
+                                <option value="">Select Symbol</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="startDate">Start Date:</label>
+                            <input type="date" id="startDate" name="startDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="endDate">End Date:</label>
+                            <input type="date" id="endDate" name="endDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                🚀 Run Enhanced Backtest
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="text-center" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Running enhanced backtest...</span>
+                </div>
+                <p>Running enhanced backtest with upgraded signal management...</p>
+            </div>
+            
+            <!-- Results Container -->
+            <div id="backtestResults" class="backtest-results" style="display: none;">
+                <!-- Results will be populated here -->
+            </div>
+            
+            <!-- Signal Analysis -->
+            <div class="feature-card">
+                <h4>📈 Signal Analysis</h4>
+                <button id="analyzeSignals" class="btn btn-info">
+                    Analyze Recent Signal Patterns
+                </button>
+                <div id="signalAnalysis" class="mt-3" style="display: none;">
+                    <!-- Analysis results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load available symbols
+    loadSymbols();
+    
+    // Set default date range (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+    
+    // Handle form submission
+    document.getElementById('upgradedBacktestForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        runUpgradedBacktest();
+    });
+    
+    // Handle signal analysis
+    document.getElementById('analyzeSignals').addEventListener('click', function() {
+        analyzeSignalPatterns();
+    });
+});
+
+function loadSymbols() {
+    fetch('/signals/api/backtests-upgraded/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const symbolSelect = document.getElementById('symbol');
+                data.symbols.forEach(symbol => {
+                    const option = document.createElement('option');
+                    option.value = symbol.symbol;
+                    option.textContent = `${symbol.symbol} - ${symbol.name}`;
+                    symbolSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading symbols:', error);
+        });
+}
+
+function runUpgradedBacktest() {
+    const formData = new FormData(document.getElementById('upgradedBacktestForm'));
+    const data = {
+        symbol: formData.get('symbol'),
+        start_date: formData.get('startDate') + 'T00:00:00Z',
+        end_date: formData.get('endDate') + 'T23:59:59Z'
+    };
+    
+    // Show loading indicator
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('backtestResults').style.display = 'none';
+    
+    fetch('/signals/api/backtests-upgraded/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingIndicator').style.display = 'none';
+        
+        if (data.success) {
+            displayBacktestResults(data);
+        } else {
+            alert('Backtest failed: ' + data.error);
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingIndicator').style.display = 'none';
+        console.error('Error:', error);
+        alert('Error running backtest: ' + error.message);
+    });
+}
+
+function displayBacktestResults(data) {
+    const resultsDiv = document.getElementById('backtestResults');
+    const results = data.backtest_results;
+    const summary = data.summary;
+    
+    let html = `
+        <h4>📊 Enhanced Backtest Results for ${results.symbol}</h4>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">${results.total_signals}</div>
+                <div class="metric-label">Total Signals</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${results.executed_signals}</div>
+                <div class="metric-label">Executed Signals</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${results.expired_signals}</div>
+                <div class="metric-label">Expired Signals</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${results.win_rate.toFixed(1)}%</div>
+                <div class="metric-label">Win Rate</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">$${results.total_profit_loss.toFixed(2)}</div>
+                <div class="metric-label">Total P&L</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">$${results.total_capital_used.toFixed(2)}</div>
+                <div class="metric-label">Capital Used</div>
+            </div>
+        </div>
+        
+        <div class="feature-highlight">
+            <strong>🎯 Enhanced Settings Applied:</strong><br>
+            • Signal Expiration: ${data.metadata.upgraded_features.signal_expiration_days} days<br>
+            • Take Profit: ${data.metadata.upgraded_features.take_profit_percentage}% of capital<br>
+            • Stop Loss: ${data.metadata.upgraded_features.stop_loss_percentage}% of capital<br>
+            • Description: ${data.metadata.upgraded_features.description}
+        </div>
+        
+        <h5>📋 Detailed Results:</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Signal ID</th>
+                        <th>Status</th>
+                        <th>Execution Price</th>
+                        <th>P&L %</th>
+                        <th>P&L Amount</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    results.results.forEach(result => {
+        const statusClass = getStatusClass(result.execution_status);
+        html += `
+            <tr>
+                <td>${result.signal_id}</td>
+                <td><span class="signal-status ${statusClass}">${result.execution_status.replace(/_/g, ' ')}</span></td>
+                <td>${result.execution_price ? '$' + result.execution_price.toFixed(2) : 'N/A'}</td>
+                <td>${result.profit_loss_percentage.toFixed(2)}%</td>
+                <td>$${result.profit_loss_amount.toFixed(2)}</td>
+                <td>${result.reason}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    resultsDiv.innerHTML = html;
+    resultsDiv.style.display = 'block';
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'TAKE_PROFIT_HIT': return 'status-take-profit';
+        case 'STOP_LOSS_HIT': return 'status-stop-loss';
+        case 'EXPIRED_7_DAYS': return 'status-expired';
+        case 'EXECUTED': return 'status-executed';
+        default: return 'status-expired';
+    }
+}
+
+function analyzeSignalPatterns() {
+    const symbol = document.getElementById('symbol').value;
+    if (!symbol) {
+        alert('Please select a symbol first');
+        return;
+    }
+    
+    const analysisDiv = document.getElementById('signalAnalysis');
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = '<p>Analyzing signal patterns...</p>';
+    
+    fetch('/signals/api/signal-analysis/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            symbol: symbol,
+            days_back: 30
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displaySignalAnalysis(data.analysis);
+        } else {
+            analysisDiv.innerHTML = '<p class="text-danger">Analysis failed: ' + data.error + '</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        analysisDiv.innerHTML = '<p class="text-danger">Error analyzing signals: ' + error.message + '</p>';
+    });
+}
+
+function displaySignalAnalysis(analysis) {
+    const analysisDiv = document.getElementById('signalAnalysis');
+    
+    let html = `
+        <h5>📈 Signal Pattern Analysis</h5>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">${analysis.total_signals}</div>
+                <div class="metric-label">Total Signals</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${analysis.execution_patterns.execution_rate.toFixed(1)}%</div>
+                <div class="metric-label">Execution Rate</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${analysis.execution_patterns.win_rate.toFixed(1)}%</div>
+                <div class="metric-label">Win Rate</div>
+            </div>
+        </div>
+        
+        <h6>🎯 Recommendations:</h6>
+        <ul>
+    `;
+    
+    analysis.recommendations.forEach(rec => {
+        html += `<li>${rec}</li>`;
+    });
+    
+    html += '</ul>';
+    
+    analysisDiv.innerHTML = html;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

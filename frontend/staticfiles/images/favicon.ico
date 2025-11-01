@@ -1,0 +1,19 @@
+# Favicon.ico Placeholder
+
+This is a placeholder file. To create a proper favicon.ico file:
+
+1. Use the favicon.svg file in this directory
+2. Convert it to .ico format using an online converter like:
+   - https://favicon.io/favicon-converter/
+   - https://convertio.co/svg-ico/
+   - https://www.favicon-generator.org/
+
+3. Replace this file with the generated favicon.ico
+
+The favicon.svg file contains a custom AI Trading Engine icon with:
+- Blue circular background
+- Green chart line representing trading
+- Orange neural network nodes representing AI/ML
+- "AI" text label
+
+For now, the SVG favicon will work in modern browsers.

@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Choose Your Plan{% endblock %}
+
+{% block extra_css %}
+<style>
+    .subscription-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 40px 20px;
+    }
+    
+    .subscription-header {
+        text-align: center;
+        color: white;
+        margin-bottom: 50px;
+    }
+    
+    .subscription-header h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+    
+    .subscription-header p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+    
+    .plans-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 30px;
+    }
+    
+    .plan-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px 30px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        border: 2px solid transparent;
+        margin-bottom: 30px;
+    }
+    
+    .plan-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .plan-card.featured {
+        border-color: #667eea;
+        transform: scale(1.05);
+    }
+    
+    .plan-card.featured:hover {
+        transform: scale(1.05) translateY(-10px);
+    }
+    
+    .plan-name {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2d3748;
+        margin-bottom: 15px;
+    }
+    
+    .plan-price {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 15px;
+        line-height: 1;
+    }
+    
+    .currency {
+        font-size: 1.5rem;
+        vertical-align: top;
+    }
+    
+    .period {
+        font-size: 1rem;
+        color: #718096;
+        font-weight: normal;
+    }
+    
+    .plan-description {
+        color: #718096;
+        margin-bottom: 25px;
+        font-size: 1rem;
+    }
+    
+    .plan-features {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 30px 0;
+        text-align: left;
+    }
+    
+    .plan-features li {
+        padding: 8px 0;
+        color: #4a5568;
+        position: relative;
+        padding-left: 25px;
+    }
+    
+    .plan-features li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: #48bb78;
+        font-weight: bold;
+    }
+    
+    .plan-features li.disabled {
+        color: #a0aec0;
+    }
+    
+    .plan-features li.disabled::before {
+        content: '✗';
+        color: #e53e3e;
+    }
+    
+    .btn-plan {
+        width: 100%;
+        padding: 18px 30px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 20px auto;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        line-height: 1.2;
+        min-height: 60px;
+    }
+    
+    .btn-trial {
+        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(72, 187, 120, 0.2);
+    }
+    
+    .btn-trial:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(72, 187, 120, 0.4);
+        color: white;
+    }
+    
+    .btn-upgrade {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    }
+    
+    .btn-upgrade:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-outline {
+        background: transparent;
+        color: #667eea;
+        border-color: #667eea;
+    }
+    
+    .btn-outline:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .current-plan-badge {
+        background: #48bb78;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: inline-block;
+    }
+    
+    .trial-info {
+        background: rgba(72, 187, 120, 0.1);
+        border: 1px solid #48bb78;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .trial-info h3 {
+        color: #48bb78;
+        margin-bottom: 10px;
+        font-size: 1.2rem;
+    }
+    
+    .trial-info p {
+        color: #4a5568;
+        margin: 0;
+    }
+    
+    .loading-message {
+        text-align: center;
+        color: white;
+        font-size: 1.2rem;
+        padding: 40px;
+    }
+
+    /* Ensure proper spacing around buttons */
+    .plan-card form {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+    }
+    
+    .plan-card .card-body {
+        padding: 0;
+    }
+    
+    /* Fix button container spacing */
+    .plan-card .plan-features {
+        margin-bottom: 20px;
+    }
+    
+    .plan-card form {
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+    
+    /* Ensure buttons are perfectly centered */
+    .plan-card form {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .btn-plan {
+        width: 100%;
+        max-width: 280px;
+        margin: 0 auto;
+    }
+    
+    /* Fix any potential margin conflicts */
+    .plan-card * {
+        box-sizing: border-box;
+    }
+    
+    .plan-card .btn-plan {
+        box-sizing: border-box;
+        margin: 20px auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="subscription-container">
+    <div class="subscription-header">
+        <h1>Choose Your Plan</h1>
+        <p>Select the perfect plan for your trading needs</p>
+    </div>
+    
+    {% if plans %}
+        <div class="plans-container">
+            <!-- Free Trial Plan -->
+            <div class="plan-card">
+                <div class="plan-name">Free Trial</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>0
+                    <span class="period">/7 days</span>
+                </div>
+                <div class="plan-description">Try all features for free</div>
+                
+                <ul class="plan-features">
+                    <li>All features unlocked</li>
+                    <li>Unlimited signals</li>
+                    <li>Full analytics access</li>
+                    <li>ML predictions</li>
+                    <li>API access</li>
+                    <li>Priority support</li>
+                </ul>
+                
+                <form method="post" action="{% url 'subscription:start_trial' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-plan btn-trial">Start Free Trial</button>
+                </form>
+                
+                <div class="trial-info">
+                    <h3>🎉 7-Day Free Trial</h3>
+                    <p>No credit card required. Cancel anytime.</p>
+                </div>
+            </div>
+            
+            <!-- Basic Plan -->
+            <div class="plan-card">
+                <div class="plan-name">Basic</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>19
+                    <span class="period">/month</span>
+                </div>
+                <div class="plan-description">Perfect for beginners</div>
+                
+                <ul class="plan-features">
+                    <li>5 signals per day</li>
+                    <li>Basic analytics</li>
+                    <li>Portfolio tracking</li>
+                    <li>Email support</li>
+                    <li class="disabled">ML predictions</li>
+                    <li class="disabled">API access</li>
+                </ul>
+                
+                <form method="post" action="{% url 'subscription:upgrade_subscription' plan_id=2 %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-plan btn-upgrade">Choose Basic</button>
+                </form>
+            </div>
+            
+            <!-- Pro Plan -->
+            <div class="plan-card featured">
+                <div class="plan-name">Pro</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>49
+                    <span class="period">/month</span>
+                </div>
+                <div class="plan-description">Most popular choice</div>
+                
+                <ul class="plan-features">
+                    <li>15 signals per day</li>
+                    <li>Full analytics suite</li>
+                    <li>Advanced portfolio tools</li>
+                    <li>ML predictions</li>
+                    <li>API access</li>
+                    <li>Priority support</li>
+                </ul>
+                
+                <form method="post" action="{% url 'subscription:upgrade_subscription' plan_id=3 %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-plan btn-upgrade">Choose Pro</button>
+                </form>
+            </div>
+            
+            <!-- Enterprise Plan -->
+            <div class="plan-card">
+                <div class="plan-name">Enterprise</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>99
+                    <span class="period">/month</span>
+                </div>
+                <div class="plan-description">For professional traders</div>
+                
+                <ul class="plan-features">
+                    <li>Unlimited signals</li>
+                    <li>Advanced analytics</li>
+                    <li>Custom integrations</li>
+                    <li>Dedicated support</li>
+                    <li>White-label options</li>
+                    <li>Custom features</li>
+                </ul>
+                
+                <form method="post" action="{% url 'subscription:upgrade_subscription' plan_id=4 %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-plan btn-upgrade">Choose Enterprise</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Current Plan Info -->
+        {% if user_profile.subscription_plan %}
+        <div style="text-align: center; margin-top: 40px;">
+            <div class="current-plan-badge">
+                Current Plan: {{ user_profile.subscription_plan.name }}
+            </div>
+            <p style="color: white; opacity: 0.9;">
+                Status: {{ user_profile.subscription_status|title }}
+                {% if user_profile.subscription_end_date %}
+                | Expires: {{ user_profile.subscription_end_date|date:"M d, Y" }}
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="loading-message">
+            <p>Loading subscription plans...</p>
+            <p>If plans don't appear, please run: <code>python manage.py setup_subscription_plans</code></p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

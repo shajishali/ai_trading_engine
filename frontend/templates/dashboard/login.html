@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h4><i class="fas fa-sign-in-alt"></i> Login</h4>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" id="login-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-user"></i> Username
+                            </label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock"></i> Password
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary" id="login-btn">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Don't have an account? Contact your administrator.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .form-control {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+    }
+    
+    .form-control:focus {
+        border-color: var(--secondary-color);
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .btn-primary {
+        padding: 12px;
+        font-weight: bold;
+        border-radius: 8px;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('login-form');
+    const loginBtn = document.getElementById('login-btn');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    
+    // Add form submission handling
+    loginForm.addEventListener('submit', function(e) {
+        console.log('Login form submitted');
+        
+        // Validate form
+        if (!usernameInput.value.trim()) {
+            e.preventDefault();
+            alert('Please enter a username');
+            usernameInput.focus();
+            return false;
+        }
+        
+        if (!passwordInput.value.trim()) {
+            e.preventDefault();
+            alert('Please enter a password');
+            passwordInput.focus();
+            return false;
+        }
+        
+        // Show loading state
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+        loginBtn.disabled = true;
+        
+        console.log('Form validation passed, submitting...');
+    });
+    
+    // Add input validation
+    usernameInput.addEventListener('input', function() {
+        this.classList.remove('is-invalid');
+    });
+    
+    passwordInput.addEventListener('input', function() {
+        this.classList.remove('is-invalid');
+    });
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && (document.activeElement === usernameInput || document.activeElement === passwordInput)) {
+            loginForm.submit();
+        }
+    });
+    
+    console.log('Login form enhanced');
+});
+</script>
+{% endblock %}
+
+
+
+

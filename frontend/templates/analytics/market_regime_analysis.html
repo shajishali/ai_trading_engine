@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Market Regime Analysis - AI Trading Engine{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4 text-white">Market Regime Analysis</h1>
+        </div>
+    </div>
+
+    <!-- Market Regime Overview -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Current Market Regime</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <h2 class="text-primary" id="current-regime">Bull Market</h2>
+                        <p class="text-muted">Confidence: <span id="regime-confidence">85%</span></p>
+                        <div class="progress mb-3">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Regime Characteristics</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-chart-line text-success me-2"></i>Trending upward</li>
+                        <li><i class="fas fa-arrow-up text-success me-2"></i>High volatility</li>
+                        <li><i class="fas fa-dollar-sign text-success me-2"></i>Strong momentum</li>
+                        <li><i class="fas fa-clock text-warning me-2"></i>Duration: 45 days</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Regime History Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Market Regime History</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="regimeChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Regime Transition Matrix -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Regime Transition Probabilities</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>From/To</th>
+                                    <th>Bull Market</th>
+                                    <th>Bear Market</th>
+                                    <th>Sideways</th>
+                                    <th>High Volatility</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Bull Market</strong></td>
+                                    <td class="text-success">75%</td>
+                                    <td class="text-danger">15%</td>
+                                    <td class="text-warning">8%</td>
+                                    <td class="text-info">2%</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Bear Market</strong></td>
+                                    <td class="text-success">20%</td>
+                                    <td class="text-danger">70%</td>
+                                    <td class="text-warning">8%</td>
+                                    <td class="text-info">2%</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Sideways</strong></td>
+                                    <td class="text-success">25%</td>
+                                    <td class="text-danger">25%</td>
+                                    <td class="text-warning">40%</td>
+                                    <td class="text-info">10%</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>High Volatility</strong></td>
+                                    <td class="text-success">30%</td>
+                                    <td class="text-danger">30%</td>
+                                    <td class="text-warning">20%</td>
+                                    <td class="text-info">20%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Regime Indicators -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Technical Indicators</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small>RSI: <span class="text-success">65</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: 65%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <small>MACD: <span class="text-success">Positive</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: 80%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <small>Bollinger Bands: <span class="text-warning">Expanding</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-warning" style="width: 60%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Volume Analysis</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small>Volume Trend: <span class="text-success">Increasing</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: 75%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <small>Volume vs Price: <span class="text-success">Confirming</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Market Sentiment</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small>Fear & Greed: <span class="text-success">Greed (75)</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: 75%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <small>Social Sentiment: <span class="text-success">Positive</span></small>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: 70%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize regime chart
+    const ctx = document.getElementById('regimeChart').getContext('2d');
+    const regimeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+            datasets: [{
+                label: 'Regime Score',
+                data: [65, 70, 75, 80, 85, 82, 88, 85],
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            if (value <= 25) return 'Bear';
+                            if (value <= 50) return 'Sideways';
+                            if (value <= 75) return 'Bull';
+                            return 'Strong Bull';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+

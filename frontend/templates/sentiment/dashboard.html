@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sentiment Analysis Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sentiment-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    .sentiment-bullish {
+        border-left: 4px solid #28a745;
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    }
+    
+    .sentiment-bearish {
+        border-left: 4px solid #dc3545;
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    }
+    
+    .sentiment-neutral {
+        border-left: 4px solid #6c757d;
+        background: linear-gradient(135deg, #e2e3e5 0%, #d6d8db 100%);
+    }
+    
+    .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .metric-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .influencer-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .impact-score {
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    .impact-high { background-color: #d4edda; color: #155724; }
+    .impact-medium { background-color: #fff3cd; color: #856404; }
+    .impact-low { background-color: #f8d7da; color: #721c24; }
+    
+    .refresh-btn {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .refresh-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .status-healthy { background-color: #28a745; }
+    .status-warning { background-color: #ffc107; }
+    .status-critical { background-color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    Sentiment Analysis Dashboard
+                </h1>
+                <div>
+                    <button class="refresh-btn me-2" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i> Refresh Data
+                    </button>
+                    <button class="refresh-btn" onclick="triggerCollection()">
+                        <i class="fas fa-download"></i> Collect Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Health Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-heartbeat"></i> System Health
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="health-status" class="d-flex align-items-center">
+                        <span class="status-indicator status-healthy"></span>
+                        <span class="fw-bold">System Status: Healthy</span>
+                        <span class="ms-3 text-muted">Last updated: <span id="last-updated">Loading...</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sentiment Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="metric-card">
+                <div class="metric-value" id="total-mentions">-</div>
+                <div class="metric-label">Total Mentions (24h)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card">
+                <div class="metric-value text-success" id="bullish-mentions">-</div>
+                <div class="metric-label">Bullish Mentions</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card">
+                <div class="metric-value text-danger" id="bearish-mentions">-</div>
+                <div class="metric-label">Bearish Mentions</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card">
+                <div class="metric-value text-secondary" id="neutral-mentions">-</div>
+                <div class="metric-label">Neutral Mentions</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sentiment Data -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar"></i> Recent Sentiment Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="sentiment-list">
+                        {% for aggregate in recent_aggregates %}
+                        <div class="sentiment-card p-3 {% if aggregate.combined_sentiment_score > 0.1 %}sentiment-bullish{% elif aggregate.combined_sentiment_score < -0.1 %}sentiment-bearish{% else %}sentiment-neutral{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ aggregate.asset.symbol }} - {{ aggregate.asset.name }}</h6>
+                                    <p class="mb-1 text-muted">{{ aggregate.timeframe }} timeframe</p>
+                                    <small class="text-muted">Updated: {{ aggregate.created_at|timesince }} ago</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold fs-5">
+                                        {% if aggregate.combined_sentiment_score > 0.1 %}
+                                            <span class="text-success">+{{ aggregate.combined_sentiment_score|floatformat:3 }}</span>
+                                        {% elif aggregate.combined_sentiment_score < -0.1 %}
+                                            <span class="text-danger">{{ aggregate.combined_sentiment_score|floatformat:3 }}</span>
+                                        {% else %}
+                                            <span class="text-secondary">{{ aggregate.combined_sentiment_score|floatformat:3 }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">Confidence: {{ aggregate.confidence_score|floatformat:2 }}</small>
+                                    <br>
+                                    <small class="text-muted">{{ aggregate.total_mentions }} mentions</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No sentiment data available yet.</p>
+                            <button class="btn btn-primary" onclick="triggerCollection()">
+                                <i class="fas fa-download"></i> Collect Data
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users"></i> Top Influencers
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="influencers-list">
+                        {% for influencer in top_influencers %}
+                        <div class="influencer-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ influencer.display_name }}</h6>
+                                    <small class="text-muted">@{{ influencer.username }} - {{ influencer.platform }}</small>
+                                    <br>
+                                    <small class="text-muted">{{ influencer.followers_count|floatformat:0 }} followers</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="impact-score {% if influencer.impact_score > 0.7 %}impact-high{% elif influencer.impact_score > 0.3 %}impact-medium{% else %}impact-low{% endif %}">
+                                        {{ influencer.impact_score|floatformat:2 }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                            <p class="text-muted small">No influencer data available.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let refreshInterval;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadHealthStatus();
+    loadSentimentStats();
+    
+    // Auto-refresh every 30 seconds
+    refreshInterval = setInterval(function() {
+        loadHealthStatus();
+        loadSentimentStats();
+    }, 30000);
+});
+
+// Load system health status
+function loadHealthStatus() {
+    fetch('/sentiment/api/health/')
+        .then(response => response.json())
+        .then(data => {
+            const statusElement = document.getElementById('health-status');
+            const lastUpdatedElement = document.getElementById('last-updated');
+            
+            // Update status indicator
+            const indicator = statusElement.querySelector('.status-indicator');
+            indicator.className = `status-indicator status-${data.health_status}`;
+            
+            // Update status text
+            statusElement.querySelector('span:nth-child(2)').textContent = 
+                `System Status: ${data.health_status.charAt(0).toUpperCase() + data.health_status.slice(1)}`;
+            
+            // Update last updated time
+            lastUpdatedElement.textContent = new Date().toLocaleTimeString();
+            
+            // Show issues if any
+            if (data.issues.length > 0) {
+                console.warn('System issues:', data.issues);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading health status:', error);
+        });
+}
+
+// Load sentiment statistics
+function loadSentimentStats() {
+    fetch('/sentiment/api/sentiment-summary/')
+        .then(response => response.json())
+        .then(data => {
+            // Calculate totals
+            let totalMentions = 0;
+            let bullishMentions = 0;
+            let bearishMentions = 0;
+            let neutralMentions = 0;
+            
+            data.assets.forEach(asset => {
+                totalMentions += asset.total_mentions || 0;
+                // Estimate sentiment distribution (this would be better from backend)
+                if (asset.sentiment_label === 'bullish') bullishMentions += Math.floor(asset.total_mentions * 0.4);
+                else if (asset.sentiment_label === 'bearish') bearishMentions += Math.floor(asset.total_mentions * 0.3);
+                else neutralMentions += Math.floor(asset.total_mentions * 0.3);
+            });
+            
+            // Update metrics
+            document.getElementById('total-mentions').textContent = totalMentions.toLocaleString();
+            document.getElementById('bullish-mentions').textContent = bullishMentions.toLocaleString();
+            document.getElementById('bearish-mentions').textContent = bearishMentions.toLocaleString();
+            document.getElementById('neutral-mentions').textContent = neutralMentions.toLocaleString();
+        })
+        .catch(error => {
+            console.error('Error loading sentiment stats:', error);
+        });
+}
+
+// Refresh all data
+function refreshData() {
+    loadHealthStatus();
+    loadSentimentStats();
+    
+    // Show loading state
+    const refreshBtn = event.target.closest('.refresh-btn');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    refreshBtn.disabled = true;
+    
+    setTimeout(() => {
+        refreshBtn.innerHTML = originalText;
+        refreshBtn.disabled = false;
+    }, 2000);
+}
+
+// Trigger data collection
+function triggerCollection() {
+    fetch('/sentiment/api/trigger/collect/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Data collection started successfully!');
+            // Refresh data after a delay
+            setTimeout(() => {
+                location.reload();
+            }, 5000);
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error triggering collection:', error);
+        alert('Error triggering data collection');
+    });
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,467 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Spot Trading Signals - Long-term Investment Opportunities{% endblock %}
+
+{% block extra_css %}
+<style>
+    .spot-signal-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .spot-signal-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+    
+    .signal-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .signal-category {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.9em;
+    }
+    
+    .category-accumulation {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .category-dca {
+        background: linear-gradient(135deg, #007bff, #6610f2);
+        color: white;
+    }
+    
+    .category-distribution {
+        background: linear-gradient(135deg, #dc3545, #fd7e14);
+        color: white;
+    }
+    
+    .score-bar {
+        width: 100%;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 5px 0;
+    }
+    
+    .score-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .fundamental-score { background: linear-gradient(90deg, #28a745, #20c997); }
+    .technical-score { background: linear-gradient(90deg, #007bff, #6610f2); }
+    .sentiment-score { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+    
+    .investment-details {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+    
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+    
+    .detail-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .price-targets {
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+    
+    .targets-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+    
+    .target-item {
+        text-align: center;
+        padding: 10px;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .target-item label {
+        font-size: 0.8em;
+        color: #6c757d;
+        font-weight: bold;
+    }
+    
+    .target-item span {
+        font-size: 1.1em;
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .signal-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .stats-card h3 {
+        margin: 0;
+        font-size: 2em;
+        font-weight: bold;
+    }
+    
+    .stats-card p {
+        margin: 5px 0 0 0;
+        opacity: 0.9;
+    }
+    
+    .filter-section {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4em;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-coins text-success me-2"></i>
+                        Spot Trading Signals
+                    </h1>
+                    <p class="text-muted mb-0">Long-term cryptocurrency investment opportunities (1-2 years)</p>
+                </div>
+                <div>
+                    <a href="/signals/" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Signals
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <h3>{{ total_spot_signals }}</h3>
+                <p>Total Spot Signals</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <h3>{{ accumulation_signals }}</h3>
+                <p>Accumulation Signals</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <h3>{{ dca_signals }}</h3>
+                <p>DCA Signals</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <h5 class="mb-3">
+            <i class="fas fa-filter me-2"></i>Filter Signals
+        </h5>
+        <div class="row">
+            <div class="col-md-4">
+                <label for="category-filter" class="form-label">Signal Category:</label>
+                <select class="form-select" id="category-filter">
+                    <option value="">All Categories</option>
+                    <option value="ACCUMULATION">Accumulation</option>
+                    <option value="DCA">Dollar Cost Average</option>
+                    <option value="DISTRIBUTION">Distribution</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="horizon-filter" class="form-label">Investment Horizon:</label>
+                <select class="form-select" id="horizon-filter">
+                    <option value="">All Horizons</option>
+                    <option value="SHORT_TERM">6-12 months</option>
+                    <option value="MEDIUM_TERM">1-2 years</option>
+                    <option value="LONG_TERM">2-5 years</option>
+                    <option value="VERY_LONG_TERM">5+ years</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="symbol-filter" class="form-label">Symbol:</label>
+                <select class="form-select" id="symbol-filter">
+                    <option value="">All Symbols</option>
+                    {% for signal in spot_signals %}
+                        <option value="{{ signal.symbol.symbol }}">{{ signal.symbol.symbol }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spot Signals Grid -->
+    <div class="row" id="spot-signals-grid">
+        {% if spot_signals %}
+            {% for signal in spot_signals %}
+            <div class="col-lg-6 col-xl-4 spot-signal-item" 
+                 data-category="{{ signal.signal_category }}" 
+                 data-horizon="{{ signal.investment_horizon }}"
+                 data-symbol="{{ signal.symbol.symbol }}">
+                <div class="spot-signal-card">
+                    <!-- Signal Header -->
+                    <div class="signal-header">
+                        <h4 class="mb-0">{{ signal.symbol.symbol }}</h4>
+                        <span class="signal-category category-{{ signal.signal_category|lower }}">
+                            {{ signal.signal_category }}
+                        </span>
+                    </div>
+
+                    <!-- Analysis Scores -->
+                    <div class="signal-scores">
+                        <div class="score-item">
+                            <label>Fundamental Analysis</label>
+                            <div class="score-bar">
+                                <div class="score-fill fundamental-score" style="width: {{ signal.fundamental_score|floatformat:0 }}%"></div>
+                            </div>
+                            <span>{{ signal.fundamental_score|floatformat:2 }}</span>
+                        </div>
+                        
+                        <div class="score-item">
+                            <label>Technical Analysis</label>
+                            <div class="score-bar">
+                                <div class="score-fill technical-score" style="width: {{ signal.technical_score|floatformat:0 }}%"></div>
+                            </div>
+                            <span>{{ signal.technical_score|floatformat:2 }}</span>
+                        </div>
+                        
+                        <div class="score-item">
+                            <label>Market Sentiment</label>
+                            <div class="score-bar">
+                                <div class="score-fill sentiment-score" style="width: {{ signal.sentiment_score|floatformat:0 }}%"></div>
+                            </div>
+                            <span>{{ signal.sentiment_score|floatformat:2 }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Investment Details -->
+                    <div class="investment-details">
+                        <h6 class="mb-3">
+                            <i class="fas fa-chart-line me-2"></i>Investment Strategy
+                        </h6>
+                        <div class="detail-item">
+                            <label>Investment Horizon:</label>
+                            <span class="badge bg-info">{{ signal.investment_horizon }}</span>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <label>Portfolio Allocation:</label>
+                            <span class="badge bg-success">{{ signal.recommended_allocation|floatformat:1 }}%</span>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <label>DCA Frequency:</label>
+                            <span class="badge bg-primary">{{ signal.dca_frequency }}</span>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <label>Overall Confidence:</label>
+                            <span class="badge bg-{% if signal.confidence_level == 'VERY_HIGH' %}success{% elif signal.confidence_level == 'HIGH' %}info{% else %}warning{% endif %}">
+                                {{ signal.confidence_level }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Price Targets -->
+                    {% if signal.target_price_6m or signal.target_price_1y or signal.target_price_2y %}
+                    <div class="price-targets">
+                        <h6 class="mb-3">
+                            <i class="fas fa-bullseye me-2"></i>Price Targets
+                        </h6>
+                        <div class="targets-grid">
+                            {% if signal.target_price_6m %}
+                            <div class="target-item">
+                                <label>6 Months</label>
+                                <span>${{ signal.target_price_6m|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if signal.target_price_1y %}
+                            <div class="target-item">
+                                <label>1 Year</label>
+                                <span>${{ signal.target_price_1y|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if signal.target_price_2y %}
+                            <div class="target-item">
+                                <label>2 Years</label>
+                                <span>${{ signal.target_price_2y|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Signal Actions -->
+                    <div class="signal-actions">
+                        <button class="btn btn-primary btn-sm" onclick="viewSpotAnalysis({{ signal.id }})">
+                            <i class="fas fa-eye me-1"></i>View Analysis
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="addToWatchlist('{{ signal.symbol.symbol }}')">
+                            <i class="fas fa-plus me-1"></i>Watchlist
+                        </button>
+                    </div>
+
+                    <!-- Signal Metadata -->
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            Analyzed: {{ signal.analyzed_at|date:"M d, Y H:i:s" }} (SL Time)
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-coins"></i>
+                    <h4>No Spot Signals Available</h4>
+                    <p>Generate new spot trading signals to see long-term investment opportunities.</p>
+                    <a href="/signals/" class="btn btn-primary">
+                        <i class="fas fa-magic me-2"></i>Generate Signals
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Spot Signal Analysis Modal -->
+<div class="modal fade" id="spotAnalysisModal" tabindex="-1" role="dialog" aria-labelledby="spotAnalysisModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="spotAnalysisModalLabel">Spot Signal Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="spotAnalysisModalBody">
+                <!-- Analysis details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Filter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryFilter = document.getElementById('category-filter');
+    const horizonFilter = document.getElementById('horizon-filter');
+    const symbolFilter = document.getElementById('symbol-filter');
+    
+    function filterSignals() {
+        const selectedCategory = categoryFilter.value;
+        const selectedHorizon = horizonFilter.value;
+        const selectedSymbol = symbolFilter.value;
+        
+        const signalItems = document.querySelectorAll('.spot-signal-item');
+        
+        signalItems.forEach(item => {
+            const category = item.dataset.category;
+            const horizon = item.dataset.horizon;
+            const symbol = item.dataset.symbol;
+            
+            let show = true;
+            
+            if (selectedCategory && category !== selectedCategory) {
+                show = false;
+            }
+            
+            if (selectedHorizon && horizon !== selectedHorizon) {
+                show = false;
+            }
+            
+            if (selectedSymbol && symbol !== selectedSymbol) {
+                show = false;
+            }
+            
+            item.style.display = show ? 'block' : 'none';
+        });
+    }
+    
+    categoryFilter.addEventListener('change', filterSignals);
+    horizonFilter.addEventListener('change', filterSignals);
+    symbolFilter.addEventListener('change', filterSignals);
+});
+
+// View spot analysis
+function viewSpotAnalysis(signalId) {
+    // For now, show a simple alert. In a real implementation, 
+    // this would fetch detailed analysis from the API
+    alert('Detailed analysis for signal ID: ' + signalId + '\n\nThis would show:\n- Detailed fundamental analysis\n- Technical analysis breakdown\n- Sentiment analysis details\n- Risk assessment\n- Portfolio recommendations');
+}
+
+// Add to watchlist
+function addToWatchlist(symbol) {
+    // For now, show a simple alert. In a real implementation,
+    // this would add the symbol to the user's watchlist
+    alert('Added ' + symbol + ' to your watchlist!');
+}
+
+// Auto-refresh every 5 minutes
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}
