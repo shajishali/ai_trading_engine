@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Email Verified - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .success-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .success-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 50px 40px;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .success-icon {
+        font-size: 100px;
+        margin-bottom: 30px;
+        animation: scaleIn 0.5s ease-out;
+    }
+    
+    @keyframes scaleIn {
+        from {
+            transform: scale(0);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    .success-header h1 {
+        color: #2d3748;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+    
+    .success-header p {
+        color: #718096;
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+    }
+    
+    .success-message {
+        background: #c6f6d5;
+        border: 2px solid #9ae6b4;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 30px 0;
+        color: #22543d;
+    }
+    
+    .success-message p {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    
+    .next-steps {
+        text-align: left;
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 12px;
+        padding: 25px;
+        margin: 30px 0;
+    }
+    
+    .next-steps h3 {
+        color: #2d3748;
+        font-size: 1.3rem;
+        margin-bottom: 15px;
+    }
+    
+    .next-steps ul {
+        color: #4a5568;
+        padding-left: 20px;
+        margin: 0;
+    }
+    
+    .next-steps li {
+        margin-bottom: 12px;
+        line-height: 1.6;
+        font-size: 1rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 20px;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .redirect-countdown {
+        margin-top: 20px;
+        color: #718096;
+        font-size: 0.95rem;
+    }
+    
+    .redirect-countdown strong {
+        color: #667eea;
+    }
+
+    /* Dark mode support */
+    [data-theme="dark"] .success-card {
+        background: rgba(45, 45, 45, 0.95) !important;
+    }
+
+    [data-theme="dark"] .success-header h1 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .success-header p {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .success-message {
+        background: rgba(81, 207, 102, 0.2) !important;
+        border-color: #51cf66 !important;
+        color: #51cf66 !important;
+    }
+
+    [data-theme="dark"] .next-steps {
+        background: rgba(102, 126, 234, 0.1) !important;
+    }
+
+    [data-theme="dark"] .next-steps h3 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .next-steps li {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .redirect-countdown {
+        color: #cccccc !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-container">
+    <div class="success-card">
+        <div class="success-icon">✅</div>
+        
+        <div class="success-header">
+            <h1>Email Verified Successfully!</h1>
+            <p>Your account has been activated</p>
+        </div>
+        
+        <div class="success-message">
+            <p>🎉 Welcome to AI Trading Engine! You're all set to start trading.</p>
+        </div>
+        
+        <div class="next-steps">
+            <h3>What's Next?</h3>
+            <ul>
+                <li>Choose your subscription plan to unlock all features</li>
+                <li>Explore AI-powered trading signals</li>
+                <li>Set up your portfolio and start tracking</li>
+                <li>Access real-time market analysis and insights</li>
+            </ul>
+        </div>
+        
+        <a href="{% url 'subscription:subscription_choice' %}" class="btn-primary">
+            Choose Your Plan →
+        </a>
+        
+        <div class="redirect-countdown">
+            <p>Redirecting automatically in <strong id="countdown">5</strong> seconds...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-redirect after 5 seconds
+    let countdown = 5;
+    const countdownElement = document.getElementById('countdown');
+    const redirectUrl = "{% url 'subscription:subscription_choice' %}";
+    
+    const timer = setInterval(function() {
+        countdown--;
+        if (countdownElement) {
+            countdownElement.textContent = countdown;
+        }
+        
+        if (countdown <= 0) {
+            clearInterval(timer);
+            window.location.href = redirectUrl;
+        }
+    }, 1000);
+</script>
+{% endblock %}
+

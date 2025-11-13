@@ -1,0 +1,24 @@
+Verify Your Email Address - AI Trading Engine
+=============================================
+
+Hello {{ user.username }},
+
+Thank you for signing up for AI Trading Engine! To complete your registration and activate your account, please verify your email address by clicking the link below:
+
+{{ verification_url }}
+
+IMPORTANT: This verification link will expire in 24 hours. If it expires, you can request a new verification email from the signup page.
+
+If the link above doesn't work, copy and paste it into your browser's address bar.
+
+If you didn't create an account with us, please ignore this email.
+
+Welcome aboard!
+The AI Trading Engine Team
+
+---
+This is an automated email. Please do not reply to this message.
+If you have any questions, please contact our support team at support@{{ site_domain }}
+
+© {{ site_name }}. All rights reserved.
+

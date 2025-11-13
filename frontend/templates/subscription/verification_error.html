@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Verification Error - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .error-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .error-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+    }
+    
+    .error-header h1 {
+        color: #2d3748;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+    
+    .error-header p {
+        color: #718096;
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+    }
+    
+    .error-message-box {
+        background: #fed7d7;
+        border: 2px solid #feb2b2;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 30px 0;
+        color: #742a2a;
+    }
+    
+    .error-message-box p {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    
+    .error-details {
+        text-align: left;
+        background: rgba(229, 62, 62, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 30px 0;
+    }
+    
+    .error-details h3 {
+        color: #2d3748;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+    
+    .error-details ul {
+        color: #4a5568;
+        padding-left: 20px;
+        margin: 0;
+    }
+    
+    .error-details li {
+        margin-bottom: 10px;
+        line-height: 1.6;
+    }
+    
+    .actions {
+        margin-top: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: #e2e8f0;
+        color: #4a5568;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-secondary:hover {
+        background: #cbd5e0;
+        color: #4a5568;
+    }
+    
+    .resend-section {
+        margin-top: 30px;
+        padding-top: 30px;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .resend-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    /* Dark mode support */
+    [data-theme="dark"] .error-card {
+        background: rgba(45, 45, 45, 0.95) !important;
+    }
+
+    [data-theme="dark"] .error-header h1 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .error-header p {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .error-message-box {
+        background: rgba(255, 107, 107, 0.2) !important;
+        border-color: #ff6b6b !important;
+        color: #ff6b6b !important;
+    }
+
+    [data-theme="dark"] .error-details {
+        background: rgba(229, 62, 62, 0.1) !important;
+    }
+
+    [data-theme="dark"] .error-details h3 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .error-details li {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .form-control {
+        background-color: #2d2d2d !important;
+        color: #ffffff !important;
+        border-color: #555 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-card">
+        <div class="error-icon">⚠️</div>
+        
+        <div class="error-header">
+            <h1>Verification Error</h1>
+            <p>We couldn't verify your email address</p>
+        </div>
+        
+        <!-- Error Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="error-message-box">
+                    <p>{{ message }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="error-message-box">
+                <p>The verification link is invalid or has expired.</p>
+            </div>
+        {% endif %}
+        
+        <div class="error-details">
+            <h3>Possible reasons:</h3>
+            <ul>
+                <li>The verification link has expired (links expire after 24 hours)</li>
+                <li>The link has already been used</li>
+                <li>The link is invalid or corrupted</li>
+                <li>Your account may already be verified</li>
+            </ul>
+        </div>
+        
+        <div class="actions">
+            <a href="{% url 'subscription:signup' %}" class="btn-primary">
+                Request New Verification Email
+            </a>
+            <a href="{% url 'dashboard:login' %}" class="btn-secondary">
+                Try Logging In
+            </a>
+        </div>
+        
+        <div class="resend-section">
+            <h3 style="color: #2d3748; margin-bottom: 15px; font-size: 1.1rem;">Or resend verification email</h3>
+            <p style="color: #718096; margin-bottom: 20px; font-size: 0.95rem;">Enter your email address to receive a new verification link.</p>
+            
+            <form method="post" action="{% url 'subscription:resend_verification' %}" class="resend-form">
+                {% csrf_token %}
+                <input 
+                    type="email" 
+                    name="email" 
+                    class="form-control" 
+                    placeholder="Enter your email address"
+                    required
+                >
+                <button type="submit" class="btn-primary">Resend Verification Email</button>
+            </form>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <p style="color: #718096; font-size: 0.9rem;">
+                Need help? <a href="mailto:support@ai-trading-engine.com" style="color: #667eea; text-decoration: none;">Contact Support</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

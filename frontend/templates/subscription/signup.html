@@ -456,6 +456,17 @@
             </div>
             
             <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">Email Address</label>
+                {{ form.email }}
+                {% if form.email.errors %}
+                    <div class="error-message">{{ form.email.errors.0 }}</div>
+                {% endif %}
+                <small style="color: #718096; font-size: 0.875rem; margin-top: 5px; display: block;">
+                    We'll send a verification email to this address
+                </small>
+            </div>
+            
+            <div class="form-group">
                 <label for="{{ form.password1.id_for_label }}">Password</label>
                 {{ form.password1 }}
                 {% if form.password1.errors %}

@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Verify Your Email - AI Trading Engine{% endblock %}
+
+{% block extra_css %}
+<style>
+    .verification-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .verification-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .verification-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+    }
+    
+    .verification-header h1 {
+        color: #2d3748;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+    
+    .verification-header p {
+        color: #718096;
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+    }
+    
+    .email-box {
+        background: #f7fafc;
+        border: 2px dashed #cbd5e0;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 30px 0;
+    }
+    
+    .email-box .email-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+    }
+    
+    .email-box p {
+        color: #4a5568;
+        font-size: 1rem;
+        margin: 10px 0;
+    }
+    
+    .instructions {
+        text-align: left;
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 30px 0;
+    }
+    
+    .instructions h3 {
+        color: #2d3748;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+    
+    .instructions ol {
+        color: #4a5568;
+        padding-left: 20px;
+    }
+    
+    .instructions li {
+        margin-bottom: 10px;
+        line-height: 1.6;
+    }
+    
+    .resend-section {
+        margin-top: 30px;
+        padding-top: 30px;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .resend-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-secondary {
+        background: #e2e8f0;
+        color: #4a5568;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-secondary:hover {
+        background: #cbd5e0;
+    }
+    
+    .login-link {
+        margin-top: 20px;
+        color: #718096;
+    }
+    
+    .login-link a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    
+    .login-link a:hover {
+        text-decoration: underline;
+    }
+    
+    .success-message {
+        color: #38a169;
+        background: #c6f6d5;
+        border: 1px solid #9ae6b4;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        font-size: 0.95rem;
+    }
+    
+    .error-message {
+        color: #e53e3e;
+        background: #fed7d7;
+        border: 1px solid #feb2b2;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        font-size: 0.95rem;
+    }
+
+    /* Dark mode support */
+    [data-theme="dark"] .verification-card {
+        background: rgba(45, 45, 45, 0.95) !important;
+    }
+
+    [data-theme="dark"] .verification-header h1 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .verification-header p {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .email-box {
+        background: #2d2d2d !important;
+        border-color: #555 !important;
+    }
+
+    [data-theme="dark"] .email-box p {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .instructions {
+        background: rgba(102, 126, 234, 0.1) !important;
+    }
+
+    [data-theme="dark"] .instructions h3 {
+        color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .instructions li {
+        color: #cccccc !important;
+    }
+
+    [data-theme="dark"] .form-control {
+        background-color: #2d2d2d !important;
+        color: #ffffff !important;
+        border-color: #555 !important;
+    }
+
+    [data-theme="dark"] .login-link {
+        color: #cccccc !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="verification-container">
+    <div class="verification-card">
+        <div class="verification-icon">📧</div>
+        
+        <div class="verification-header">
+            <h1>Check Your Email</h1>
+            <p>We've sent a verification link to your email address</p>
+        </div>
+        
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="{% if message.tags == 'error' %}error-message{% else %}success-message{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        <div class="email-box">
+            <div class="email-icon">✉️</div>
+            <p><strong>Please check your inbox</strong></p>
+            <p>Click the verification link in the email to activate your account</p>
+        </div>
+        
+        <div class="instructions">
+            <h3>What to do next:</h3>
+            <ol>
+                <li>Check your email inbox (and spam/junk folder if you don't see it)</li>
+                <li>Look for an email from <strong>AI Trading Engine</strong></li>
+                <li>Click the "Verify Email Address" button in the email</li>
+                <li>You'll be automatically logged in and redirected to your dashboard</li>
+            </ol>
+        </div>
+        
+        <div class="resend-section">
+            <h3 style="color: #2d3748; margin-bottom: 15px;">Didn't receive the email?</h3>
+            <p style="color: #718096; margin-bottom: 20px;">Enter your email address below and we'll send you a new verification link.</p>
+            
+            <form method="post" action="{% url 'subscription:resend_verification' %}" class="resend-form">
+                {% csrf_token %}
+                <input 
+                    type="email" 
+                    name="email" 
+                    class="form-control" 
+                    placeholder="Enter your email address"
+                    required
+                >
+                <button type="submit" class="btn-primary">Resend Verification Email</button>
+            </form>
+        </div>
+        
+        <div class="login-link">
+            Already verified? <a href="{% url 'dashboard:login' %}">Sign In</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
