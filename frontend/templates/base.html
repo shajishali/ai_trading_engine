@@ -15,27 +15,34 @@
     
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
+            --primary-color: #022b57;
+            --secondary-color: #0d6efd;
+            --primary-gradient-start: #022b57;
+            --primary-gradient-end: #0d6efd;
             --success-color: #27ae60;
             --danger-color: #e74c3c;
             --warning-color: #f39c12;
             --info-color: #17a2b8;
-            --dark-color: #34495e;
+            --dark-color: #022b57;
             --light-color: #ecf0f1;
             --bg-color: #f8f9fa;
-            --text-color: #2c3e50;
+            --text-color: #022b57;
             --card-bg: #ffffff;
-            --sidebar-bg: #2c3e50;
+            --sidebar-bg: #022b57;
             --navbar-bg: #ffffff;
         }
         
         [data-theme="dark"] {
-            --bg-color: #1a1a1a;
+            --bg-color: #0a1929;
             --text-color: #ffffff;
-            --card-bg: #2d2d2d;
-            --sidebar-bg: #1a1a1a;
-            --navbar-bg: #2d2d2d;
+            --card-bg: #1a2a3a;
+            --sidebar-bg: #022b57;
+            --navbar-bg: #1a2a3a;
+            --primary-color: #0d6efd;
+            --secondary-color: #3b82f6;
+            --primary-gradient-start: #022b57;
+            --primary-gradient-end: #0d6efd;
+            --dark-color: #022b57;
         }
         
         body {
@@ -60,26 +67,28 @@
         }
         
         .card-header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
             border-radius: 10px 10px 0 0 !important;
             font-weight: bold;
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             border: none;
             border-radius: 5px;
             padding: 10px 20px;
             font-weight: 600;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(2, 43, 87, 0.4);
+            color: white;
         }
         
         .btn-primary:hover {
-            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start));
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.5);
+            color: white;
         }
         
         .btn-lg {
@@ -88,8 +97,8 @@
         }
         
         .btn-outline-primary {
-            border: 2px solid var(--secondary-color);
-            color: var(--secondary-color);
+            border: 2px solid var(--primary-gradient-end);
+            color: var(--primary-gradient-end);
             background: transparent;
             padding: 10px 20px;
             font-weight: 600;
@@ -97,10 +106,11 @@
         }
         
         .btn-outline-primary:hover {
-            background: var(--secondary-color);
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             color: white;
+            border-color: var(--primary-gradient-end);
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4);
         }
         
         .btn-outline-secondary {
@@ -121,12 +131,12 @@
         
         /* Market Stat Cards - Compact Design */
         .market-stat-card {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
             border-radius: 12px;
             padding: 16px 12px;
             text-align: center;
             color: white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4);
             transition: all 0.3s ease;
             border: 1px solid rgba(255,255,255,0.1);
             min-height: 80px;
@@ -236,11 +246,12 @@
         }
         
         .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
             color: white;
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4);
         }
         
         .stats-card h3 {
@@ -285,11 +296,11 @@
 
         /* Premium Navigation Styling */
         .navbar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            background: linear-gradient(to right, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%) !important;
             backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             padding: 0.4rem 0;
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 25px rgba(2, 43, 87, 0.4);
             position: relative;
             overflow: visible;
             z-index: 9997;
@@ -299,15 +310,13 @@
             max-width: 1400px;
             margin: 0 auto;
             padding: 0 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
 
         .navbar-collapse {
             flex-grow: 1;
-            justify-content: space-between;
+            display: flex;
             align-items: center;
+            justify-content: space-between;
         }
 
         .navbar-nav {
@@ -320,6 +329,7 @@
             margin-left: auto;
             justify-content: flex-end;
         }
+
 
         /* Additional spacing for non-authenticated nav items */
         .navbar-nav:last-child .nav-item:not(:last-child) {
@@ -388,17 +398,17 @@
 
         .nav-link {
             position: relative;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border-radius: 12px;
+            transition: all 0.3s ease;
+            border-radius: 10px;
             margin: 0 3px;
-            padding: 10px 16px !important;
-            color: rgba(255, 255, 255, 0.9) !important;
+            padding: 0.4rem 0.8rem !important;
+            color: white !important;
             font-weight: 500;
             font-size: 0.9rem;
             letter-spacing: 0.3px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             min-width: 100px;
             text-align: center;
             display: inline-flex;
@@ -409,6 +419,7 @@
             text-decoration: none !important;
             cursor: pointer;
             pointer-events: auto;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         /* Clean spacing for navigation items */
@@ -441,7 +452,7 @@
         }
 
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.15) !important;
+            background: rgba(255, 255, 255, 0.2) !important;
             color: white !important;
             transform: translateY(-3px) scale(1.05);
             box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
@@ -454,15 +465,15 @@
             transition: all 0.1s ease;
         }
 
-        /* Active navigation styling with premium effects */
+        /* Active navigation styling - matching navbar-brand style */
         .nav-link.active {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
             color: white !important;
-            border-radius: 12px;
-            padding: 10px 16px !important;
+            border-radius: 10px;
+            padding: 0.4rem 0.8rem !important;
             margin: 0 3px;
             transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
             border: 1px solid rgba(255, 255, 255, 0.3);
             font-weight: 600;
             min-width: 100px;
@@ -507,10 +518,10 @@
         }
 
         .nav-link.active:hover {
-            background: linear-gradient(135deg, #764ba2, #667eea) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start)) !important;
             color: white !important;
             transform: translateY(-4px) scale(1.08);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 15px 40px rgba(2, 43, 87, 0.6);
             border-color: rgba(255, 255, 255, 0.5);
         }
 
@@ -525,7 +536,7 @@
             border-radius: 10px;
             margin: 4px 8px;
             padding: 12px 20px !important;
-            color: #2c3e50;
+            color: var(--text-color);
             font-weight: 500;
             border: 1px solid transparent;
             position: relative;
@@ -548,10 +559,10 @@
         }
 
         .dropdown-item:hover {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
             transform: translateX(8px) scale(1.02);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 10px 30px rgba(2, 43, 87, 0.4);
             border-color: rgba(255, 255, 255, 0.3);
         }
 
@@ -561,10 +572,10 @@
         }
 
         .dropdown-item.active {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
             transform: translateX(6px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 25px rgba(2, 43, 87, 0.4);
             border-color: rgba(255, 255, 255, 0.3);
             position: relative;
             overflow: hidden;
@@ -586,10 +597,10 @@
         }
 
         .dropdown-item.active:hover {
-            background: linear-gradient(135deg, #764ba2, #667eea) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start)) !important;
             color: white !important;
             transform: translateX(10px) scale(1.03);
-            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 15px 40px rgba(2, 43, 87, 0.6);
             border-color: rgba(255, 255, 255, 0.4);
         }
 
@@ -602,7 +613,7 @@
 
         /* Premium Active dropdown parent styling */
         .nav-item.dropdown .nav-link.active {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
         }
 
@@ -637,7 +648,7 @@
         body:not([data-theme="dark"]) .btn-outline-secondary {
             background: rgba(0, 0, 0, 0.1) !important;
             border: 3px solid rgba(0, 0, 0, 0.4) !important;
-            color: #2c3e50 !important;
+            color: var(--text-color) !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
         }
 
@@ -650,50 +661,68 @@
         }
 
         /* Brightness Toggle Button - Enhanced Visibility */
+        /* Style theme-toggle and brightness-toggle to match nav-link buttons */
+        #theme-toggle,
         #brightness-toggle {
-            background: rgba(255, 255, 255, 0.15) !important;
-            border: 3px solid rgba(255, 255, 255, 0.6) !important;
-            color: white !important;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px !important;
+            margin: 0 3px;
+            padding: 10px 16px !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-weight: 500;
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+            background: rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            min-width: 50px;
+            text-align: center;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            overflow: hidden;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: none !important;
         }
 
-        /* Light mode brightness toggle button */
-        body:not([data-theme="dark"]) #brightness-toggle {
-            background: rgba(0, 0, 0, 0.1) !important;
-            border: 3px solid rgba(0, 0, 0, 0.4) !important;
-            color: #2c3e50 !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+        #theme-toggle::before,
+        #brightness-toggle::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
         }
 
-        body:not([data-theme="dark"]) #brightness-toggle:hover {
-            background: rgba(0, 0, 0, 0.2) !important;
-            border: 3px solid rgba(0, 0, 0, 0.6) !important;
-            color: #1a252f !important;
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+        #theme-toggle:hover::before,
+        #brightness-toggle:hover::before {
+            left: 100%;
         }
 
+        #theme-toggle:hover,
         #brightness-toggle:hover {
-            background: rgba(255, 255, 255, 0.25) !important;
-            border: 3px solid rgba(255, 255, 255, 0.8) !important;
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
         }
 
+        #theme-toggle:active,
         #brightness-toggle:active {
             transform: translateY(-1px) scale(1.02);
         }
 
+        #theme-toggle i,
         #brightness-toggle i {
-            font-size: 1.1rem;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Theme toggle button icon enhancement */
-        #theme-toggle i {
-            font-size: 1.1rem;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .btn-outline-secondary::before {
@@ -775,17 +804,20 @@
 
         /* Dark mode adjustments for premium navigation */
         [data-theme="dark"] .navbar {
-            background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+            background: linear-gradient(to right, #1e3a5f 0%, #2d5a8a 100%) !important;
         }
 
         [data-theme="dark"] .nav-link {
-            color: rgba(255, 255, 255, 0.9) !important;
-            background: rgba(255, 255, 255, 0.05);
+            color: white !important;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         [data-theme="dark"] .nav-link:hover {
-            background: rgba(255, 255, 255, 0.15) !important;
+            background: rgba(255, 255, 255, 0.2) !important;
             color: white !important;
+            border-color: rgba(255, 255, 255, 0.4);
         }
 
         [data-theme="dark"] .dropdown-menu {
@@ -799,7 +831,7 @@
         }
 
         [data-theme="dark"] .dropdown-item:hover {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
         }
 
@@ -855,9 +887,9 @@
         [data-theme="dark"] .form-control:focus,
         [data-theme="dark"] .form-select:focus {
             background-color: #404040;
-            border-color: #3498db;
+            border-color: var(--primary-gradient-end);
             color: var(--text-color);
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+            box-shadow: 0 0 0 0.2rem rgba(2, 43, 87, 0.4);
         }
 
         [data-theme="dark"] .btn-outline-primary {
@@ -1102,19 +1134,22 @@
         }
 
         /* Dark mode brightness button */
+        [data-theme="dark"] #theme-toggle,
         [data-theme="dark"] #brightness-toggle {
-            background: rgba(255, 255, 255, 0.1) !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-            color: #ffffff !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: rgba(255, 255, 255, 0.9) !important;
         }
 
+        [data-theme="dark"] #theme-toggle:hover,
         [data-theme="dark"] #brightness-toggle:hover {
-            background: rgba(255, 255, 255, 0.2) !important;
-            border-color: rgba(255, 255, 255, 0.5) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            color: white !important;
         }
 
         [data-theme="dark"] .navbar {
-            background-color: #2d2d2d !important;
+            background: linear-gradient(to right, #1e3a5f 0%, #2d5a8a 100%) !important;
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -1491,10 +1526,10 @@
         }
         
         #analytics-dropdown-menu .dropdown-item:hover {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
             transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 8px rgba(2, 43, 87, 0.4);
         }
 
         /* Light mode specific analytics dropdown fixes */
@@ -1510,10 +1545,10 @@
         }
 
         body:not([data-theme="dark"]) #analytics-dropdown-menu .dropdown-item:hover {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
             transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 8px rgba(2, 43, 87, 0.4);
         }
 
         body:not([data-theme="dark"]) #user-dropdown-menu {
@@ -1889,10 +1924,10 @@
         }
 
         [data-theme="dark"] #analytics-dropdown-menu .dropdown-item:hover {
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
             color: white !important;
             transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 8px rgba(2, 43, 87, 0.4);
         }
 
         [data-theme="dark"] #user-dropdown-menu {
@@ -2157,27 +2192,29 @@
 
         /* Home page light mode fixes */
         body:not([data-theme="dark"]) .btn-primary {
-            background-color: #0d6efd !important;
-            border-color: #0d6efd !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
+            border: none !important;
             color: #ffffff !important;
         }
 
         body:not([data-theme="dark"]) .btn-primary:hover {
-            background-color: #0b5ed7 !important;
-            border-color: #0a58ca !important;
+            background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start)) !important;
             color: #ffffff !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.5) !important;
         }
 
         body:not([data-theme="dark"]) .btn-outline-primary {
-            color: #0d6efd !important;
-            border-color: #0d6efd !important;
+            color: var(--primary-gradient-end) !important;
+            border-color: var(--primary-gradient-end) !important;
             background-color: transparent !important;
         }
 
         body:not([data-theme="dark"]) .btn-outline-primary:hover {
             color: #ffffff !important;
-            background-color: #0d6efd !important;
-            border-color: #0d6efd !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
+            border-color: var(--primary-gradient-end) !important;
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4) !important;
         }
 
         body:not([data-theme="dark"]) .btn-outline-secondary {
@@ -2253,7 +2290,7 @@
         }
 
         body:not([data-theme="dark"]) .text-primary {
-            color: #0d6efd !important;
+            color: var(--primary-gradient-end) !important;
         }
 
         body:not([data-theme="dark"]) .text-success {
@@ -2269,7 +2306,7 @@
         }
 
         body:not([data-theme="dark"]) .bg-primary {
-            background-color: #0d6efd !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
         }
 
         body:not([data-theme="dark"]) .text-white {
@@ -2277,19 +2314,21 @@
         }
 
         body:not([data-theme="dark"]) .stats-card {
-            background-color: #ffffff !important;
-            border: 1px solid #dee2e6 !important;
-            border-radius: 8px !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%) !important;
+            border: none !important;
+            border-radius: 15px !important;
             padding: 20px !important;
-            color: #212529 !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4) !important;
         }
 
         body:not([data-theme="dark"]) .stats-card h3 {
-            color: #0d6efd !important;
+            color: #ffffff !important;
         }
 
         body:not([data-theme="dark"]) .stats-card p {
-            color: #6c757d !important;
+            color: #f0f0f0 !important;
+            opacity: 0.95;
         }
 
         body:not([data-theme="dark"]) .display-4 {
@@ -2319,27 +2358,29 @@
 
         /* Dark mode home page fixes */
         [data-theme="dark"] .btn-primary {
-            background-color: #0d6efd !important;
-            border-color: #0d6efd !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
+            border: none !important;
             color: #ffffff !important;
         }
 
         [data-theme="dark"] .btn-primary:hover {
-            background-color: #0b5ed7 !important;
-            border-color: #0a58ca !important;
+            background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start)) !important;
             color: #ffffff !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.5) !important;
         }
 
         [data-theme="dark"] .btn-outline-primary {
-            color: #4da6ff !important;
-            border-color: #4da6ff !important;
+            color: var(--primary-gradient-end) !important;
+            border-color: var(--primary-gradient-end) !important;
             background-color: transparent !important;
         }
 
         [data-theme="dark"] .btn-outline-primary:hover {
             color: #ffffff !important;
-            background-color: #4da6ff !important;
-            border-color: #4da6ff !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
+            border-color: var(--primary-gradient-end) !important;
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4) !important;
         }
 
         [data-theme="dark"] .btn-outline-secondary {
@@ -2415,7 +2456,7 @@
         }
 
         [data-theme="dark"] .text-primary {
-            color: #4da6ff !important;
+            color: var(--primary-gradient-end) !important;
         }
 
         [data-theme="dark"] .text-success {
@@ -2431,7 +2472,7 @@
         }
 
         [data-theme="dark"] .bg-primary {
-            background-color: #0d6efd !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end)) !important;
         }
 
         [data-theme="dark"] .text-white {
@@ -2439,19 +2480,21 @@
         }
 
         [data-theme="dark"] .stats-card {
-            background-color: #2d2d2d !important;
-            border: 1px solid #444 !important;
-            border-radius: 8px !important;
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%) !important;
+            border: none !important;
+            border-radius: 15px !important;
             padding: 20px !important;
             color: #ffffff !important;
+            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.4) !important;
         }
 
         [data-theme="dark"] .stats-card h3 {
-            color: #4da6ff !important;
+            color: #ffffff !important;
         }
 
         [data-theme="dark"] .stats-card p {
-            color: #cccccc !important;
+            color: #f0f0f0 !important;
+            opacity: 0.95;
         }
 
         [data-theme="dark"] .display-4 {
@@ -2495,8 +2538,8 @@
 
         /* Specific button color overrides for light mode */
         body:not([data-theme="dark"]) .btn-outline-primary {
-            color: #0d6efd !important;
-            border-color: #0d6efd !important;
+            color: var(--primary-gradient-end) !important;
+            border-color: var(--primary-gradient-end) !important;
         }
 
         body:not([data-theme="dark"]) .btn-outline-success {
@@ -2606,8 +2649,8 @@
 
         /* Specific button color overrides for light mode */
         body:not([data-theme="dark"]) .btn-outline-primary {
-            color: #0d6efd !important;
-            border-color: #0d6efd !important;
+            color: var(--primary-gradient-end) !important;
+            border-color: var(--primary-gradient-end) !important;
         }
 
         body:not([data-theme="dark"]) .btn-outline-success {
@@ -2981,7 +3024,7 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav mx-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'dashboard:home' %}" id="nav-home">
                             <i class="fas fa-home me-1"></i>Home
@@ -3003,20 +3046,11 @@
                                 <i class="fas fa-chart-bar me-1"></i>Analytics
                             </a>
                             <ul class="dropdown-menu" id="analytics-dropdown-menu">
-                                <li><a class="dropdown-item" href="{% url 'analytics:dashboard' %}" data-analytics-link="dashboard">
-                                    <i class="fas fa-tachometer-alt me-2"></i>Analytics Dashboard
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'analytics:performance' %}" data-analytics-link="performance">
-                                    <i class="fas fa-chart-line me-2"></i>Performance Analytics
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'analytics:risk_management' %}" data-analytics-link="risk">
-                                    <i class="fas fa-shield-alt me-2"></i>Risk Management
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'analytics:market_analysis' %}" data-analytics-link="market">
-                                    <i class="fas fa-globe me-2"></i>Market Analysis
-                                </a></li>
                                 <li><a class="dropdown-item" href="{% url 'analytics:backtesting' %}" data-analytics-link="backtesting">
                                     <i class="fas fa-history me-2"></i>Backtesting
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'analytics:news_analysis' %}" data-analytics-link="news">
+                                    <i class="fas fa-newspaper me-2"></i>News Analysis
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'analytics:ml_dashboard' %}" data-analytics-link="ml">

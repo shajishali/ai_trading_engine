@@ -1,0 +1,597 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}News Analysis - Cryptocurrency News Calendar{% endblock %}
+
+{% block extra_css %}
+<style>
+    .calendar-container {
+        background: #fff;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .calendar-header {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-bottom: 2px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .date-navigation {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .date-navigation button {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: #495057;
+    }
+    
+    .date-navigation button:hover {
+        color: #007bff;
+    }
+    
+    .calendar-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .calendar-table thead {
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .calendar-table th {
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #495057;
+        border-right: 1px solid #dee2e6;
+    }
+    
+    .calendar-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #e9ecef;
+        border-right: 1px solid #e9ecef;
+        font-size: 13px;
+    }
+    
+    .calendar-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .time-cell {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .time-cell.up-next {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .up-next-indicator {
+        color: #28a745;
+        margin-left: 5px;
+        font-size: 10px;
+    }
+    
+    .latest-news {
+        background-color: #f0f9ff !important;
+    }
+    
+    .latest-news:hover {
+        background-color: #e0f2fe !important;
+    }
+    
+    .currency-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        background: #e9ecef;
+        border-radius: 3px;
+        font-weight: 600;
+        font-size: 11px;
+        color: #495057;
+    }
+    
+    .impact-indicator {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border-radius: 2px;
+        margin-right: 3px;
+        vertical-align: middle;
+    }
+    
+    .impact-high {
+        background: #dc3545; /* Red - High impact */
+    }
+    
+    .impact-medium {
+        background: #fd7e14; /* Orange - Medium impact */
+    }
+    
+    .impact-low {
+        background: #ffc107; /* Yellow - Low impact */
+    }
+    
+    .impact-neutral {
+        background: #6c757d; /* Grey - Neutral/Holiday */
+    }
+    
+    .event-name {
+        font-weight: 500;
+        color: #212529;
+    }
+    
+    .event-name:hover {
+        color: #007bff;
+        cursor: pointer;
+    }
+    
+    .actual-value {
+        font-weight: 600;
+    }
+    
+    .actual-positive {
+        color: #28a745; /* Green - Positive sentiment */
+    }
+    
+    .actual-negative {
+        color: #dc3545; /* Red - Negative sentiment */
+    }
+    
+    .actual-neutral {
+        color: #6c757d; /* Grey - Neutral sentiment */
+    }
+    
+    .forecast-value, .previous-value {
+        color: #6c757d;
+    }
+    
+    .change-indicator {
+        margin-left: 5px;
+    }
+    
+    .change-up {
+        color: #28a745;
+    }
+    
+    .change-down {
+        color: #dc3545;
+    }
+    
+    .graph-link {
+        color: #007bff;
+        cursor: pointer;
+    }
+    
+    .graph-link:hover {
+        text-decoration: underline;
+    }
+    
+    .date-header-row {
+        background: #e9ecef;
+        font-weight: 600;
+    }
+    
+    .filter-bar {
+        background: #f8f9fa;
+        padding: 10px 15px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .filter-bar select, .filter-bar input {
+        padding: 5px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .action-buttons button {
+        padding: 5px 15px;
+        border: 1px solid #ced4da;
+        background: white;
+        border-radius: 3px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+    
+    .action-buttons button:hover {
+        background: #f8f9fa;
+    }
+    
+    .stats-summary {
+        background: #f8f9fa;
+        padding: 10px 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        gap: 20px;
+        font-size: 12px;
+    }
+    
+    .stats-summary span {
+        color: #6c757d;
+    }
+    
+    .stats-summary strong {
+        color: #212529;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-calendar-alt text-primary"></i> Cryptocurrency News Calendar
+        </h1>
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshNews()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+
+    <!-- Calendar Container -->
+    <div class="calendar-container">
+        <!-- Calendar Header -->
+        <div class="calendar-header">
+            <div class="date-navigation">
+                <button onclick="changeDate(-1)"><i class="fas fa-chevron-left"></i></button>
+                <div>
+                    <strong>{% if date_filter == '24h' %}Today{% elif date_filter == '7d' %}This Week{% else %}This Month{% endif %}: {{ date_range_start|date:"M d" }}</strong>
+                    <div style="font-size: 11px; color: #6c757d;">{{ date_range_end|date:"g:ia" }}</div>
+                </div>
+                <button onclick="changeDate(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="action-buttons">
+                <button onclick="scrollToLatest()">Latest News</button>
+                <button onclick="toggleFilters()">Filter <i class="fas fa-chevron-down"></i></button>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <span>Total: <strong>{{ total_articles }}</strong></span>
+            <span>Positive: <strong class="text-success">{{ positive_articles }}</strong></span>
+            <span>Negative: <strong class="text-danger">{{ negative_articles }}</strong></span>
+            <span>Neutral: <strong class="text-warning">{{ neutral_articles }}</strong></span>
+            <span>Avg Sentiment: <strong>{{ avg_sentiment|floatformat:2 }}</strong></span>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar" id="filterBar" style="display: none;">
+            <form method="get" action="{% url 'analytics:news_analysis' %}" style="display: flex; gap: 10px; width: 100%;">
+                <select name="symbol" id="symbol" style="flex: 1;">
+                    <option value="">All Cryptocurrencies</option>
+                    {% for symbol in active_symbols %}
+                    <option value="{{ symbol.symbol }}" {% if symbol_filter == symbol.symbol %}selected{% endif %}>
+                        {{ symbol.symbol }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <select name="sentiment" id="sentiment" style="flex: 1;">
+                    <option value="">All Sentiments</option>
+                    <option value="POSITIVE" {% if sentiment_filter == 'POSITIVE' %}selected{% endif %}>Positive</option>
+                    <option value="NEGATIVE" {% if sentiment_filter == 'NEGATIVE' %}selected{% endif %}>Negative</option>
+                    <option value="NEUTRAL" {% if sentiment_filter == 'NEUTRAL' %}selected{% endif %}>Neutral</option>
+                </select>
+                <select name="date_range" id="date_range" style="flex: 1;">
+                    <option value="24h" {% if date_filter == '24h' %}selected{% endif %}>Last 24 Hours</option>
+                    <option value="7d" {% if date_filter == '7d' %}selected{% endif %}>Last 7 Days</option>
+                    <option value="30d" {% if date_filter == '30d' %}selected{% endif %}>Last 30 Days</option>
+                </select>
+                <input type="text" name="source" value="{{ source_filter }}" placeholder="Source" style="flex: 1;">
+                <button type="submit">Apply</button>
+                <a href="{% url 'analytics:news_analysis' %}" class="btn btn-sm btn-secondary">Clear</a>
+            </form>
+        </div>
+
+        <!-- Calendar Table -->
+        <div style="overflow-x: auto;">
+            <table class="calendar-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Time</th>
+                        <th style="width: 70px;">Crypto</th>
+                        <th style="width: 50px;">Impact</th>
+                        <th style="width: 30px;">Detail</th>
+                        <th style="min-width: 250px;">News Title</th>
+                        <th style="width: 100px;">Sentiment</th>
+                        <th style="width: 100px;">Confidence</th>
+                        <th style="width: 100px;">Source</th>
+                        <th style="width: 60px;">Graph</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if news_articles %}
+                        {% now "D M d" as today_date %}
+                        {% now "Y-m-d" as today_full %}
+                        {% regroup news_articles by published_at|date:"D M d" as news_by_date %}
+                        {% for date_group in news_by_date %}
+                            <tr class="date-header-row">
+                                <td colspan="9">
+                                    <strong>
+                                        {% if date_group.grouper == today_date %}Today{% else %}{{ date_group.grouper }}{% endif %}
+                                    </strong>
+                                </td>
+                            </tr>
+                            {% for article in date_group.list %}
+                            {% comment %}Mark the last article in the last date group as latest{% endcomment %}
+                            {% if forloop.last and forloop.parentloop.last %}
+                                {% with is_latest=True %}{% endwith %}
+                            {% else %}
+                                {% with is_latest=False %}{% endwith %}
+                            {% endif %}
+                            <tr id="article-{{ article.id }}" class="{% if forloop.last and forloop.parentloop.last %}latest-news{% endif %}">
+                                <!-- Time -->
+                                <td class="time-cell {% if forloop.last and forloop.parentloop.last %}up-next{% endif %}">
+                                    {{ article.published_at|date:"g:ia"|lower }}
+                                    {% if forloop.last and forloop.parentloop.last %}
+                                    <span class="up-next-indicator" title="Latest News">●</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Crypto Symbol -->
+                                <td>
+                                    {% with mentions=article.cryptomention_set.all %}
+                                    {% if mentions %}
+                                        {% for mention in mentions|slice:":3" %}
+                                        {% if mention.asset %}
+                                        <span class="currency-badge">{{ mention.asset.symbol }}</span>
+                                        {% endif %}
+                                        {% endfor %}
+                                        {% if mentions|length > 3 %}
+                                        <span class="currency-badge">+{{ mentions|length|add:"-3" }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                
+                                <!-- Impact -->
+                                <td>
+                                    {% if article.impact_score >= 0.7 %}
+                                    <span class="impact-indicator impact-high" title="High Impact"></span>
+                                    {% elif article.impact_score >= 0.4 %}
+                                    <span class="impact-indicator impact-medium" title="Medium Impact"></span>
+                                    {% elif article.impact_score > 0 %}
+                                    <span class="impact-indicator impact-low" title="Low Impact"></span>
+                                    {% else %}
+                                    <span class="impact-indicator impact-neutral" title="Neutral"></span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Detail -->
+                                <td>
+                                    <i class="fas fa-folder" style="color: #6c757d; cursor: pointer;" title="View Details"></i>
+                                </td>
+                                
+                                <!-- News Title -->
+                                <td>
+                                    <span class="event-name" onclick="showArticleDetails('{{ article.id }}')" title="{{ article.title }}">
+                                        {{ article.title|truncatewords:12 }}
+                                    </span>
+                                    {% if article.content %}
+                                    <br><small class="text-muted">{{ article.content|truncatewords:8 }}</small>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Sentiment (Actual) -->
+                                <td>
+                                    <span class="actual-value 
+                                        {% if article.sentiment_label == 'POSITIVE' %}actual-positive
+                                        {% elif article.sentiment_label == 'NEGATIVE' %}actual-negative
+                                        {% else %}actual-neutral{% endif %}">
+                                        {{ article.sentiment_label }}
+                                    </span>
+                                    <br>
+                                    <small style="color: #6c757d;">{{ article.sentiment_score|floatformat:2 }}</small>
+                                </td>
+                                
+                                <!-- Confidence (Forecast equivalent) -->
+                                <td>
+                                    <span class="forecast-value">{{ article.confidence_score|floatformat:2 }}</span>
+                                </td>
+                                
+                                <!-- Source (Previous equivalent) -->
+                                <td>
+                                    <span class="previous-value">{{ article.source.name|truncatewords:2 }}</span>
+                                </td>
+                                
+                                <!-- Graph -->
+                                <td>
+                                    <a href="{{ article.url }}" target="_blank" class="graph-link" title="View Full Article">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                    <a href="#" class="graph-link ms-2" onclick="showNewsChart('{{ article.id }}'); return false;" title="View Sentiment Chart">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 40px;">
+                                <p class="text-muted">No cryptocurrency news found for the selected period.</p>
+                                <p class="text-muted"><small>Try adjusting your filters or check back later.</small></p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sidebar Stats (Optional - can be hidden) -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-coins"></i> Top Mentioned Cryptocurrencies</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_coins %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Crypto</th>
+                                    <th>Mentions</th>
+                                    <th>Sentiment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for coin in top_coins|slice:":10" %}
+                                <tr>
+                                    <td><strong>{{ coin.asset__symbol }}</strong></td>
+                                    <td><span class="badge bg-primary">{{ coin.count }}</span></td>
+                                    <td>
+                                        <span class="{% if coin.avg_sentiment > 0.1 %}text-success{% elif coin.avg_sentiment < -0.1 %}text-danger{% else %}text-warning{% endif %}">
+                                            {{ coin.avg_sentiment|floatformat:2 }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-rss"></i> Top News Sources</h5>
+                </div>
+                <div class="card-body">
+                    {% if news_sources %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Articles</th>
+                                    <th>Avg Sentiment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for source in news_sources|slice:":10" %}
+                                <tr>
+                                    <td>{{ source.name }}</td>
+                                    <td><span class="badge bg-secondary">{{ source.article_count }}</span></td>
+                                    <td>
+                                        {% if source.avg_sentiment %}
+                                        <span class="{% if source.avg_sentiment > 0.1 %}text-success{% elif source.avg_sentiment < -0.1 %}text-danger{% else %}text-warning{% endif %}">
+                                            {{ source.avg_sentiment|floatformat:2 }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Article Details Modal (for future enhancement) -->
+<div class="modal fade" id="articleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">News Article Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="articleModalBody">
+                <!-- Article details will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshNews() {
+    location.reload();
+}
+
+function changeDate(direction) {
+    // Implement date navigation
+    const currentDate = new Date();
+    // This would need to update the date filter
+    location.reload();
+}
+
+function scrollToLatest() {
+    const latest = document.querySelector('.latest-news');
+    if (latest) {
+        latest.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Highlight the row
+        latest.style.backgroundColor = '#dbeafe';
+        latest.style.borderLeft = '4px solid #3b82f6';
+        setTimeout(() => {
+            latest.style.backgroundColor = '';
+            latest.style.borderLeft = '';
+        }, 3000);
+    } else {
+        // Fallback: scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function toggleFilters() {
+    const filterBar = document.getElementById('filterBar');
+    if (filterBar.style.display === 'none') {
+        filterBar.style.display = 'flex';
+    } else {
+        filterBar.style.display = 'none';
+    }
+}
+
+function showArticleDetails(articleId) {
+    // Scroll to article and highlight it
+    const articleRow = document.getElementById('article-' + articleId);
+    if (articleRow) {
+        articleRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        articleRow.style.backgroundColor = '#fff3cd';
+        setTimeout(() => {
+            articleRow.style.backgroundColor = '';
+        }, 2000);
+    }
+}
+
+function showNewsChart(articleId) {
+    // Show sentiment chart for this article
+    alert('Sentiment chart for article ' + articleId + ' - Feature coming soon!');
+    // Future: Open modal with chart
+}
+
+// Auto-refresh every 5 minutes for current news
+setInterval(function() {
+    // Optionally auto-refresh
+}, 300000);
+</script>
+{% endblock %}
