@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}AI-Enhanced Trading Signal Engine{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -3148,24 +3153,28 @@
         // Check for saved theme preference or default to light mode
         const currentTheme = localStorage.getItem('theme') || 'light';
         body.setAttribute('data-theme', currentTheme);
-        updateThemeIcon(currentTheme);
         
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = body.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        // Only proceed if theme toggle elements exist (not on login page)
+        if (themeToggle && themeIcon) {
+            updateThemeIcon(currentTheme);
             
-            body.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeIcon(newTheme);
-        });
-        
-        function updateThemeIcon(theme) {
-            if (theme === 'dark') {
-                themeIcon.className = 'fas fa-sun';
-                themeToggle.title = 'Switch to Light Mode';
-            } else {
-                themeIcon.className = 'fas fa-moon';
-                themeToggle.title = 'Switch to Dark Mode';
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+            
+            function updateThemeIcon(theme) {
+                if (theme === 'dark') {
+                    themeIcon.className = 'fas fa-sun';
+                    themeToggle.title = 'Switch to Light Mode';
+                } else {
+                    themeIcon.className = 'fas fa-moon';
+                    themeToggle.title = 'Switch to Dark Mode';
+                }
             }
         }
     </script>
@@ -3347,7 +3356,7 @@
             const analyticsMenu = document.getElementById('analytics-dropdown-menu');
             
             if (!analyticsToggle || !analyticsMenu) {
-                console.error('Analytics dropdown elements not found');
+                // Silently return if elements don't exist (e.g., on login page)
                 return;
             }
             
@@ -3422,7 +3431,7 @@
             const userMenu = document.getElementById('user-dropdown-menu');
             
             if (!userToggle || !userMenu) {
-                console.error('User dropdown elements not found');
+                // Silently return if elements don't exist (e.g., on login page)
                 return;
             }
             

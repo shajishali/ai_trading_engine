@@ -742,6 +742,7 @@
     </div>
     
     <!-- Login Required Notice -->
+    {% if not user.is_authenticated %}
     <div class="row mb-3">
         <div class="col-12">
             <div class="alert alert-info" role="alert">
@@ -751,6 +752,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
     
     <div class="row">
         <div class="col-12">
@@ -1014,20 +1016,29 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSignalsChart();
     
     // Setup execute button event listener
-    document.getElementById('executeSignalBtn').addEventListener('click', function() {
-        console.log('Execute button clicked!'); // Debug log
-        if (currentSignalId) {
-            console.log('Current signal ID:', currentSignalId); // Debug log
-            executeSignal(currentSignalId);
-        } else {
-            console.log('No current signal ID!'); // Debug log
-            showNotification('No signal selected to execute', 'warning');
-        }
-    });
+    const executeBtn = document.getElementById('executeSignalBtn');
+    if (executeBtn) {
+        executeBtn.addEventListener('click', function() {
+            console.log('Execute button clicked!'); // Debug log
+            if (currentSignalId) {
+                console.log('Current signal ID:', currentSignalId); // Debug log
+                executeSignal(currentSignalId);
+            } else {
+                console.log('No current signal ID!'); // Debug log
+                showNotification('No signal selected to execute', 'warning');
+            }
+        });
+    }
     
-    // Add filter event listeners
-    document.getElementById('symbol-filter').addEventListener('change', filterSignals);
-    document.getElementById('timeframe-filter').addEventListener('change', filterSignals);
+    // Add filter event listeners (only if elements exist)
+    const symbolFilter = document.getElementById('symbol-filter');
+    const timeframeFilter = document.getElementById('timeframe-filter');
+    if (symbolFilter) {
+        symbolFilter.addEventListener('change', filterSignals);
+    }
+    if (timeframeFilter) {
+        timeframeFilter.addEventListener('change', filterSignals);
+    }
     
     console.log('Dashboard initialization complete!'); // Debug log
 });
@@ -1669,33 +1680,87 @@ function loadStatistics() {
     fetch('/signals/api/performance/')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                document.getElementById('win-rate').textContent = `${(data.win_rate * 100).toFixed(1)}%`;
-                document.getElementById('profit-factor').textContent = data.profit_factor ? data.profit_factor.toFixed(2) : 'N/A';
-                document.getElementById('avg-rr-ratio').textContent = data.avg_risk_reward_ratio ? data.avg_risk_reward_ratio.toFixed(2) : 'N/A';
+            if (data.success && data.current_metrics) {
+                const metrics = data.current_metrics;
+                const winRateEl = document.getElementById('win-rate');
+                const profitFactorEl = document.getElementById('profit-factor');
+                const avgRREl = document.getElementById('avg-rr-ratio');
+                
+                // Handle win rate
+                if (winRateEl) {
+                    const winRate = metrics.win_rate;
+                    if (winRate !== null && winRate !== undefined && !isNaN(winRate)) {
+                        winRateEl.textContent = `${(winRate * 100).toFixed(1)}%`;
+                    } else {
+                        winRateEl.textContent = 'N/A';
+                    }
+                }
+                
+                // Handle profit factor
+                if (profitFactorEl) {
+                    const profitFactor = metrics.profit_factor;
+                    if (profitFactor !== null && profitFactor !== undefined && !isNaN(profitFactor)) {
+                        profitFactorEl.textContent = profitFactor.toFixed(2);
+                    } else {
+                        profitFactorEl.textContent = 'N/A';
+                    }
+                }
+                
+                // Handle average risk/reward ratio
+                if (avgRREl) {
+                    const avgRR = metrics.avg_risk_reward_ratio;
+                    if (avgRR !== null && avgRR !== undefined && !isNaN(avgRR)) {
+                        avgRREl.textContent = avgRR.toFixed(2);
+                    } else {
+                        avgRREl.textContent = 'N/A';
+                    }
+                }
+            } else {
+                // Set defaults if API doesn't return expected format
+                const winRateEl = document.getElementById('win-rate');
+                const profitFactorEl = document.getElementById('profit-factor');
+                const avgRREl = document.getElementById('avg-rr-ratio');
+                if (winRateEl) winRateEl.textContent = 'N/A';
+                if (profitFactorEl) profitFactorEl.textContent = 'N/A';
+                if (avgRREl) avgRREl.textContent = 'N/A';
             }
         })
         .catch(error => {
             console.error('Error loading statistics:', error);
+            // Set defaults on error
+            const winRateEl = document.getElementById('win-rate');
+            const profitFactorEl = document.getElementById('profit-factor');
+            const avgRREl = document.getElementById('avg-rr-ratio');
+            if (winRateEl) winRateEl.textContent = 'N/A';
+            if (profitFactorEl) profitFactorEl.textContent = 'N/A';
+            if (avgRREl) avgRREl.textContent = 'N/A';
         });
 }
 
 // Load symbols for filter
 function loadSymbols() {
-    fetch('/api/symbols/')
-        .then(response => response.json())
+    fetch('/data/api/symbols/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             symbols = data.symbols || [];
             const select = document.getElementById('symbol-filter');
-            symbols.forEach(symbol => {
-                const option = document.createElement('option');
-                option.value = symbol.symbol;
-                option.textContent = symbol.symbol;
-                select.appendChild(option);
-            });
+            if (select) {
+                symbols.forEach(symbol => {
+                    const option = document.createElement('option');
+                    option.value = symbol.symbol;
+                    option.textContent = symbol.symbol;
+                    select.appendChild(option);
+                });
+            }
         })
         .catch(error => {
             console.error('Error loading symbols:', error);
+            // Silently fail - symbols filter is optional
         });
 }
 
@@ -1705,10 +1770,10 @@ function generateSignals() {
         showNotification('Generating signals...', 'info');
         
         // Get the selected symbol from the filter, or use a default
-        const symbolFilter = document.getElementById('symbol-filter');
+        const symbolFilterEl = document.getElementById('symbol-filter');
         let symbol = 'BTC'; // Default fallback
-        if (symbolFilter && symbolFilter.value) {
-            symbol = symbolFilter.value;
+        if (symbolFilterEl && symbolFilterEl.value) {
+            symbol = symbolFilterEl.value;
         }
         
         fetch('/signals/api/generate/', {
@@ -1769,20 +1834,23 @@ function syncPrices() {
     });
 }
 
-// Filter signals by symbol
-document.getElementById('symbol-filter').addEventListener('change', function() {
-    const selectedSymbol = this.value;
-    if (selectedSymbol) {
-        const filteredSignals = signalsData.filter(signal => 
-            signal.symbol === selectedSymbol
-        );
-        displaySignals(filteredSignals);
-        updateSignalCount(filteredSignals.length);
-    } else {
-        displaySignals(signalsData);
-        updateSignalCount(signalsData.length);
-    }
-});
+// Filter signals by symbol (only if element exists)
+const symbolFilterElement = document.getElementById('symbol-filter');
+if (symbolFilterElement) {
+    symbolFilterElement.addEventListener('change', function() {
+        const selectedSymbol = this.value;
+        if (selectedSymbol) {
+            const filteredSignals = signalsData.filter(signal => 
+                signal.symbol === selectedSymbol
+            );
+            displaySignals(filteredSignals);
+            updateSignalCount(filteredSignals.length);
+        } else {
+            displaySignals(signalsData);
+            updateSignalCount(signalsData.length);
+        }
+    });
+}
 
 // Show notification
 function showNotification(message, type = 'info') {
@@ -2101,8 +2169,11 @@ function toggleTestMode() {
 
 // Filter signals by symbol and timeframe
 function filterSignals() {
-    const symbolFilter = document.getElementById('symbol-filter').value;
-    const timeframeFilter = document.getElementById('timeframe-filter').value;
+    const symbolFilterEl = document.getElementById('symbol-filter');
+    const timeframeFilterEl = document.getElementById('timeframe-filter');
+    
+    const symbolFilter = symbolFilterEl ? symbolFilterEl.value : '';
+    const timeframeFilter = timeframeFilterEl ? timeframeFilterEl.value : '';
     
     let filteredSignals = signalsData;
     
