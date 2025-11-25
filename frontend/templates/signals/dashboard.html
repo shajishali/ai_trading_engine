@@ -1002,18 +1002,22 @@ let symbols = [];
 let currentSignalId = null;
 let testMode = true; // Enable test mode by default
 let signalsChart = null; // Chart instance
+let signalsAutoRefreshInterval = null; // Auto-refresh interval for signals
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing dashboard...'); // Debug log
     
-    // Load initial data
+    // Load initial data (existing signals will show immediately)
     loadSignals();
     loadStatistics();
     loadSymbols();
     
     // Initialize chart
     initializeSignalsChart();
+    
+    // Start auto-refresh for signals (check for new signals every 30 seconds)
+    startSignalsAutoRefresh();
     
     // Setup execute button event listener
     const executeBtn = document.getElementById('executeSignalBtn');
@@ -1224,15 +1228,26 @@ setTimeout(function() {
 }, 2000);
 
 // Load signals
-function loadSignals() {
+function loadSignals(showNotificationOnNew = false) {
     console.log('Loading signals...'); // Debug log
+    const previousCount = signalsData.length;
+    
     fetch('/signals/api/signals/')
         .then(response => response.json())
         .then(data => {
             console.log('Signals API response:', data); // Debug log
             if (data.success) {
-                signalsData = data.signals;
-                console.log('Signals data loaded:', signalsData); // Debug log
+                const newSignalsData = data.signals || [];
+                const newCount = newSignalsData.length;
+                
+                // Check if new signals were added
+                if (showNotificationOnNew && newCount > previousCount) {
+                    const addedCount = newCount - previousCount;
+                    showNotification(`🆕 ${addedCount} new signal(s) detected!`, 'success');
+                }
+                
+                signalsData = newSignalsData;
+                console.log(`Signals data loaded: ${signalsData.length} signals`); // Debug log
                 
                 // Debug: Check if signals have timeframe and entry_point_type
                 if (signalsData.length > 0) {
@@ -1240,20 +1255,25 @@ function loadSignals() {
                     console.log('First signal timeframe:', firstSignal.timeframe);
                     console.log('First signal entry_point_type:', firstSignal.entry_point_type);
                     console.log('First signal entry_confidence:', firstSignal.entry_confidence);
-                    console.log('First signal complete data:', firstSignal);
                 }
                 
                 displaySignals(signalsData);
-                updateSignalCount(data.count);
+                updateSignalCount(data.count || 0);
                 updateSignalsChart(signalsData); // Update chart after data is loaded
             } else {
                 console.error('Error loading signals:', data.error);
-                showNotification('Error loading signals: ' + data.error, 'danger');
+                // Don't show error notification on initial load if no signals exist
+                if (previousCount > 0 || signalsData.length > 0) {
+                    showNotification('Error loading signals: ' + (data.error || 'Unknown error'), 'danger');
+                }
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showNotification('Error loading signals', 'danger');
+            // Don't show error notification on initial load
+            if (previousCount > 0 || signalsData.length > 0) {
+                showNotification('Error loading signals', 'danger');
+            }
         });
 }
 
@@ -2205,6 +2225,30 @@ function filterSignals() {
 
 // Auto-refresh live prices every 15 seconds for better real-time experience
 setInterval(refreshLivePrices, 15000);
+
+// Auto-refresh signals to show new signals as they're generated
+function startSignalsAutoRefresh() {
+    // Clear any existing interval
+    if (signalsAutoRefreshInterval) {
+        clearInterval(signalsAutoRefreshInterval);
+    }
+    
+    // Refresh signals every 30 seconds to show new ones
+    signalsAutoRefreshInterval = setInterval(function() {
+        console.log('Auto-refreshing signals to check for new ones...');
+        loadSignals(showNotificationOnNew=true); // Show notification when new signals are detected
+    }, 30000); // Check every 30 seconds
+    
+    console.log('Signals auto-refresh started (every 30 seconds)');
+}
+
+function stopSignalsAutoRefresh() {
+    if (signalsAutoRefreshInterval) {
+        clearInterval(signalsAutoRefreshInterval);
+        signalsAutoRefreshInterval = null;
+        console.log('Signals auto-refresh stopped');
+    }
+}
 
 // Function to refresh live prices without reloading entire signals
 function refreshLivePrices() {
