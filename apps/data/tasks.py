@@ -454,5 +454,179 @@ def cleanup_s3_files_task():
         return {'status': 'error', 'error': str(e)}
 
 
+@shared_task
+def fetch_and_store_coins_task(max_coins=None):
+    """Celery task to fetch and store ALL coins from CoinGecko API automatically"""
+    import requests
+    import time
+    from decimal import Decimal
+    from apps.trading.models import Symbol
+    
+    try:
+        if max_coins:
+            logger.info(f"Starting fetch_and_store_coins task - fetching coins (up to {max_coins})")
+        else:
+            logger.info(f"Starting fetch_and_store_coins task - fetching ALL coins (no limit)")
+        
+        # Fetch all coins from CoinGecko API
+        all_coins = []
+        page = 1
+        per_page = 250  # Maximum per page for CoinGecko API
+        
+        while True:  # Continue until no more coins
+            try:
+                url = "https://api.coingecko.com/api/v3/coins/markets"
+                params = {
+                    'vs_currency': 'usd',
+                    'order': 'market_cap_desc',
+                    'per_page': per_page,
+                    'page': page,
+                    'sparkline': False
+                }
+                
+                response = requests.get(url, params=params, timeout=30)
+                response.raise_for_status()
+                
+                coins = response.json()
+                
+                if not coins or len(coins) == 0:
+                    break
+                
+                all_coins.extend(coins)
+                logger.info(f"Fetched page {page}: {len(coins)} coins (Total: {len(all_coins)})")
+                
+                # If we got less than per_page, we've reached the end
+                if len(coins) < per_page:
+                    break
+                
+                # Check if we've reached the limit (if specified)
+                if max_coins and len(all_coins) >= max_coins:
+                    break
+                
+                page += 1
+                # Add delay to avoid rate limiting (CoinGecko: 10-50 calls/minute)
+                time.sleep(0.6)
+            
+            except requests.exceptions.RequestException as e:
+                logger.error(f"API Error on page {page}: {e}")
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error fetching page {page}: {e}")
+                break
+        
+        # Apply limit only if specified
+        if max_coins:
+            coins_to_process = all_coins[:max_coins]
+        else:
+            coins_to_process = all_coins
+        logger.info(f"Total coins fetched: {len(coins_to_process)}")
+        
+        # Store coins in database
+        created_count = 0
+        updated_count = 0
+        error_count = 0
+        
+        for coin in coins_to_process:
+            try:
+                # Validate and clean symbol code
+                symbol_code = coin.get('symbol', '').strip().upper()
+                if not symbol_code or len(symbol_code) > 20:
+                    error_count += 1
+                    logger.warning(f"Invalid symbol: {coin.get('symbol', 'unknown')}")
+                    continue
+                
+                # Validate and clean coin name (truncate if too long)
+                coin_name = coin.get('name', symbol_code)
+                if coin_name:
+                    coin_name = coin_name.strip()[:100]  # Truncate to max 100 chars
+                else:
+                    coin_name = symbol_code
+                
+                # Get market cap rank (handle None)
+                market_cap_rank = coin.get('market_cap_rank')
+                if market_cap_rank is not None and (market_cap_rank < 0 or market_cap_rank > 100000):
+                    market_cap_rank = None
+                
+                # Try to get existing symbol
+                try:
+                    symbol = Symbol.objects.get(symbol=symbol_code)
+                    # Update existing symbol
+                    updated = False
+                    if symbol.name != coin_name:
+                        symbol.name = coin_name
+                        updated = True
+                    if not symbol.is_active:
+                        symbol.is_active = True
+                        updated = True
+                    if not symbol.is_crypto_symbol:
+                        symbol.is_crypto_symbol = True
+                        updated = True
+                    if not symbol.is_spot_tradable:
+                        symbol.is_spot_tradable = True
+                        updated = True
+                    if symbol.market_cap_rank != market_cap_rank:
+                        symbol.market_cap_rank = market_cap_rank
+                        updated = True
+                    
+                    if updated:
+                        symbol.save()
+                        updated_count += 1
+                        logger.debug(f"Updated: {symbol_code} - {coin_name}")
+                
+                except Symbol.DoesNotExist:
+                    # Create new symbol
+                    try:
+                        symbol = Symbol.objects.create(
+                            symbol=symbol_code,
+                            name=coin_name,
+                            symbol_type='CRYPTO',
+                            exchange='CoinGecko',
+                            is_active=True,
+                            is_crypto_symbol=True,
+                            is_spot_tradable=True,
+                            market_cap_rank=market_cap_rank,
+                        )
+                        created_count += 1
+                        logger.debug(f"Created: {symbol_code} - {coin_name}")
+                    except Exception as create_error:
+                        # Handle unique constraint or other database errors
+                        error_count += 1
+                        logger.warning(f"Failed to create {symbol_code}: {create_error}")
+                        continue
+                
+                except Symbol.MultipleObjectsReturned:
+                    # Handle duplicate symbols (shouldn't happen but just in case)
+                    error_count += 1
+                    logger.warning(f"Multiple symbols found for {symbol_code}")
+                    continue
+            
+            except Exception as e:
+                error_count += 1
+                coin_symbol = coin.get('symbol', 'unknown')
+                logger.warning(f"Error processing coin {coin_symbol}: {e}", exc_info=True)
+                continue
+        
+        result = {
+            'status': 'success',
+            'created': created_count,
+            'updated': updated_count,
+            'errors': error_count,
+            'total_processed': len(coins_to_process),
+            'total_fetched': len(all_coins)
+        }
+        
+        logger.info(
+            f"fetch_and_store_coins_task completed: "
+            f"Created={created_count}, Updated={updated_count}, "
+            f"Errors={error_count}, Total={len(coins_to_process)}"
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in fetch_and_store_coins_task: {e}", exc_info=True)
+        return {'status': 'error', 'error': str(e)}
+
+
 
 

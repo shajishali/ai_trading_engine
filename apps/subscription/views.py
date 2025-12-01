@@ -10,6 +10,9 @@ from django.contrib.auth import login
 from django.contrib.auth.backends import ModelBackend
 from allauth.socialaccount.models import SocialAccount
 from .models import SubscriptionPlan, UserProfile, Payment, SubscriptionHistory
+from .forms import CustomSignupForm
+from .services import EmailVerificationService
+from .decorators import rate_limit_email_action
 import json
 
 def signup_view(request):
@@ -18,17 +21,34 @@ def signup_view(request):
         return redirect('subscription:subscription_choice')
     
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomSignupForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            # Specify the authentication backend explicitly
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            messages.success(request, 'Account created successfully! Please choose your subscription plan.')
-            return redirect('subscription:subscription_choice')
+            user = form.save(commit=False)
+            user.is_active = False  # Inactive until email verified
+            user.save()
+            
+            # Generate and send verification email
+            verification_service = EmailVerificationService()
+            email_sent = verification_service.send_verification_email(user)
+            
+            if email_sent:
+                messages.success(
+                    request,
+                    'Account created successfully! Please check your email to verify your account. '
+                    'You will be able to access your account once you verify your email address.'
+                )
+                return redirect('subscription:verification_pending')
+            else:
+                messages.error(
+                    request,
+                    'Account created but we could not send the verification email. '
+                    'Please contact support or try again later.'
+                )
+                return redirect('subscription:signup')
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        form = UserCreationForm()
+        form = CustomSignupForm()
     
     return render(request, 'subscription/signup.html', {'form': form})
 
@@ -237,5 +257,68 @@ def social_signup_callback(request):
             return redirect('subscription:subscription_choice')
         
         return redirect('dashboard:home')
+    
+    return redirect('subscription:signup')
+
+
+def verify_email(request, token):
+    """Verify email address using token"""
+    verification_service = EmailVerificationService()
+    result = verification_service.verify_email_token(token)
+    
+    if result['success']:
+        # Log the user in automatically
+        login(request, result['user'], backend='django.contrib.auth.backends.ModelBackend')
+        messages.success(request, result['message'])
+        return redirect('subscription:verification_success')
+    else:
+        messages.error(request, result['message'])
+        return redirect('subscription:verification_error')
+
+
+def verification_pending(request):
+    """Show verification pending page"""
+    return render(request, 'subscription/verification_pending.html')
+
+
+def verification_success(request):
+    """Show verification success page"""
+    if not request.user.is_authenticated:
+        return redirect('subscription:signup')
+    
+    # Redirect to subscription choice after a short delay
+    return render(request, 'subscription/verification_success.html')
+
+
+def verification_error(request):
+    """Show verification error page"""
+    return render(request, 'subscription/verification_error.html')
+
+
+@rate_limit_email_action(action='resend_email', max_attempts=3, cooldown_minutes=5)
+def resend_verification(request):
+    """Resend verification email with rate limiting"""
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        
+        if not email:
+            messages.error(request, 'Please provide your email address.')
+            return redirect('subscription:verification_pending')
+        
+        try:
+            user = User.objects.get(email=email)
+            verification_service = EmailVerificationService()
+            result = verification_service.resend_verification_email(user)
+            
+            if result['success']:
+                messages.success(request, result['message'])
+            else:
+                messages.error(request, result['message'])
+        except User.DoesNotExist:
+            messages.error(request, 'No account found with this email address.')
+        except Exception as e:
+            messages.error(request, 'An error occurred. Please try again later.')
+        
+        return redirect('subscription:verification_pending')
     
     return redirect('subscription:signup')

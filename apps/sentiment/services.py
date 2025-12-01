@@ -216,12 +216,287 @@ class CryptoPanicService:
         return self.get_posts(kind='news', currencies=currencies)
 
 
+class CryptoNewsAPIService:
+    """Service for CryptoNewsAPI.online integration"""
+    
+    def __init__(self):
+        self.api_key = getattr(settings, 'CRYPTONEWS_API_KEY', None)
+        # CryptoNewsAPI.online uses different base URL and authentication
+        self.base_url = "https://cryptonewsapi.online"
+        if self.api_key:
+            # Strip whitespace and remove any comments
+            self.api_key = self.api_key.strip().split('#')[0].strip()
+            if self.api_key:
+                logger.info(f"CryptoNewsAPI.online API key loaded (length: {len(self.api_key)})")
+            else:
+                logger.warning("CryptoNewsAPI.online API key is empty after cleaning")
+        else:
+            logger.warning("CryptoNewsAPI.online API key not found in settings")
+    
+    def get_news(self, currencies: str = None, items: int = 50) -> List[Dict]:
+        """Get crypto news from CryptoNewsAPI.online
+        
+        Args:
+            currencies: Comma-separated currency codes (e.g., 'BTC,ETH')
+            items: Number of news items to fetch (default: 50)
+        """
+        if not self.api_key:
+            logger.warning("CryptoNewsAPI key not configured")
+            return []
+        
+        # CryptoNewsAPI.online uses token as query parameter
+        params = {
+            "token": self.api_key,
+            "limit": min(items, 50)  # Limit to reasonable number
+        }
+        
+        if currencies:
+            # Add currency filter if provided
+            params["currencies"] = currencies
+        
+        headers = {
+            "Accept": "application/json"
+        }
+        
+        # Try different endpoint formats
+        endpoints = [
+            f"{self.base_url}/news",
+            f"{self.base_url}/api/news",
+            f"https://api.cryptonewsapi.online/news"
+        ]
+        
+        response = None
+        for endpoint in endpoints:
+            try:
+                logger.info(f"Making request to CryptoNewsAPI.online: {endpoint}")
+                response = requests.get(
+                    endpoint,
+                    params=params,
+                    headers=headers,
+                    timeout=15
+                )
+                
+                logger.info(f"CryptoNewsAPI.online response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    break  # Success, use this endpoint
+                elif response.status_code == 404:
+                    continue  # Try next endpoint
+                else:
+                    logger.warning(f"CryptoNewsAPI.online endpoint {endpoint} returned {response.status_code}")
+                    continue
+            except Exception as e:
+                logger.warning(f"Error trying endpoint {endpoint}: {e}")
+                continue
+        
+        if not response or response.status_code != 200:
+            if response:
+                logger.error(f"CryptoNewsAPI.online returned error: {response.status_code} - {response.text[:200]}")
+            else:
+                logger.error("CryptoNewsAPI.online: All endpoints failed")
+            return []
+        
+        try:
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            # Transform CryptoNewsAPI.online format to match expected format
+            articles = []
+            # CryptoNewsAPI.online may return data directly as array or in 'data' field
+            news_items = data if isinstance(data, list) else data.get('data', []) or data.get('articles', [])
+            
+            if not news_items:
+                logger.warning(f"CryptoNewsAPI.online returned no news items. Response keys: {list(data.keys()) if isinstance(data, dict) else 'array'}")
+                return []
+            
+            logger.info(f"CryptoNewsAPI.online returned {len(news_items)} news items")
+            
+            for item in news_items:
+                # Handle date format from CryptoNewsAPI.online
+                published_at = item.get('published_at', '') or item.get('date', '') or item.get('publishedAt', '')
+                if not published_at:
+                    published_at = datetime.now().isoformat() + '+00:00'
+                elif not published_at.endswith('Z') and '+' not in published_at:
+                    # Convert to ISO format if needed
+                    try:
+                        # Try parsing different formats
+                        for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%SZ']:
+                            try:
+                                dt = datetime.strptime(published_at.replace('Z', ''), fmt.replace('Z', ''))
+                                published_at = dt.isoformat() + '+00:00'
+                                break
+                            except ValueError:
+                                continue
+                    except:
+                        published_at = datetime.now().isoformat() + '+00:00'
+                
+                article = {
+                    'title': item.get('title', ''),
+                    'description': item.get('description', '') or item.get('text', '') or item.get('summary', ''),
+                    'url': item.get('url', '') or item.get('news_url', '') or item.get('link', ''),
+                    'publishedAt': published_at,
+                    'source': {
+                        'name': item.get('source', '') or item.get('source_name', 'CryptoNewsAPI.online'),
+                        'url': item.get('source_url', 'https://cryptonewsapi.online')
+                    },
+                    'currencies': item.get('currencies', []) if isinstance(item.get('currencies'), list) else [],
+                    'sentiment': item.get('sentiment', 'neutral')
+                }
+                articles.append(article)
+            
+            logger.info(f"Fetched {len(articles)} articles from CryptoNewsAPI.online")
+            return articles
+            
+        except Exception as e:
+            logger.error(f"Error fetching CryptoNewsAPI.online data: {e}", exc_info=True)
+            return []
+
+
+class StockDataService:
+    """Service for StockData.org API integration"""
+    
+    def __init__(self):
+        self.api_key = getattr(settings, 'STOCKDATA_API_KEY', None)
+        self.base_url = "https://api.stockdata.org/v1"
+        if self.api_key:
+            # Strip whitespace and remove any comments
+            self.api_key = self.api_key.strip().split('#')[0].strip()
+            if self.api_key:
+                logger.info(f"StockData.org API key loaded (length: {len(self.api_key)})")
+            else:
+                logger.warning("StockData.org API key is empty after cleaning")
+        else:
+            logger.warning("StockData.org API key not found in settings")
+    
+    def get_crypto_news(self, symbols: str = None, limit: int = 50) -> List[Dict]:
+        """Get crypto news from StockData.org
+        
+        Args:
+            symbols: Comma-separated crypto symbols (e.g., 'BTC,ETH')
+            limit: Number of news items to fetch (default: 50, max based on plan)
+        """
+        if not self.api_key:
+            logger.warning("StockData.org API key not configured")
+            return []
+        
+        # StockData.org API uses api_token as query parameter
+        # Note: Free plans may have lower limits, so we'll use a reasonable default
+        params = {
+            "api_token": self.api_key.strip(),  # Ensure no whitespace
+            "limit": min(limit, 10),  # Limit to 10 to avoid plan restrictions
+            # Use search parameter to filter for crypto-related news
+            "search": "bitcoin OR ethereum OR cryptocurrency OR crypto OR blockchain OR BTC OR ETH OR SOL OR BNB OR ADA OR XRP"
+        }
+        
+        # Add crypto symbols if provided (limit to a few major ones to avoid issues)
+        if symbols:
+            # Take only first 5 symbols to avoid API issues
+            symbol_list = symbols.split(',')[:5]
+            # Add symbols to search query
+            symbol_search = " OR ".join(symbol_list)
+            params["search"] = f"{params['search']} OR {symbol_search}"
+        
+        # Also try with Authorization header as some APIs prefer that
+        headers = {
+            "Authorization": f"Bearer {self.api_key.strip()}",
+            "Accept": "application/json"
+        }
+        
+        try:
+            logger.info(f"Making request to StockData.org API: {self.base_url}/news/all")
+            logger.debug(f"Request params: api_token={'*' * 10}..., limit={limit}, symbols={symbols[:50] if symbols else None}")
+            
+            # Try with query parameter first (standard StockData.org format)
+            response = requests.get(
+                f"{self.base_url}/news/all",
+                params=params,
+                headers=headers,
+                timeout=15
+            )
+            
+            logger.info(f"StockData.org API response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                logger.error(f"StockData.org API returned error: {response.status_code} - {response.text[:200]}")
+                return []
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            # Check for warnings (like limit exceeded)
+            if 'warnings' in data:
+                for warning in data['warnings']:
+                    logger.warning(f"StockData.org API warning: {warning}")
+            
+            # Check if we got data
+            if not data:
+                logger.warning("StockData.org API returned empty response")
+                return []
+            
+            # Transform StockData.org format to match expected format
+            articles = []
+            news_items = data.get('data', [])
+            
+            if not news_items:
+                logger.warning(f"StockData.org API returned no news items. Response keys: {list(data.keys())}")
+                # Log meta info if available
+                if 'meta' in data:
+                    logger.info(f"API meta info: {data['meta']}")
+                return []
+            
+            logger.info(f"StockData.org returned {len(news_items)} news items (requested limit: {params.get('limit', 'N/A')})")
+            
+            for item in news_items:
+                # Handle date format from StockData.org
+                published_at = item.get('published_at', '') or item.get('date', '')
+                if not published_at:
+                    published_at = datetime.now().isoformat() + '+00:00'
+                elif not published_at.endswith('Z') and '+' not in published_at:
+                    # Convert to ISO format if needed
+                    try:
+                        for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d']:
+                            try:
+                                dt = datetime.strptime(published_at, fmt)
+                                published_at = dt.isoformat() + '+00:00'
+                                break
+                            except ValueError:
+                                continue
+                    except:
+                        published_at = datetime.now().isoformat() + '+00:00'
+                
+                article = {
+                    'title': item.get('title', ''),
+                    'description': item.get('description', '') or item.get('text', '') or item.get('snippet', ''),
+                    'url': item.get('url', '') or item.get('link', ''),
+                    'publishedAt': published_at,
+                    'source': {
+                        'name': item.get('source', '') or item.get('source_name', 'StockData.org'),
+                        'url': item.get('source_url', 'https://stockdata.org')
+                    },
+                    'currencies': item.get('symbols', []) if isinstance(item.get('symbols'), list) else [],
+                    'sentiment': item.get('sentiment', 'neutral')
+                }
+                articles.append(article)
+            
+            logger.info(f"Fetched {len(articles)} articles from StockData.org")
+            return articles
+            
+        except Exception as e:
+            logger.error(f"Error fetching StockData.org data: {e}", exc_info=True)
+            return []
+
+
 class NewsAPIService:
     """Service for news API integration"""
     
     def __init__(self):
         self.api_key = getattr(settings, 'NEWS_API_KEY', None)
         self.base_url = "https://newsapi.org/v2"
+        # Try StockData.org first (preferred - good crypto news coverage)
+        self.stockdata_service = StockDataService()
+        # Try CryptoNewsAPI second (preferred for crypto news)
+        self.cryptonews_service = CryptoNewsAPIService()
         # Try CryptoPanic as fallback
         self.cryptopanic_service = CryptoPanicService()
     
@@ -255,20 +530,60 @@ class NewsAPIService:
     def get_crypto_news(self, from_date: str = None, use_cryptopanic: bool = True) -> List[Dict]:
         """Get crypto-specific news
         
+        Priority order:
+        1. CryptoNewsAPI.online (preferred - dedicated crypto news API)
+        2. StockData.org (good crypto news coverage)
+        3. CryptoPanic (fallback)
+        4. NewsAPI.org (last resort)
+        
         Args:
             from_date: Date filter (for NewsAPI only)
-            use_cryptopanic: If True, prefer CryptoPanic API if available
+            use_cryptopanic: If True, try CryptoPanic as fallback
         """
-        # Try CryptoPanic first if enabled and API key is available
+        # Debug: Log which API keys are available
+        logger.info(f"Checking available news APIs - StockData: {bool(self.stockdata_service.api_key)}, "
+                   f"CryptoNewsAPI: {bool(self.cryptonews_service.api_key)}, "
+                   f"CryptoPanic: {bool(self.cryptopanic_service.api_key)}, "
+                   f"NewsAPI: {bool(self.api_key)}")
+        
+        # Try CryptoNewsAPI.online first (preferred - dedicated crypto news API)
+        if self.cryptonews_service.api_key:
+            logger.info("Fetching crypto news from CryptoNewsAPI.online")
+            try:
+                cryptonews_articles = self.cryptonews_service.get_news(items=50)
+                if cryptonews_articles and len(cryptonews_articles) > 0:
+                    logger.info(f"Successfully fetched {len(cryptonews_articles)} articles from CryptoNewsAPI.online")
+                    return cryptonews_articles
+                else:
+                    logger.warning("CryptoNewsAPI.online returned 0 articles, trying StockData.org...")
+            except Exception as e:
+                logger.warning(f"Error fetching from CryptoNewsAPI.online: {e}, trying StockData.org...")
+        
+        # Try StockData.org second (good crypto news coverage)
+        if self.stockdata_service.api_key:
+            logger.info("Fetching crypto news from StockData.org")
+            # Get common crypto symbols for filtering (limit to top 5 to avoid API issues)
+            crypto_symbols = "BTC,ETH,SOL,BNB,ADA"
+            try:
+                stockdata_articles = self.stockdata_service.get_crypto_news(symbols=crypto_symbols, limit=10)
+                if stockdata_articles and len(stockdata_articles) > 0:
+                    logger.info(f"Successfully fetched {len(stockdata_articles)} articles from StockData.org")
+                    return stockdata_articles
+                else:
+                    logger.warning("StockData.org returned 0 articles")
+            except Exception as e:
+                logger.error(f"Error fetching from StockData.org: {e}", exc_info=True)
+        
+        # Try CryptoPanic as fallback if enabled and API key is available
         if use_cryptopanic and self.cryptopanic_service.api_key:
             logger.info("Fetching crypto news from CryptoPanic API")
             cryptopanic_news = self.cryptopanic_service.get_crypto_news()
             if cryptopanic_news:
                 return cryptopanic_news
         
-        # Fallback to NewsAPI if CryptoPanic is not available or disabled
+        # Fallback to NewsAPI if other services are not available
         if self.api_key:
-            logger.info("Fetching crypto news from NewsAPI")
+            logger.info("Fetching crypto news from NewsAPI.org")
             crypto_keywords = [
                 "bitcoin", "ethereum", "cryptocurrency", "blockchain",
                 "crypto", "defi", "nft", "altcoin"
@@ -281,7 +596,7 @@ class NewsAPIService:
             
             return all_articles
         
-        logger.warning("No crypto news API configured")
+        logger.warning("No crypto news API configured - Please set STOCKDATA_API_KEY, CRYPTONEWS_API_KEY, CRYPTOPANIC_API_KEY, or NEWS_API_KEY in your environment variables")
         return []
 
 

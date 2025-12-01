@@ -7,7 +7,9 @@ from apps.signals.caching_performance_service import (
     CachingService, PerformanceOptimizationService as PerfOptService, AsyncProcessingService
 )
 from apps.signals.production_deployment_config import PRODUCTION_CONFIGS
-from apps.signals.models import ChartMLModel, ABTest, RetrainingTask, ModelPerformanceMetrics
+# Chart-based ML models removed - using signal generation ML only
+# from apps.signals.models import ChartMLModel, ABTest, RetrainingTask, ModelPerformanceMetrics
+from apps.signals.models import MLModel  # Use MLModel for signal generation instead
 from apps.trading.models import Symbol
 import logging
 import json
@@ -382,51 +384,30 @@ class Command(BaseCommand):
             self.stdout.write('System Status Report')
             self.stdout.write('=' * 50)
             
-            # ML Models Status
-            models = ChartMLModel.objects.all()
-            active_models = models.filter(is_active=True)
+            # ML Models Status (Signal Generation Models)
+            from apps.signals.models import MLModel, MLTrainingSession
+            models = MLModel.objects.all()
+            active_models = models.filter(status='DEPLOYED')
             trained_models = models.filter(status='TRAINED')
             
-            self.stdout.write(f'\nML Models:')
+            self.stdout.write(f'\nML Models (Signal Generation):')
             self.stdout.write(f'  Total Models: {models.count()}')
-            self.stdout.write(f'  Active Models: {active_models.count()}')
+            self.stdout.write(f'  Deployed Models: {active_models.count()}')
             self.stdout.write(f'  Trained Models: {trained_models.count()}')
             
             if trained_models.exists():
-                avg_accuracy = sum(m.accuracy_score for m in trained_models if m.accuracy_score) / trained_models.count()
+                avg_accuracy = sum(m.accuracy for m in trained_models if m.accuracy) / trained_models.count()
                 self.stdout.write(f'  Average Accuracy: {avg_accuracy:.4f}')
             
-            # A/B Tests Status
-            ab_tests = ABTest.objects.all()
-            running_tests = ab_tests.filter(status='RUNNING')
-            completed_tests = ab_tests.filter(status='COMPLETED')
+            # Training Sessions Status
+            training_sessions = MLTrainingSession.objects.all()
+            active_sessions = training_sessions.filter(status='RUNNING')
+            completed_sessions = training_sessions.filter(status='COMPLETED')
             
-            self.stdout.write(f'\nA/B Tests:')
-            self.stdout.write(f'  Total Tests: {ab_tests.count()}')
-            self.stdout.write(f'  Running Tests: {running_tests.count()}')
-            self.stdout.write(f'  Completed Tests: {completed_tests.count()}')
-            
-            # Retraining Tasks Status
-            retraining_tasks = RetrainingTask.objects.all()
-            scheduled_tasks = retraining_tasks.filter(status='SCHEDULED')
-            running_tasks = retraining_tasks.filter(status='RUNNING')
-            completed_tasks = retraining_tasks.filter(status='COMPLETED')
-            
-            self.stdout.write(f'\nRetraining Tasks:')
-            self.stdout.write(f'  Total Tasks: {retraining_tasks.count()}')
-            self.stdout.write(f'  Scheduled Tasks: {scheduled_tasks.count()}')
-            self.stdout.write(f'  Running Tasks: {running_tasks.count()}')
-            self.stdout.write(f'  Completed Tasks: {completed_tasks.count()}')
-            
-            # Performance Metrics
-            performance_metrics = ModelPerformanceMetrics.objects.all()
-            if performance_metrics.exists():
-                latest_metrics = performance_metrics.first()
-                self.stdout.write(f'\nLatest Performance Metrics:')
-                self.stdout.write(f'  Model: {latest_metrics.model.name}')
-                self.stdout.write(f'  Total Predictions: {latest_metrics.total_predictions}')
-                self.stdout.write(f'  Average Accuracy: {latest_metrics.average_accuracy:.4f}')
-                self.stdout.write(f'  Average Inference Time: {latest_metrics.average_inference_time:.2f}ms')
+            self.stdout.write(f'\nTraining Sessions:')
+            self.stdout.write(f'  Total Sessions: {training_sessions.count()}')
+            self.stdout.write(f'  Active Sessions: {active_sessions.count()}')
+            self.stdout.write(f'  Completed Sessions: {completed_sessions.count()}')
                 self.stdout.write(f'  Error Count: {latest_metrics.error_count}')
             
             # Cache Status
@@ -481,14 +462,15 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write(f'✗ Cache: FAILED ({e})')
             
-            # Check models
+            # Check models (Signal Generation ML Models)
             try:
-                active_models = ChartMLModel.objects.filter(is_active=True, status='TRAINED')
+                from apps.signals.models import MLModel
+                active_models = MLModel.objects.filter(status='DEPLOYED')
                 if active_models.exists():
                     health_status['models'] = True
-                    self.stdout.write(f'✓ ML Models: OK ({active_models.count()} active)')
+                    self.stdout.write(f'✓ ML Models: OK ({active_models.count()} deployed)')
                 else:
-                    self.stdout.write('✗ ML Models: NO ACTIVE MODELS')
+                    self.stdout.write('✗ ML Models: NO DEPLOYED MODELS')
             except Exception as e:
                 self.stdout.write(f'✗ ML Models: FAILED ({e})')
             
@@ -522,36 +504,34 @@ class Command(BaseCommand):
             
             self.stdout.write(f'Creating system backup: {backup_path}')
             
+            from apps.signals.models import MLModel, MLTrainingSession
             backup_data = {
                 'timestamp': timezone.now().isoformat(),
                 'models': [],
-                'ab_tests': [],
-                'retraining_tasks': [],
-                'performance_metrics': []
+                'training_sessions': []
             }
             
-            # Backup models
-            for model in ChartMLModel.objects.all():
+            # Backup signal generation ML models
+            for model in MLModel.objects.all():
                 backup_data['models'].append({
                     'id': model.id,
                     'name': model.name,
                     'model_type': model.model_type,
                     'version': model.version,
                     'status': model.status,
-                    'accuracy_score': model.accuracy_score,
-                    'is_active': model.is_active,
-                    'created_at': model.created_at.isoformat()
+                    'accuracy': float(model.accuracy) if model.accuracy else None,
+                    'target_variable': model.target_variable,
+                    'features_used': model.features_used,
+                    'created_at': model.training_start_date.isoformat() if model.training_start_date else None
                 })
             
-            # Backup A/B tests
-            for test in ABTest.objects.all():
-                backup_data['ab_tests'].append({
-                    'id': test.id,
-                    'test_name': test.test_name,
-                    'model_a_id': test.model_a.id,
-                    'model_b_id': test.model_b.id,
-                    'status': test.status,
-                    'created_at': test.created_at.isoformat()
+            # Backup training sessions
+            for session in MLTrainingSession.objects.all():
+                backup_data['training_sessions'].append({
+                    'id': session.id,
+                    'model_name': session.model_name if hasattr(session, 'model_name') else None,
+                    'status': session.status,
+                    'created_at': session.created_at.isoformat() if hasattr(session, 'created_at') else None
                 })
             
             # Write backup file
@@ -581,11 +561,12 @@ class Command(BaseCommand):
             with open(backup_path, 'r') as f:
                 backup_data = json.load(f)
             
-            # Restore models (basic info only)
+            # Restore models (basic info only) - Signal Generation ML Models
+            from apps.signals.models import MLModel
             restored_models = 0
             for model_data in backup_data.get('models', []):
                 try:
-                    ChartMLModel.objects.get_or_create(
+                    MLModel.objects.get_or_create(
                         id=model_data['id'],
                         defaults={
                             'name': model_data['name'],

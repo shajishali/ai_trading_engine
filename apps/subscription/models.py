@@ -37,6 +37,8 @@ class SubscriptionPlan(models.Model):
     
     class Meta:
         ordering = ['price']
+        verbose_name = 'Subscription Plan'
+        verbose_name_plural = 'Subscription Plans'
     
     def __str__(self):
         return f"{self.name} - ${self.price}/{self.billing_cycle}"
@@ -74,6 +76,10 @@ class UserProfile(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'User Profile'
+        verbose_name_plural = 'User Profiles'
     
     def __str__(self):
         return f"{self.user.email} - {self.subscription_status}"
@@ -141,6 +147,11 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    class Meta:
+        verbose_name = 'Payment'
+        verbose_name_plural = 'Payments'
+        ordering = ['-created_at']
+    
     def __str__(self):
         return f"{self.user.email} - ${self.amount} - {self.status}"
 
@@ -158,6 +169,11 @@ class SubscriptionHistory(models.Model):
     ])
     payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Subscription History'
+        verbose_name_plural = 'Subscription Histories'
+        ordering = ['-created_at']
     
     def __str__(self):
         return f"{self.user.email} - {self.action} - {self.created_at.date()}"

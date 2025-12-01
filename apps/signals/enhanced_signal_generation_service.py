@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class EnhancedSignalGenerationService:
-    """Enhanced service for generating logical trading signals with proper risk management"""
+    """Enhanced service for generating logical trading signals using YOUR PERSONAL STRATEGY"""
     
     def __init__(self):
         self.base_service = SignalGenerationService()
@@ -31,21 +31,43 @@ class EnhancedSignalGenerationService:
         self.best_signals_count = 10  # Top 10 signals every 2 hours
         self.signal_refresh_hours = 2  # Refresh signals every 2 hours
         
-        # Risk management parameters
-        self.max_risk_per_trade = 0.02  # 2% max risk per trade
-        self.min_risk_reward_ratio = 1.5  # Minimum 1.5:1 risk/reward
-        self.stop_loss_percentages = {
-            'BTC': 0.03,   # 3% stop loss for BTC
-            'ETH': 0.04,   # 4% stop loss for ETH
-            'default': 0.05  # 5% default stop loss
-        }
+        # ===== YOUR PERSONAL STRATEGY PARAMETERS (HIGHEST PRIORITY) =====
+        # YOUR EXACT STRATEGY WORKFLOW:
+        # 1. 1D or 4H: Identify support and resistance levels
+        # 2. 4H: Determine trend direction
+        # 3. 1H or 15M: Look for CHoCH → price moves to other side → BOS → Entry at key point
+        # 4. SL/TP: Set to next key levels (support/resistance), NOT fixed percentages
         
-        # Take profit levels
-        self.take_profit_levels = {
-            'conservative': 1.5,  # 1.5x risk
-            'moderate': 2.0,     # 2.0x risk
-            'aggressive': 3.0    # 3.0x risk
-        }
+        # Multi-timeframe analysis - YOUR strategy
+        self.higher_timeframes = ['1D', '4H']  # For support/resistance identification
+        self.trend_timeframe = '4H'  # For trend analysis
+        self.entry_timeframes = ['1H', '15M']  # For CHoCH/BOS detection and entry
+        
+        # Support/Resistance detection
+        self.support_resistance_lookback = 50  # Look back 50 candles for key levels
+        self.min_touches_for_level = 2  # Minimum touches to confirm a level
+        self.level_tolerance = 0.005  # 0.5% tolerance for level matching
+        
+        # Market structure detection
+        self.choch_lookback = 20  # Look back 20 candles for CHoCH
+        self.bos_lookback = 10  # Look back 10 candles for BOS after CHoCH
+        self.min_structure_break = 0.01  # 1% minimum break for structure
+        
+        # Entry at key points
+        self.key_point_tolerance = 0.01  # 1% tolerance for entry at key level
+        self.require_key_level_entry = True  # Entry must be at support/resistance
+        
+        # SL/TP at next key levels (NOT fixed percentages)
+        self.use_key_levels_for_sl_tp = True  # Use key levels instead of percentages
+        self.min_risk_reward_ratio = 1.5  # Minimum 1.5:1 risk/reward from key levels
+        
+        # Fallback parameters (only if key levels not found)
+        self.fallback_take_profit_percentage = 0.15  # 15% fallback
+        self.fallback_stop_loss_percentage = 0.08    # 8% fallback
+        
+        # Strategy confirmations
+        self.min_confirmations = 2  # Minimum confirmations needed
+        self.volume_threshold = 1.2  # 20% above average volume for confirmation
     
     def generate_best_signals_for_all_coins(self) -> Dict[str, any]:
         """Generate the best 10 signals from all 200+ coins every 2 hours"""
@@ -143,117 +165,226 @@ class EnhancedSignalGenerationService:
         return signals
     
     def _generate_buy_signal(self, symbol: Symbol, current_price: Decimal, live_prices: Dict) -> Optional[Dict]:
-        """Generate a BUY signal with logical entry, stop loss, and take profit"""
-        # Calculate technical indicators
-        technical_score = self._calculate_technical_score(symbol)
-        if technical_score < 0.4:  # Not bullish enough
+        """
+        Generate a BUY signal using YOUR EXACT STRATEGY:
+        1. 1D/4H: Identify support and resistance levels
+        2. 4H: Determine trend (must be bullish)
+        3. 1H/15M: CHoCH → price moves to other side → BOS → Entry at key point
+        4. SL/TP: Set to next key levels (support/resistance)
+        """
+        try:
+            # Step 1: Identify support and resistance on 1D or 4H timeframe
+            support_resistance = self._identify_support_resistance_levels(symbol, self.higher_timeframes)
+            if not support_resistance.get('support_levels') or not support_resistance.get('resistance_levels'):
+                logger.debug(f"No clear support/resistance levels for {symbol.symbol}")
+                return None
+            
+            # Step 2: Analyze 4H trend (must be bullish for BUY)
+            trend_4h = self._analyze_trend_4h(symbol)
+            if trend_4h.get('direction') != 'BULLISH':
+                logger.debug(f"4H trend not bullish for {symbol.symbol}: {trend_4h.get('direction')}")
+                return None
+            
+            # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
+            entry_analysis = self._analyze_entry_workflow(symbol, 'BUY', current_price, support_resistance)
+            if not entry_analysis.get('entry_confirmed'):
+                return None
+            
+            # Get entry price at key level
+            entry_price = entry_analysis.get('entry_price')
+            if entry_price is None:
+                return None
+            
+            # Step 4: Set SL/TP at next key levels
+            sl_tp_levels = self._calculate_sl_tp_from_key_levels(
+                entry_price, 'BUY', support_resistance, entry_analysis
+            )
+            
+            if not sl_tp_levels.get('valid'):
+                logger.debug(f"Invalid SL/TP levels for {symbol.symbol}")
+                return None
+            
+            stop_loss_price = sl_tp_levels.get('stop_loss')
+            take_profit_price = sl_tp_levels.get('take_profit')
+            
+            # Calculate risk/reward from key levels
+            risk_amount = entry_price - stop_loss_price
+            reward_amount = take_profit_price - entry_price
+            risk_reward_ratio = float(reward_amount / risk_amount) if risk_amount > 0 else 0
+            
+            if risk_reward_ratio < self.min_risk_reward_ratio:
+                logger.debug(f"Risk/reward too low for {symbol.symbol}: {risk_reward_ratio:.2f}")
+                return None
+            
+            # Calculate confidence
+            confidence = self._calculate_confidence_from_workflow(
+                trend_4h, entry_analysis, support_resistance, risk_reward_ratio
+            )
+            
+            if confidence < self.min_confidence_threshold:
+                return None
+            
+            return {
+                'symbol': symbol,
+                'signal_type': 'BUY',
+                'entry_price': entry_price,
+                'stop_loss': stop_loss_price,
+                'target_price': take_profit_price,
+                'confidence_score': confidence,
+                'risk_reward_ratio': risk_reward_ratio,
+                'timeframe': '1H',  # Entry timeframe
+                'entry_point_type': entry_analysis.get('entry_type', 'KEY_LEVEL'),
+                'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
+                'strategy_confirmations': entry_analysis.get('confirmations', 0),
+                'strategy_details': {
+                    'trend_4h': trend_4h.get('direction'),
+                    'trend_strength': trend_4h.get('strength', 0),
+                    'choch_detected': entry_analysis.get('choch_detected', False),
+                    'bos_detected': entry_analysis.get('bos_detected', False),
+                    'entry_timeframe': entry_analysis.get('entry_timeframe', '1H'),
+                    'entry_at_key_level': entry_analysis.get('entry_at_key_level', False),
+                    'support_levels': [float(s) for s in support_resistance.get('support_levels', [])],
+                    'resistance_levels': [float(r) for r in support_resistance.get('resistance_levels', [])],
+                    'sl_at_key_level': sl_tp_levels.get('sl_at_key_level', False),
+                    'tp_at_key_level': sl_tp_levels.get('tp_at_key_level', False),
+                    'strategy': 'PERSONAL_STRATEGY_MULTI_TIMEFRAME'
+                },
+                'reasoning': f"YOUR STRATEGY: 4H {trend_4h.get('direction')} trend. CHoCH→BOS detected on {entry_analysis.get('entry_timeframe')}. Entry at key level {entry_price:.6f}. SL at {stop_loss_price:.6f}, TP at {take_profit_price:.6f}. R/R: {risk_reward_ratio:.2f}:1"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating BUY signal for {symbol.symbol}: {e}")
             return None
-        
-        # Calculate volatility for stop loss
-        volatility = self._calculate_volatility(symbol)
-        stop_loss_pct = self.stop_loss_percentages.get(symbol.symbol, self.stop_loss_percentages['default'])
-        
-        # Calculate proper entry price based on technical analysis
-        entry_price, entry_point_type = self._calculate_entry_price(symbol, current_price, 'BUY')
-        if entry_price is None:
-            return None
-        
-        # Stop loss (below entry)
-        stop_loss_price = entry_price * Decimal(str(1 - stop_loss_pct))
-        
-        # Take profit levels
-        risk_amount = entry_price - stop_loss_price
-        take_profit_price = entry_price + (risk_amount * Decimal(str(self.take_profit_levels['moderate'])))
-        
-        # Calculate confidence based on multiple factors
-        confidence = self._calculate_signal_confidence(symbol, 'BUY', technical_score, volatility)
-        
-        if confidence < self.min_confidence_threshold:
-            return None
-        
-        return {
-            'symbol': symbol,
-            'signal_type': 'BUY',
-            'entry_price': entry_price,
-            'stop_loss': stop_loss_price,
-            'target_price': take_profit_price,
-            'confidence_score': confidence,
-            'risk_reward_ratio': float(self.take_profit_levels['moderate']),
-            'timeframe': '1D',
-            'entry_point_type': entry_point_type,
-            'strength': 'MODERATE',
-            'technical_score': technical_score,
-            'volatility': volatility,
-            'reasoning': f"Technical analysis shows bullish momentum with {confidence:.1%} confidence"
-        }
     
     def _generate_sell_signal(self, symbol: Symbol, current_price: Decimal, live_prices: Dict) -> Optional[Dict]:
-        """Generate a SELL signal with logical entry, stop loss, and take profit"""
-        # Calculate technical indicators
-        technical_score = self._calculate_technical_score(symbol)
-        if technical_score > 0.6:  # Not bearish enough
+        """
+        Generate a SELL signal using YOUR EXACT STRATEGY:
+        1. 1D/4H: Identify support and resistance levels
+        2. 4H: Determine trend (must be bearish)
+        3. 1H/15M: CHoCH → price moves to other side → BOS → Entry at key point
+        4. SL/TP: Set to next key levels (support/resistance)
+        """
+        try:
+            # Step 1: Identify support and resistance on 1D or 4H timeframe
+            support_resistance = self._identify_support_resistance_levels(symbol, self.higher_timeframes)
+            if not support_resistance.get('support_levels') or not support_resistance.get('resistance_levels'):
+                logger.debug(f"No clear support/resistance levels for {symbol.symbol}")
+                return None
+            
+            # Step 2: Analyze 4H trend (must be bearish for SELL)
+            trend_4h = self._analyze_trend_4h(symbol)
+            if trend_4h.get('direction') != 'BEARISH':
+                logger.debug(f"4H trend not bearish for {symbol.symbol}: {trend_4h.get('direction')}")
+                return None
+            
+            # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
+            entry_analysis = self._analyze_entry_workflow(symbol, 'SELL', current_price, support_resistance)
+            if not entry_analysis.get('entry_confirmed'):
+                return None
+            
+            # Get entry price at key level
+            entry_price = entry_analysis.get('entry_price')
+            if entry_price is None:
+                return None
+            
+            # Step 4: Set SL/TP at next key levels
+            sl_tp_levels = self._calculate_sl_tp_from_key_levels(
+                entry_price, 'SELL', support_resistance, entry_analysis
+            )
+            
+            if not sl_tp_levels.get('valid'):
+                logger.debug(f"Invalid SL/TP levels for {symbol.symbol}")
+                return None
+            
+            stop_loss_price = sl_tp_levels.get('stop_loss')
+            take_profit_price = sl_tp_levels.get('take_profit')
+            
+            # Calculate risk/reward from key levels
+            risk_amount = stop_loss_price - entry_price
+            reward_amount = entry_price - take_profit_price
+            risk_reward_ratio = float(reward_amount / risk_amount) if risk_amount > 0 else 0
+            
+            if risk_reward_ratio < self.min_risk_reward_ratio:
+                logger.debug(f"Risk/reward too low for {symbol.symbol}: {risk_reward_ratio:.2f}")
+                return None
+            
+            # Calculate confidence
+            confidence = self._calculate_confidence_from_workflow(
+                trend_4h, entry_analysis, support_resistance, risk_reward_ratio
+            )
+            
+            if confidence < self.min_confidence_threshold:
+                return None
+            
+            return {
+                'symbol': symbol,
+                'signal_type': 'SELL',
+                'entry_price': entry_price,
+                'stop_loss': stop_loss_price,
+                'target_price': take_profit_price,
+                'confidence_score': confidence,
+                'risk_reward_ratio': risk_reward_ratio,
+                'timeframe': '1H',  # Entry timeframe
+                'entry_point_type': entry_analysis.get('entry_type', 'KEY_LEVEL'),
+                'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
+                'strategy_confirmations': entry_analysis.get('confirmations', 0),
+                'strategy_details': {
+                    'trend_4h': trend_4h.get('direction'),
+                    'trend_strength': trend_4h.get('strength', 0),
+                    'choch_detected': entry_analysis.get('choch_detected', False),
+                    'bos_detected': entry_analysis.get('bos_detected', False),
+                    'entry_timeframe': entry_analysis.get('entry_timeframe', '1H'),
+                    'entry_at_key_level': entry_analysis.get('entry_at_key_level', False),
+                    'support_levels': [float(s) for s in support_resistance.get('support_levels', [])],
+                    'resistance_levels': [float(r) for r in support_resistance.get('resistance_levels', [])],
+                    'sl_at_key_level': sl_tp_levels.get('sl_at_key_level', False),
+                    'tp_at_key_level': sl_tp_levels.get('tp_at_key_level', False),
+                    'strategy': 'PERSONAL_STRATEGY_MULTI_TIMEFRAME'
+                },
+                'reasoning': f"YOUR STRATEGY: 4H {trend_4h.get('direction')} trend. CHoCH→BOS detected on {entry_analysis.get('entry_timeframe')}. Entry at key level {entry_price:.6f}. SL at {stop_loss_price:.6f}, TP at {take_profit_price:.6f}. R/R: {risk_reward_ratio:.2f}:1"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating SELL signal for {symbol.symbol}: {e}")
             return None
-        
-        # Calculate volatility for stop loss
-        volatility = self._calculate_volatility(symbol)
-        stop_loss_pct = self.stop_loss_percentages.get(symbol.symbol, self.stop_loss_percentages['default'])
-        
-        # Calculate proper entry price based on technical analysis
-        entry_price, entry_point_type = self._calculate_entry_price(symbol, current_price, 'SELL')
-        if entry_price is None:
-            return None
-        
-        # Stop loss (above entry for short)
-        stop_loss_price = entry_price * Decimal(str(1 + stop_loss_pct))
-        
-        # Take profit levels
-        risk_amount = stop_loss_price - entry_price
-        take_profit_price = entry_price - (risk_amount * Decimal(str(self.take_profit_levels['moderate'])))
-        
-        # Calculate confidence
-        confidence = self._calculate_signal_confidence(symbol, 'SELL', technical_score, volatility)
-        
-        if confidence < self.min_confidence_threshold:
-            return None
-        
-        return {
-            'symbol': symbol,
-            'signal_type': 'SELL',
-            'entry_price': entry_price,
-            'stop_loss': stop_loss_price,
-            'target_price': take_profit_price,
-            'confidence_score': confidence,
-            'risk_reward_ratio': float(self.take_profit_levels['moderate']),
-            'timeframe': '1D',
-            'entry_point_type': entry_point_type,
-            'strength': 'MODERATE',
-            'technical_score': technical_score,
-            'volatility': volatility,
-            'reasoning': f"Technical analysis shows bearish momentum with {confidence:.1%} confidence"
-        }
     
     def _generate_strong_buy_signal(self, symbol: Symbol, current_price: Decimal, live_prices: Dict) -> Optional[Dict]:
-        """Generate a STRONG BUY signal with higher confidence"""
-        technical_score = self._calculate_technical_score(symbol)
-        if technical_score < 0.7:  # Need strong bullish signals
+        """Generate a STRONG BUY signal using YOUR PERSONAL STRATEGY with higher confidence"""
+        # Use same logic as BUY but require more confirmations (YOUR STRATEGY)
+        daily_trend = self._analyze_daily_trend_for_strategy(symbol)
+        if daily_trend.get('direction') != 'BULLISH':
             return None
         
-        volatility = self._calculate_volatility(symbol)
-        stop_loss_pct = self.stop_loss_percentages.get(symbol.symbol, self.stop_loss_percentages['default'])
+        structure_signal = self._analyze_market_structure_for_strategy(symbol, 'BUY')
+        if not structure_signal.get('confirmed') or structure_signal.get('type') != 'BOS':
+            return None  # STRONG signals need BOS confirmation (YOUR STRATEGY)
         
-        # Calculate proper entry price based on technical analysis
+        entry_confirmation = self._analyze_entry_confirmation_for_strategy(symbol, 'BUY', daily_trend)
+        if entry_confirmation.get('confirmations', 0) < 3:  # Need 3+ confirmations for STRONG (YOUR STRATEGY)
+            return None
+        
+        technical_score = self._calculate_technical_score_with_strategy(symbol, 'BUY')
+        if technical_score < 0.7:  # Higher threshold for STRONG signals
+            return None
+        
         entry_price, entry_point_type = self._calculate_entry_price(symbol, current_price, 'STRONG_BUY')
         if entry_price is None:
             return None
         
-        stop_loss_price = entry_price * Decimal(str(1 - stop_loss_pct))
+        # YOUR STRATEGY: 8% stop loss, 15% take profit
+        stop_loss_price = entry_price * Decimal(str(1 - self.stop_loss_percentage))
+        take_profit_price = entry_price * Decimal(str(1 + self.take_profit_percentage))
         
         risk_amount = entry_price - stop_loss_price
-        take_profit_price = entry_price + (risk_amount * Decimal(str(self.take_profit_levels['aggressive'])))
+        reward_amount = take_profit_price - entry_price
+        risk_reward_ratio = float(reward_amount / risk_amount) if risk_amount > 0 else 0
         
-        confidence = self._calculate_signal_confidence(symbol, 'STRONG_BUY', technical_score, volatility)
+        base_confidence = entry_confirmation.get('confidence', 0.5)
+        structure_bonus = 0.15  # Higher bonus for BOS
+        confirmation_bonus = (entry_confirmation.get('confirmations', 0) / 4) * 0.15
+        confidence = min(0.95, base_confidence + structure_bonus + confirmation_bonus)
         
-        if confidence < 0.75:  # Higher threshold for strong signals
+        if confidence < 0.75:  # Higher threshold for STRONG signals
             return None
         
         return {
@@ -263,37 +394,63 @@ class EnhancedSignalGenerationService:
             'stop_loss': stop_loss_price,
             'target_price': take_profit_price,
             'confidence_score': confidence,
-            'risk_reward_ratio': float(self.take_profit_levels['aggressive']),
+            'risk_reward_ratio': risk_reward_ratio,
             'timeframe': '1D',
             'entry_point_type': entry_point_type,
             'strength': 'STRONG',
             'technical_score': technical_score,
-            'volatility': volatility,
-            'reasoning': f"Strong bullish momentum detected with {confidence:.1%} confidence"
+            'strategy_confirmations': entry_confirmation.get('confirmations', 0),
+            'strategy_details': {
+                'daily_trend': daily_trend.get('direction'),
+                'market_structure': structure_signal.get('type'),
+                'rsi_level': entry_confirmation.get('rsi', 0),
+                'candlestick_pattern': entry_confirmation.get('candlestick', 'NONE'),
+                'volume_confirmation': entry_confirmation.get('volume_confirmed', False),
+                'macd_signal': entry_confirmation.get('macd_signal', 'NONE'),
+                'take_profit_percentage': float(self.take_profit_percentage * 100),
+                'stop_loss_percentage': float(self.stop_loss_percentage * 100),
+                'strategy': 'PERSONAL_STRATEGY'
+            },
+            'reasoning': f"YOUR STRATEGY STRONG BUY: {structure_signal.get('type')} with {entry_confirmation.get('confirmations')} confirmations. RSI: {entry_confirmation.get('rsi', 0):.1f}, Confidence: {confidence:.1%}"
         }
     
     def _generate_strong_sell_signal(self, symbol: Symbol, current_price: Decimal, live_prices: Dict) -> Optional[Dict]:
-        """Generate a STRONG SELL signal with higher confidence"""
-        technical_score = self._calculate_technical_score(symbol)
-        if technical_score > 0.3:  # Need strong bearish signals
+        """Generate a STRONG SELL signal using YOUR PERSONAL STRATEGY with higher confidence"""
+        # Use same logic as SELL but require more confirmations (YOUR STRATEGY)
+        daily_trend = self._analyze_daily_trend_for_strategy(symbol)
+        if daily_trend.get('direction') != 'BEARISH':
             return None
         
-        volatility = self._calculate_volatility(symbol)
-        stop_loss_pct = self.stop_loss_percentages.get(symbol.symbol, self.stop_loss_percentages['default'])
+        structure_signal = self._analyze_market_structure_for_strategy(symbol, 'SELL')
+        if not structure_signal.get('confirmed') or structure_signal.get('type') != 'BOS':
+            return None  # STRONG signals need BOS confirmation (YOUR STRATEGY)
         
-        # Calculate proper entry price based on technical analysis
+        entry_confirmation = self._analyze_entry_confirmation_for_strategy(symbol, 'SELL', daily_trend)
+        if entry_confirmation.get('confirmations', 0) < 3:  # Need 3+ confirmations for STRONG (YOUR STRATEGY)
+            return None
+        
+        technical_score = self._calculate_technical_score_with_strategy(symbol, 'SELL')
+        if technical_score > 0.3:  # Higher threshold for STRONG signals
+            return None
+        
         entry_price, entry_point_type = self._calculate_entry_price(symbol, current_price, 'STRONG_SELL')
         if entry_price is None:
             return None
         
-        stop_loss_price = entry_price * Decimal(str(1 + stop_loss_pct))
+        # YOUR STRATEGY: 8% stop loss, 15% take profit
+        stop_loss_price = entry_price * Decimal(str(1 + self.stop_loss_percentage))
+        take_profit_price = entry_price * Decimal(str(1 - self.take_profit_percentage))
         
         risk_amount = stop_loss_price - entry_price
-        take_profit_price = entry_price - (risk_amount * Decimal(str(self.take_profit_levels['aggressive'])))
+        reward_amount = entry_price - take_profit_price
+        risk_reward_ratio = float(reward_amount / risk_amount) if risk_amount > 0 else 0
         
-        confidence = self._calculate_signal_confidence(symbol, 'STRONG_SELL', technical_score, volatility)
+        base_confidence = entry_confirmation.get('confidence', 0.5)
+        structure_bonus = 0.15  # Higher bonus for BOS
+        confirmation_bonus = (entry_confirmation.get('confirmations', 0) / 4) * 0.15
+        confidence = min(0.95, base_confidence + structure_bonus + confirmation_bonus)
         
-        if confidence < 0.75:  # Higher threshold for strong signals
+        if confidence < 0.75:  # Higher threshold for STRONG signals
             return None
         
         return {
@@ -303,13 +460,24 @@ class EnhancedSignalGenerationService:
             'stop_loss': stop_loss_price,
             'target_price': take_profit_price,
             'confidence_score': confidence,
-            'risk_reward_ratio': float(self.take_profit_levels['aggressive']),
+            'risk_reward_ratio': risk_reward_ratio,
             'timeframe': '1D',
             'entry_point_type': entry_point_type,
             'strength': 'STRONG',
             'technical_score': technical_score,
-            'volatility': volatility,
-            'reasoning': f"Strong bearish momentum detected with {confidence:.1%} confidence"
+            'strategy_confirmations': entry_confirmation.get('confirmations', 0),
+            'strategy_details': {
+                'daily_trend': daily_trend.get('direction'),
+                'market_structure': structure_signal.get('type'),
+                'rsi_level': entry_confirmation.get('rsi', 0),
+                'candlestick_pattern': entry_confirmation.get('candlestick', 'NONE'),
+                'volume_confirmation': entry_confirmation.get('volume_confirmed', False),
+                'macd_signal': entry_confirmation.get('macd_signal', 'NONE'),
+                'take_profit_percentage': float(self.take_profit_percentage * 100),
+                'stop_loss_percentage': float(self.stop_loss_percentage * 100),
+                'strategy': 'PERSONAL_STRATEGY'
+            },
+            'reasoning': f"YOUR STRATEGY STRONG SELL: {structure_signal.get('type')} with {entry_confirmation.get('confirmations')} confirmations. RSI: {entry_confirmation.get('rsi', 0):.1f}, Confidence: {confidence:.1%}"
         }
     
     def _calculate_entry_price(self, symbol: Symbol, current_price: Decimal, signal_type: str) -> Tuple[Optional[Decimal], str]:
@@ -404,6 +572,836 @@ class EnhancedSignalGenerationService:
             logger.error(f"Error calculating entry price for {symbol.symbol}: {e}")
             return None, 'ERROR'
 
+    def _identify_support_resistance_levels(self, symbol: Symbol, timeframes: List[str]) -> Dict:
+        """Step 1: Identify support and resistance levels on 1D or 4H timeframe"""
+        try:
+            all_support_levels = []
+            all_resistance_levels = []
+            
+            for timeframe in timeframes:
+                # Get market data for timeframe
+                market_data = self._get_timeframe_market_data(symbol, timeframe)
+                if not market_data or len(market_data) < self.support_resistance_lookback:
+                    continue
+                
+                # Find swing highs (resistance) and swing lows (support)
+                highs = [float(d['high']) for d in market_data]
+                lows = [float(d['low']) for d in market_data]
+                closes = [float(d['close']) for d in market_data]
+                
+                # Find swing points
+                swing_highs = self._find_swing_highs(highs, closes)
+                swing_lows = self._find_swing_lows(lows, closes)
+                
+                # Cluster similar levels
+                resistance_levels = self._cluster_levels(swing_highs, self.level_tolerance)
+                support_levels = self._cluster_levels(swing_lows, self.level_tolerance)
+                
+                # Filter by minimum touches
+                resistance_levels = [r for r in resistance_levels if r['touches'] >= self.min_touches_for_level]
+                support_levels = [s for s in support_levels if s['touches'] >= self.min_touches_for_level]
+                
+                all_resistance_levels.extend([r['price'] for r in resistance_levels])
+                all_support_levels.extend([s['price'] for s in support_levels])
+            
+            # Remove duplicates and sort
+            all_resistance_levels = sorted(set(all_resistance_levels), reverse=True)
+            all_support_levels = sorted(set(all_support_levels))
+            
+            return {
+                'support_levels': all_support_levels,
+                'resistance_levels': all_resistance_levels,
+                'timeframes_analyzed': timeframes
+            }
+            
+        except Exception as e:
+            logger.error(f"Error identifying support/resistance for {symbol.symbol}: {e}")
+            return {'support_levels': [], 'resistance_levels': []}
+    
+    def _analyze_trend_4h(self, symbol: Symbol) -> Dict:
+        """Step 2: Analyze 4H timeframe to determine trend direction"""
+        try:
+            market_data = self._get_timeframe_market_data(symbol, '4H')
+            if not market_data or len(market_data) < 20:
+                return {'direction': 'NEUTRAL', 'strength': 0.0}
+            
+            prices = [float(d['close']) for d in market_data]
+            highs = [float(d['high']) for d in market_data]
+            lows = [float(d['low']) for d in market_data]
+            
+            # Calculate SMA 20 and 50
+            sma_20 = np.mean(prices[-20:])
+            sma_50 = np.mean(prices[-50:]) if len(prices) >= 50 else sma_20
+            
+            current_price = prices[-1]
+            
+            # Find swing highs and lows for trend confirmation
+            swing_highs = self._find_swing_highs(highs, prices)
+            swing_lows = self._find_swing_lows(lows, prices)
+            
+            # Determine trend
+            if len(swing_highs) >= 2 and len(swing_lows) >= 2:
+                # Higher highs and higher lows = BULLISH
+                if (swing_highs[-1] > swing_highs[-2] and 
+                    swing_lows[-1] > swing_lows[-2] and
+                    current_price > sma_20 > sma_50):
+                    direction = 'BULLISH'
+                    strength = min(1.0, abs(current_price - sma_20) / sma_20 * 10)
+                # Lower highs and lower lows = BEARISH
+                elif (swing_highs[-1] < swing_highs[-2] and 
+                      swing_lows[-1] < swing_lows[-2] and
+                      current_price < sma_20 < sma_50):
+                    direction = 'BEARISH'
+                    strength = min(1.0, abs(current_price - sma_20) / sma_20 * 10)
+                else:
+                    direction = 'NEUTRAL'
+                    strength = 0.0
+            else:
+                # Fallback to SMA
+                if current_price > sma_20 > sma_50:
+                    direction = 'BULLISH'
+                    strength = 0.5
+                elif current_price < sma_20 < sma_50:
+                    direction = 'BEARISH'
+                    strength = 0.5
+                else:
+                    direction = 'NEUTRAL'
+                    strength = 0.0
+            
+            return {
+                'direction': direction,
+                'strength': strength,
+                'sma_20': sma_20,
+                'sma_50': sma_50,
+                'current_price': current_price
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing 4H trend for {symbol.symbol}: {e}")
+            return {'direction': 'NEUTRAL', 'strength': 0.0}
+    
+    def _analyze_entry_workflow(self, symbol: Symbol, signal_type: str, current_price: Decimal, 
+                                support_resistance: Dict) -> Dict:
+        """
+        Step 3: Analyze 1H/15M for CHoCH → price moves to other side → BOS → Entry at key point
+        YOUR STRATEGY: After CHoCH, price moves to other side, then BOS, then entry at key point
+        """
+        try:
+            entry_confirmed = False
+            choch_detected = False
+            bos_detected = False
+            entry_price = None
+            entry_timeframe = None
+            entry_type = None
+            confirmations = 0
+            
+            # Try 1H first, then 15M
+            for timeframe in self.entry_timeframes:
+                market_data = self._get_timeframe_market_data(symbol, timeframe)
+                if not market_data or len(market_data) < 30:
+                    continue
+                
+                # Detect CHoCH (Change of Character)
+                choch_result = self._detect_choch(market_data, signal_type)
+                if not choch_result.get('detected'):
+                    continue
+                
+                choch_detected = True
+                choch_index = choch_result.get('index')
+                choch_price = choch_result.get('price')
+                
+                # After CHoCH, price should move to the other side
+                # For BUY: CHoCH should be bearish (price drops), then we wait for bullish BOS
+                # For SELL: CHoCH should be bullish (price rises), then we wait for bearish BOS
+                
+                # Get data after CHoCH
+                data_after_choch = market_data[choch_index:]
+                if len(data_after_choch) < 10:
+                    continue
+                
+                # Detect BOS (Break of Structure) after CHoCH
+                bos_result = self._detect_bos_after_choch(data_after_choch, signal_type, choch_result)
+                if not bos_result.get('detected'):
+                    continue
+                
+                bos_detected = True
+                bos_price = bos_result.get('break_price')
+                
+                # Find entry at key level near BOS
+                entry_result = self._find_entry_at_key_level(
+                    bos_price, signal_type, support_resistance, current_price
+                )
+                
+                if entry_result.get('found'):
+                    entry_price = Decimal(str(entry_result.get('entry_price')))
+                    entry_timeframe = timeframe
+                    entry_type = entry_result.get('entry_type')
+                    entry_at_key_level = entry_result.get('at_key_level', False)
+                    entry_confirmed = True
+                    confirmations = 2  # CHoCH + BOS
+                    
+                    # Additional confirmations
+                    if entry_at_key_level:
+                        confirmations += 1
+                    if self._check_volume_confirmation(market_data[-5:]):
+                        confirmations += 1
+                    
+                    return {
+                        'entry_confirmed': entry_confirmed,
+                        'choch_detected': choch_detected,
+                        'bos_detected': bos_detected,
+                        'entry_price': float(entry_price),
+                        'entry_timeframe': entry_timeframe,
+                        'entry_type': entry_type,
+                        'entry_at_key_level': entry_at_key_level,
+                        'confirmations': confirmations
+                    }
+            
+            return {
+                'entry_confirmed': entry_confirmed,
+                'choch_detected': choch_detected,
+                'bos_detected': bos_detected,
+                'entry_price': None,
+                'entry_timeframe': None,
+                'entry_type': None,
+                'entry_at_key_level': False,
+                'confirmations': 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing entry workflow for {symbol.symbol}: {e}")
+            return {'entry_confirmed': False}
+    
+    def _calculate_sl_tp_from_key_levels(self, entry_price: Decimal, signal_type: str,
+                                        support_resistance: Dict, entry_analysis: Dict) -> Dict:
+        """
+        Step 4: Calculate SL/TP at next key levels (support/resistance)
+        YOUR STRATEGY: SL/TP should be at next key levels, NOT fixed percentages
+        """
+        try:
+            support_levels = support_resistance.get('support_levels', [])
+            resistance_levels = support_resistance.get('resistance_levels', [])
+            entry = float(entry_price)
+            
+            if signal_type == 'BUY':
+                # For BUY: SL at next support below entry, TP at next resistance above entry
+                # Find closest support below entry
+                supports_below = [s for s in support_levels if s < entry]
+                if supports_below:
+                    stop_loss = max(supports_below)  # Closest support below
+                    sl_at_key_level = True
+                else:
+                    # Fallback: use percentage
+                    stop_loss = entry * (1 - self.fallback_stop_loss_percentage)
+                    sl_at_key_level = False
+                
+                # Find closest resistance above entry
+                resistances_above = [r for r in resistance_levels if r > entry]
+                if resistances_above:
+                    take_profit = min(resistances_above)  # Closest resistance above
+                    tp_at_key_level = True
+                else:
+                    # Fallback: use percentage
+                    take_profit = entry * (1 + self.fallback_take_profit_percentage)
+                    tp_at_key_level = False
+                    
+            else:  # SELL
+                # For SELL: SL at next resistance above entry, TP at next support below entry
+                # Find closest resistance above entry
+                resistances_above = [r for r in resistance_levels if r > entry]
+                if resistances_above:
+                    stop_loss = min(resistances_above)  # Closest resistance above
+                    sl_at_key_level = True
+                else:
+                    # Fallback: use percentage
+                    stop_loss = entry * (1 + self.fallback_stop_loss_percentage)
+                    sl_at_key_level = False
+                
+                # Find closest support below entry
+                supports_below = [s for s in support_levels if s < entry]
+                if supports_below:
+                    take_profit = max(supports_below)  # Closest support below
+                    tp_at_key_level = True
+                else:
+                    # Fallback: use percentage
+                    take_profit = entry * (1 - self.fallback_take_profit_percentage)
+                    tp_at_key_level = False
+            
+            # Validate SL/TP
+            if signal_type == 'BUY':
+                valid = stop_loss < entry < take_profit
+            else:
+                valid = take_profit < entry < stop_loss
+            
+            return {
+                'valid': valid,
+                'stop_loss': Decimal(str(stop_loss)),
+                'take_profit': Decimal(str(take_profit)),
+                'sl_at_key_level': sl_at_key_level,
+                'tp_at_key_level': tp_at_key_level
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating SL/TP from key levels: {e}")
+            return {'valid': False}
+    
+    def _get_timeframe_market_data(self, symbol: Symbol, timeframe: str) -> Optional[List[Dict]]:
+        """Get market data for specific timeframe"""
+        try:
+            # Calculate lookback period
+            if timeframe == '1D':
+                lookback_hours = 30 * 24  # 30 days
+            elif timeframe == '4H':
+                lookback_hours = 7 * 24  # 7 days
+            elif timeframe == '1H':
+                lookback_hours = 3 * 24  # 3 days
+            elif timeframe == '15M':
+                lookback_hours = 1 * 24  # 1 day
+            else:
+                lookback_hours = 24
+            
+            start_time = timezone.now() - timedelta(hours=lookback_hours)
+            
+            # Get market data
+            market_data = MarketData.objects.filter(
+                symbol=symbol,
+                timeframe=timeframe.lower(),
+                timestamp__gte=start_time
+            ).order_by('timestamp')
+            
+            if not market_data.exists():
+                return None
+            
+            return [{
+                'timestamp': d.timestamp,
+                'open': float(d.open_price),
+                'high': float(d.high_price),
+                'low': float(d.low_price),
+                'close': float(d.close_price),
+                'volume': float(d.volume)
+            } for d in market_data]
+            
+        except Exception as e:
+            logger.error(f"Error getting timeframe data for {symbol.symbol} {timeframe}: {e}")
+            return None
+    
+    def _find_swing_highs(self, highs: List[float], closes: List[float]) -> List[float]:
+        """Find swing highs"""
+        swing_highs = []
+        window = 5
+        
+        for i in range(window, len(highs) - window):
+            if highs[i] == max(highs[i-window:i+window+1]):
+                swing_highs.append(highs[i])
+        
+        return swing_highs
+    
+    def _find_swing_lows(self, lows: List[float], closes: List[float]) -> List[float]:
+        """Find swing lows"""
+        swing_lows = []
+        window = 5
+        
+        for i in range(window, len(lows) - window):
+            if lows[i] == min(lows[i-window:i+window+1]):
+                swing_lows.append(lows[i])
+        
+        return swing_lows
+    
+    def _cluster_levels(self, levels: List[float], tolerance: float) -> List[Dict]:
+        """Cluster similar price levels"""
+        if not levels:
+            return []
+        
+        clusters = []
+        sorted_levels = sorted(levels)
+        
+        current_cluster = [sorted_levels[0]]
+        
+        for level in sorted_levels[1:]:
+            if abs(level - current_cluster[-1]) / current_cluster[-1] <= tolerance:
+                current_cluster.append(level)
+            else:
+                # Save current cluster
+                avg_price = np.mean(current_cluster)
+                clusters.append({'price': avg_price, 'touches': len(current_cluster)})
+                current_cluster = [level]
+        
+        # Save last cluster
+        if current_cluster:
+            avg_price = np.mean(current_cluster)
+            clusters.append({'price': avg_price, 'touches': len(current_cluster)})
+        
+        return clusters
+    
+    def _detect_choch(self, market_data: List[Dict], signal_type: str) -> Dict:
+        """Detect Change of Character (CHoCH)"""
+        try:
+            if len(market_data) < self.choch_lookback:
+                return {'detected': False}
+            
+            prices = [d['close'] for d in market_data]
+            highs = [d['high'] for d in market_data]
+            lows = [d['low'] for d in market_data]
+            
+            # Find recent swing points
+            recent_highs = self._find_swing_highs(highs[-self.choch_lookback:], prices[-self.choch_lookback:])
+            recent_lows = self._find_swing_lows(lows[-self.choch_lookback:], prices[-self.choch_lookback:])
+            
+            if signal_type == 'BUY':
+                # For BUY: Look for bearish CHoCH (lower high after uptrend)
+                if len(recent_highs) >= 2:
+                    if recent_highs[-1] < recent_highs[-2]:
+                        # Bearish CHoCH detected
+                        return {
+                            'detected': True,
+                            'index': len(market_data) - 1,
+                            'price': recent_highs[-1],
+                            'type': 'BEARISH_CHOCH'
+                        }
+            else:  # SELL
+                # For SELL: Look for bullish CHoCH (higher low after downtrend)
+                if len(recent_lows) >= 2:
+                    if recent_lows[-1] > recent_lows[-2]:
+                        # Bullish CHoCH detected
+                        return {
+                            'detected': True,
+                            'index': len(market_data) - 1,
+                            'price': recent_lows[-1],
+                            'type': 'BULLISH_CHOCH'
+                        }
+            
+            return {'detected': False}
+            
+        except Exception as e:
+            logger.error(f"Error detecting CHoCH: {e}")
+            return {'detected': False}
+    
+    def _detect_bos_after_choch(self, market_data: List[Dict], signal_type: str, choch_result: Dict) -> Dict:
+        """Detect Break of Structure (BOS) after CHoCH"""
+        try:
+            if len(market_data) < 5:
+                return {'detected': False}
+            
+            prices = [d['close'] for d in market_data]
+            highs = [d['high'] for d in market_data]
+            lows = [d['low'] for d in market_data]
+            
+            if signal_type == 'BUY':
+                # After bearish CHoCH, look for bullish BOS (break above previous high)
+                recent_high = max(highs[:5])  # High before CHoCH
+                current_price = prices[-1]
+                
+                if current_price > recent_high * (1 + self.min_structure_break):
+                    return {
+                        'detected': True,
+                        'break_price': recent_high,
+                        'current_price': current_price,
+                        'type': 'BULLISH_BOS'
+                    }
+            else:  # SELL
+                # After bullish CHoCH, look for bearish BOS (break below previous low)
+                recent_low = min(lows[:5])  # Low before CHoCH
+                current_price = prices[-1]
+                
+                if current_price < recent_low * (1 - self.min_structure_break):
+                    return {
+                        'detected': True,
+                        'break_price': recent_low,
+                        'current_price': current_price,
+                        'type': 'BEARISH_BOS'
+                    }
+            
+            return {'detected': False}
+            
+        except Exception as e:
+            logger.error(f"Error detecting BOS after CHoCH: {e}")
+            return {'detected': False}
+    
+    def _find_entry_at_key_level(self, bos_price: float, signal_type: str,
+                                 support_resistance: Dict, current_price: Decimal) -> Dict:
+        """Find entry point at key level (support/resistance)"""
+        try:
+            support_levels = support_resistance.get('support_levels', [])
+            resistance_levels = support_resistance.get('resistance_levels', [])
+            current = float(current_price)
+            
+            if signal_type == 'BUY':
+                # For BUY: Entry should be near support level
+                for support in support_levels:
+                    if abs(current - support) / support <= self.key_point_tolerance:
+                        return {
+                            'found': True,
+                            'entry_price': support,
+                            'entry_type': 'SUPPORT_ENTRY',
+                            'at_key_level': True
+                        }
+                # If not at exact level, use current price if near support
+                closest_support = min([s for s in support_levels if s < current], default=None)
+                if closest_support and abs(current - closest_support) / closest_support <= self.key_point_tolerance * 2:
+                    return {
+                        'found': True,
+                        'entry_price': current,
+                        'entry_type': 'NEAR_SUPPORT',
+                        'at_key_level': True
+                    }
+            else:  # SELL
+                # For SELL: Entry should be near resistance level
+                for resistance in resistance_levels:
+                    if abs(current - resistance) / resistance <= self.key_point_tolerance:
+                        return {
+                            'found': True,
+                            'entry_price': resistance,
+                            'entry_type': 'RESISTANCE_ENTRY',
+                            'at_key_level': True
+                        }
+                # If not at exact level, use current price if near resistance
+                closest_resistance = min([r for r in resistance_levels if r > current], default=None)
+                if closest_resistance and abs(current - closest_resistance) / closest_resistance <= self.key_point_tolerance * 2:
+                    return {
+                        'found': True,
+                        'entry_price': current,
+                        'entry_type': 'NEAR_RESISTANCE',
+                        'at_key_level': True
+                    }
+            
+            # Fallback: use current price
+            return {
+                'found': True,
+                'entry_price': current,
+                'entry_type': 'CURRENT_PRICE',
+                'at_key_level': False
+            }
+            
+        except Exception as e:
+            logger.error(f"Error finding entry at key level: {e}")
+            return {'found': False}
+    
+    def _check_volume_confirmation(self, recent_data: List[Dict]) -> bool:
+        """Check volume confirmation"""
+        try:
+            if len(recent_data) < 5:
+                return False
+            
+            volumes = [d['volume'] for d in recent_data]
+            avg_volume = np.mean(volumes[:-1])
+            current_volume = volumes[-1]
+            
+            return current_volume >= avg_volume * self.volume_threshold
+            
+        except:
+            return False
+    
+    def _calculate_confidence_from_workflow(self, trend_4h: Dict, entry_analysis: Dict,
+                                           support_resistance: Dict, risk_reward_ratio: float) -> float:
+        """Calculate confidence based on complete workflow"""
+        try:
+            confidence = 0.5  # Base confidence
+            
+            # Trend strength bonus
+            trend_strength = trend_4h.get('strength', 0)
+            confidence += trend_strength * 0.2
+            
+            # CHoCH + BOS confirmation
+            if entry_analysis.get('choch_detected') and entry_analysis.get('bos_detected'):
+                confidence += 0.2
+            
+            # Entry at key level
+            if entry_analysis.get('entry_at_key_level'):
+                confidence += 0.1
+            
+            # Confirmations bonus
+            confirmations = entry_analysis.get('confirmations', 0)
+            confidence += (confirmations / 4) * 0.1
+            
+            # Risk/reward bonus
+            if risk_reward_ratio >= 2.0:
+                confidence += 0.1
+            elif risk_reward_ratio >= 1.5:
+                confidence += 0.05
+            
+            return min(0.95, confidence)
+            
+        except:
+            return 0.6
+    
+    def _analyze_daily_trend_for_strategy(self, symbol: Symbol) -> Dict:
+        """Analyze daily trend using YOUR STRATEGY (1D timeframe)"""
+        try:
+            recent_data = MarketData.objects.filter(
+                symbol=symbol
+            ).order_by('-timestamp')[:50]  # Last 50 data points
+            
+            if not recent_data.exists() or len(recent_data) < 20:
+                return {'direction': 'NEUTRAL', 'strength': 0.0}
+            
+            prices = [float(d.close_price) for d in recent_data]
+            
+            # Calculate SMA 20 and SMA 50 (YOUR STRATEGY)
+            sma_20 = np.mean(prices[-20:])
+            sma_50 = np.mean(prices[-50:]) if len(prices) >= 50 else sma_20
+            
+            current_price = prices[-1]
+            
+            # Determine trend direction (YOUR STRATEGY)
+            if sma_20 > sma_50 and current_price > sma_20:
+                direction = 'BULLISH'
+                strength = abs(current_price - sma_20) / sma_20
+            elif sma_20 < sma_50 and current_price < sma_20:
+                direction = 'BEARISH'
+                strength = abs(current_price - sma_20) / sma_20
+            else:
+                direction = 'NEUTRAL'
+                strength = 0.0
+            
+            return {
+                'direction': direction,
+                'strength': strength,
+                'sma_20': sma_20,
+                'sma_50': sma_50,
+                'current_price': current_price
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing daily trend for {symbol.symbol}: {e}")
+            return {'direction': 'NEUTRAL', 'strength': 0.0}
+    
+    def _analyze_market_structure_for_strategy(self, symbol: Symbol, signal_type: str) -> Dict:
+        """Analyze market structure for BOS/CHoCH (YOUR STRATEGY)"""
+        try:
+            recent_data = MarketData.objects.filter(
+                symbol=symbol
+            ).order_by('-timestamp')[:50]
+            
+            if not recent_data.exists() or len(recent_data) < 20:
+                return {'confirmed': False, 'type': 'NONE'}
+            
+            prices = [float(d.close_price) for d in recent_data]
+            highs = [float(d.high_price) for d in recent_data]
+            lows = [float(d.low_price) for d in recent_data]
+            
+            current_price = prices[-1]
+            
+            # Find swing highs and lows
+            swing_highs = []
+            swing_lows = []
+            
+            for i in range(5, len(prices) - 5):
+                if highs[i] == max(highs[i-5:i+6]):
+                    swing_highs.append(highs[i])
+                if lows[i] == min(lows[i-5:i+6]):
+                    swing_lows.append(lows[i])
+            
+            # Check for BOS (Break of Structure)
+            if signal_type == 'BUY' and swing_highs:
+                recent_high = max(swing_highs[-3:]) if len(swing_highs) >= 3 else swing_highs[-1]
+                if current_price > recent_high:
+                    return {'confirmed': True, 'type': 'BOS', 'break_level': recent_high}
+            
+            if signal_type == 'SELL' and swing_lows:
+                recent_low = min(swing_lows[-3:]) if len(swing_lows) >= 3 else swing_lows[-1]
+                if current_price < recent_low:
+                    return {'confirmed': True, 'type': 'BOS', 'break_level': recent_low}
+            
+            # Check for CHoCH (Change of Character)
+            if signal_type == 'BUY' and len(swing_lows) >= 3:
+                recent_lows = swing_lows[-3:]
+                if recent_lows[-1] > recent_lows[-2] > recent_lows[-3]:
+                    return {'confirmed': True, 'type': 'CHoCH', 'break_level': recent_lows[-1]}
+            
+            if signal_type == 'SELL' and len(swing_highs) >= 3:
+                recent_highs = swing_highs[-3:]
+                if recent_highs[-1] < recent_highs[-2] < recent_highs[-3]:
+                    return {'confirmed': True, 'type': 'CHoCH', 'break_level': recent_highs[-1]}
+            
+            return {'confirmed': False, 'type': 'NONE'}
+            
+        except Exception as e:
+            logger.error(f"Error analyzing market structure for {symbol.symbol}: {e}")
+            return {'confirmed': False, 'type': 'NONE'}
+    
+    def _analyze_entry_confirmation_for_strategy(self, symbol: Symbol, signal_type: str, trend: Dict) -> Dict:
+        """Analyze entry confirmation using YOUR STRATEGY (RSI, MACD, Candlestick, Volume)"""
+        try:
+            recent_data = MarketData.objects.filter(
+                symbol=symbol
+            ).order_by('-timestamp')[:30]
+            
+            if not recent_data.exists() or len(recent_data) < 20:
+                return {'confirmations': 0, 'confidence': 0.0}
+            
+            prices = [float(d.close_price) for d in recent_data]
+            volumes = [float(d.volume) for d in recent_data]
+            opens = [float(d.open_price) for d in recent_data]
+            highs = [float(d.high_price) for d in recent_data]
+            lows = [float(d.low_price) for d in recent_data]
+            
+            confirmations = 0
+            confidence = 0.5
+            
+            # 1. RSI Confirmation (YOUR STRATEGY: 20-50 for longs, 50-80 for shorts)
+            rsi = self._calculate_rsi(prices)
+            if signal_type == 'BUY' and self.rsi_buy_range[0] <= rsi <= self.rsi_buy_range[1]:
+                confirmations += 1
+                confidence += 0.15
+            elif signal_type == 'SELL' and self.rsi_sell_range[0] <= rsi <= self.rsi_sell_range[1]:
+                confirmations += 1
+                confidence += 0.15
+            
+            # 2. MACD Confirmation
+            macd_signal = self._calculate_macd_signal(prices)
+            if signal_type == 'BUY' and macd_signal > 0:
+                confirmations += 1
+                confidence += 0.1
+            elif signal_type == 'SELL' and macd_signal < 0:
+                confirmations += 1
+                confidence += 0.1
+            
+            # 3. Volume Confirmation (YOUR STRATEGY: 1.2x threshold)
+            volume_ratio = volumes[-1] / np.mean(volumes[-20:]) if len(volumes) >= 20 else 1.0
+            if volume_ratio >= self.volume_threshold:
+                confirmations += 1
+                confidence += 0.1
+            
+            # 4. Candlestick Pattern Confirmation (YOUR STRATEGY)
+            candlestick_pattern = self._detect_candlestick_pattern_for_strategy(
+                opens[-2:], highs[-2:], lows[-2:], prices[-2:], signal_type
+            )
+            if candlestick_pattern != 'NONE':
+                confirmations += 1
+                confidence += 0.1
+            
+            return {
+                'confirmations': confirmations,
+                'confidence': min(0.95, confidence),
+                'rsi': rsi,
+                'macd_signal': 'BULLISH' if macd_signal > 0 else 'BEARISH' if macd_signal < 0 else 'NEUTRAL',
+                'volume_confirmed': volume_ratio >= self.volume_threshold,
+                'volume_ratio': volume_ratio,
+                'candlestick': candlestick_pattern
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing entry confirmation for {symbol.symbol}: {e}")
+            return {'confirmations': 0, 'confidence': 0.0}
+    
+    def _detect_candlestick_pattern_for_strategy(self, opens: List[float], highs: List[float], 
+                                                 lows: List[float], closes: List[float], signal_type: str) -> str:
+        """Detect candlestick patterns for YOUR STRATEGY"""
+        try:
+            if len(closes) < 2:
+                return 'NONE'
+            
+            prev_open, curr_open = opens[-2], opens[-1]
+            prev_close, curr_close = closes[-2], closes[-1]
+            prev_high, curr_high = highs[-2], highs[-1]
+            prev_low, curr_low = lows[-2], lows[-1]
+            
+            # Bullish Engulfing Pattern
+            if signal_type == 'BUY':
+                if (prev_close < prev_open and  # Previous bearish
+                    curr_close > curr_open and  # Current bullish
+                    curr_open < prev_close and  # Opens below prev close
+                    curr_close > prev_open):  # Closes above prev open
+                    return 'BULLISH_ENGULFING'
+                
+                # Hammer Pattern
+                body = abs(curr_close - curr_open)
+                lower_shadow = min(curr_open, curr_close) - curr_low
+                if body > 0 and lower_shadow > 2 * body:
+                    return 'HAMMER'
+            
+            # Bearish Engulfing Pattern
+            elif signal_type == 'SELL':
+                if (prev_close > prev_open and  # Previous bullish
+                    curr_close < curr_open and  # Current bearish
+                    curr_open > prev_close and  # Opens above prev close
+                    curr_close < prev_open):  # Closes below prev open
+                    return 'BEARISH_ENGULFING'
+                
+                # Shooting Star Pattern
+                body = abs(curr_close - curr_open)
+                upper_shadow = curr_high - max(curr_open, curr_close)
+                if body > 0 and upper_shadow > 2 * body:
+                    return 'SHOOTING_STAR'
+            
+            return 'NONE'
+            
+        except Exception as e:
+            logger.error(f"Error detecting candlestick pattern: {e}")
+            return 'NONE'
+    
+    def _calculate_technical_score_with_strategy(self, symbol: Symbol, signal_type: str) -> float:
+        """Calculate technical score using YOUR STRATEGY parameters"""
+        try:
+            recent_data = MarketData.objects.filter(
+                symbol=symbol
+            ).order_by('-timestamp')[:100]
+            
+            if not recent_data.exists():
+                return 0.5
+            
+            prices = [float(d.close_price) for d in recent_data]
+            volumes = [float(d.volume) for d in recent_data]
+            
+            if len(prices) < 20:
+                return 0.5
+            
+            # Calculate RSI with YOUR ranges
+            rsi = self._calculate_rsi(prices)
+            
+            # Calculate Moving Averages (YOUR STRATEGY: SMA 20 & 50)
+            sma_20 = np.mean(prices[-20:])
+            sma_50 = np.mean(prices[-50:]) if len(prices) >= 50 else sma_20
+            
+            # Calculate MACD
+            macd_signal = self._calculate_macd_signal(prices)
+            
+            # Calculate Volume trend
+            volume_trend = self._calculate_volume_trend(volumes)
+            
+            # Score based on YOUR STRATEGY
+            score = 0.5  # Base neutral score
+            
+            if signal_type == 'BUY':
+                # RSI in YOUR buy range (20-50)
+                if self.rsi_buy_range[0] <= rsi <= self.rsi_buy_range[1]:
+                    score += 0.25
+                
+                # Moving average alignment (YOUR STRATEGY)
+                if prices[-1] > sma_20 > sma_50:
+                    score += 0.15
+                
+                # MACD bullish
+                if macd_signal > 0:
+                    score += 0.1
+                
+                # Volume confirmation
+                if volume_trend > 0:
+                    score += 0.05
+                    
+            else:  # SELL
+                # RSI in YOUR sell range (50-80)
+                if self.rsi_sell_range[0] <= rsi <= self.rsi_sell_range[1]:
+                    score += 0.25
+                
+                # Moving average alignment (YOUR STRATEGY)
+                if prices[-1] < sma_20 < sma_50:
+                    score += 0.15
+                
+                # MACD bearish
+                if macd_signal < 0:
+                    score += 0.1
+                
+                # Volume confirmation
+                if volume_trend < 0:
+                    score += 0.05
+            
+            return max(0.0, min(1.0, score))
+            
+        except Exception as e:
+            logger.error(f"Error calculating technical score with strategy for {symbol.symbol}: {e}")
+            return 0.5
+    
     def _calculate_technical_score(self, symbol: Symbol) -> float:
         """Calculate technical analysis score for a symbol"""
         try:
@@ -685,28 +1683,37 @@ class EnhancedSignalGenerationService:
             return False
     
     def _select_best_signals(self, all_signals: List[Dict]) -> List[Dict]:
-        """Select the best 10 signals based on confidence, risk/reward, news, and sentiment"""
+        """Select the best 10 signals - PRIORITIZING YOUR PERSONAL STRATEGY"""
         if not all_signals:
             return []
         
-        # Calculate combined score for each signal
+        # Calculate combined score for each signal - YOUR STRATEGY GETS HIGHEST PRIORITY
         def signal_score(signal):
-            # Strategy confidence (40% weight)
-            confidence = signal.get('confidence_score', 0.5) * 0.4
+            # YOUR STRATEGY BONUS (50% weight) - Signals using your strategy get massive boost
+            strategy_details = signal.get('strategy_details', {})
+            is_personal_strategy = strategy_details.get('strategy') == 'PERSONAL_STRATEGY'
+            strategy_bonus = 0.5 if is_personal_strategy else 0.0
             
-            # Risk-reward ratio (20% weight)
-            risk_reward = signal.get('risk_reward_ratio', 1.0) / 5.0 * 0.2  # Normalize to 0-1
+            # Strategy confirmations bonus (10% weight)
+            confirmations = signal.get('strategy_confirmations', 0)
+            confirmation_score = min(0.1, (confirmations / 4) * 0.1)
             
-            # Quality score (20% weight)
-            quality = signal.get('quality_score', 0.5) * 0.2
+            # Strategy confidence (20% weight)
+            confidence = signal.get('confidence_score', 0.5) * 0.2
             
-            # News score (10% weight) - get from signal or calculate
-            news = self._get_news_score_for_signal_dict(signal) * 0.1
+            # Risk-reward ratio (10% weight) - YOUR STRATEGY has 1.875:1
+            risk_reward = signal.get('risk_reward_ratio', 1.0) / 5.0 * 0.1
             
-            # Sentiment score (10% weight) - get from signal or calculate
-            sentiment = self._get_sentiment_score_for_signal_dict(signal) * 0.1
+            # Quality score (5% weight)
+            quality = signal.get('quality_score', 0.5) * 0.05
             
-            return confidence + risk_reward + quality + news + sentiment
+            # News score (2.5% weight)
+            news = self._get_news_score_for_signal_dict(signal) * 0.025
+            
+            # Sentiment score (2.5% weight)
+            sentiment = self._get_sentiment_score_for_signal_dict(signal) * 0.025
+            
+            return strategy_bonus + confirmation_score + confidence + risk_reward + quality + news + sentiment
         
         sorted_signals = sorted(all_signals, key=signal_score, reverse=True)
         

@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from datetime import datetime, timedelta
 from apps.signals.models import MLModel, MLFeature
-from apps.signals.ml_training_service import MLTrainingService
+from apps.signals.ml_signal_training_service import MLSignalTrainingService
 from apps.signals.ml_data_service import MLDataCollectionService
 from apps.trading.models import Symbol
 
@@ -134,38 +134,33 @@ class Command(BaseCommand):
                         training_days=options['training_days']
                     )
                 
-                # Display results
+            # Display results
+            self.stdout.write(
+                self.style.SUCCESS(f"✓ Model {model.name} trained successfully!")
+            )
+            self.stdout.write(f"  Model ID: {model.id}")
+            self.stdout.write(f"  Status: {model.status}")
+            self.stdout.write(f"  Training samples: {model.training_samples}")
+            self.stdout.write(f"  Validation samples: {model.validation_samples}")
+            
+            if model.accuracy:
+                self.stdout.write(f"  Accuracy: {model.accuracy:.3f}")
+            if model.f1_score:
+                self.stdout.write(f"  F1 Score: {model.f1_score:.3f}")
+            
+            # Deploy model if performance is good
+            if model.accuracy and model.accuracy > 0.6:
+                model.status = 'DEPLOYED'
+                model.deployed_at = timezone.now()
+                model.save()
+                
                 self.stdout.write(
-                    self.style.SUCCESS(f"✓ Model {model.name} trained successfully!")
+                    self.style.SUCCESS(f"✓ Model deployed automatically (accuracy > 0.6)")
                 )
-                self.stdout.write(f"  Model ID: {model.id}")
-                self.stdout.write(f"  Status: {model.status}")
-                self.stdout.write(f"  Training samples: {model.training_samples}")
-                self.stdout.write(f"  Validation samples: {model.validation_samples}")
-                
-                if model.accuracy:
-                    self.stdout.write(f"  Accuracy: {model.accuracy:.3f}")
-                if model.f1_score:
-                    self.stdout.write(f"  F1 Score: {model.f1_score:.3f}")
-                if model.mse:
-                    self.stdout.write(f"  MSE: {model.mse:.6f}")
-                if model.mae:
-                    self.stdout.write(f"  MAE: {model.mae:.6f}")
-                
-                # Deploy model if performance is good
-                if model.accuracy and model.accuracy > 0.6:
-                    model.status = 'DEPLOYED'
-                    model.is_active = True
-                    model.deployed_at = timezone.now()
-                    model.save()
-                    
-                    self.stdout.write(
-                        self.style.SUCCESS(f"✓ Model deployed automatically (accuracy > 0.6)")
-                    )
-                else:
-                    self.stdout.write(
-                        self.style.WARNING(f"⚠ Model not deployed (accuracy <= 0.6)")
-                    )
+            else:
+                self.stdout.write(
+                    self.style.WARNING(f"⚠ Model not deployed (accuracy <= 0.6)")
+                )
             
             self.stdout.write(
                 self.style.SUCCESS(f"\n✓ ML model training completed successfully!")

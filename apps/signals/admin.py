@@ -1,13 +1,21 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Q
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 
 from apps.signals.models import (
     SignalType, SignalFactor, TradingSignal, SignalFactorContribution,
     MarketRegime, SignalPerformance, SignalAlert
 )
+from apps.signals.admin_filters import (
+    SignalDateRangeFilter, SignalPerformanceFilter, SignalStrengthFilter,
+    SignalTimeframeFilter, SignalQualityFilter
+)
+from apps.signals.admin_performance import SignalPerformanceService
+from apps.core.admin_exports import export_queryset
+from apps.core.admin_search import EnhancedSearchMixin
 
 
 @admin.register(SignalType)
@@ -51,25 +59,31 @@ class SignalFactorContributionInline(admin.TabularInline):
 
 
 @admin.register(TradingSignal)
-class TradingSignalAdmin(admin.ModelAdmin):
+class TradingSignalAdmin(EnhancedSearchMixin, admin.ModelAdmin):
+    """Enhanced Trading Signal Admin with time filters and performance tracking"""
+    
     list_display = [
-        'symbol', 'signal_type', 'strength', 'confidence_display',
-        'quality_display', 'risk_reward_display', 'is_valid', 'created_at'
+        'symbol', 'signal_type', 'strength_display', 'confidence_display',
+        'quality_display', 'risk_reward_display', 'performance_indicator',
+        'timeframe', 'is_valid', 'created_at'
     ]
     list_filter = [
-        'signal_type', 'strength', 'confidence_level', 'is_valid',
-        'is_executed', 'created_at'
+        SignalDateRangeFilter, SignalPerformanceFilter, SignalStrengthFilter,
+        SignalTimeframeFilter, SignalQualityFilter,
+        'signal_type', 'confidence_level', 'is_valid', 'is_executed', 'created_at'
     ]
-    search_fields = ['symbol__symbol', 'signal_type__name']
+    search_fields = ['symbol__symbol', 'symbol__name', 'signal_type__name']
     readonly_fields = [
-        'created_at', 'updated_at', 'is_expired', 'time_to_expiry'
+        'created_at', 'updated_at', 'is_expired', 'time_to_expiry',
+        'performance_summary', 'related_signals_link'
     ]
     date_hierarchy = 'created_at'
     ordering = ['-created_at']
+    list_per_page = 50
     
     fieldsets = (
         ('Signal Information', {
-            'fields': ('symbol', 'signal_type', 'strength', 'confidence_score', 'confidence_level')
+            'fields': ('symbol', 'signal_type', 'strength', 'confidence_score', 'confidence_level', 'timeframe')
         }),
         ('Price Targets', {
             'fields': ('entry_price', 'target_price', 'stop_loss', 'risk_reward_ratio')
@@ -78,10 +92,14 @@ class TradingSignalAdmin(admin.ModelAdmin):
             'fields': ('quality_score', 'is_valid', 'expires_at')
         }),
         ('Contributing Factors', {
-            'fields': ('technical_score', 'sentiment_score', 'news_score', 'volume_score', 'pattern_score')
+            'fields': ('technical_score', 'sentiment_score', 'news_score', 'volume_score', 'pattern_score', 'economic_score', 'sector_score')
         }),
         ('Performance Tracking', {
-            'fields': ('is_executed', 'executed_at', 'execution_price', 'is_profitable', 'profit_loss')
+            'fields': ('is_executed', 'executed_at', 'execution_price', 'is_profitable', 'profit_loss', 'performance_summary')
+        }),
+        ('Related Signals', {
+            'fields': ('related_signals_link',),
+            'classes': ('collapse',)
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at', 'notes')
@@ -90,7 +108,28 @@ class TradingSignalAdmin(admin.ModelAdmin):
     
     inlines = [SignalFactorContributionInline]
     
+    def strength_display(self, obj):
+        """Display signal strength with color coding"""
+        colors = {
+            'VERY_STRONG': 'green',
+            'STRONG': 'lightgreen',
+            'MODERATE': 'orange',
+            'WEAK': 'red'
+        }
+        color = colors.get(obj.strength, 'gray')
+        # Get display value from choices
+        strength_choices = dict(TradingSignal.SIGNAL_STRENGTHS)
+        strength_label = strength_choices.get(obj.strength, obj.strength)
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            strength_label
+        )
+    strength_display.short_description = 'Strength'
+    strength_display.admin_order_field = 'strength'
+    
     def confidence_display(self, obj):
+        """Display confidence score with color coding"""
         color = 'green' if obj.confidence_score >= 0.8 else 'orange' if obj.confidence_score >= 0.7 else 'red'
         return format_html(
             '<span style="color: {}; font-weight: bold;">{:.1%}</span>',
@@ -98,6 +137,7 @@ class TradingSignalAdmin(admin.ModelAdmin):
             obj.confidence_score
         )
     confidence_display.short_description = 'Confidence'
+    confidence_display.admin_order_field = 'confidence_score'
     
     def quality_display(self, obj):
         color = 'green' if obj.quality_score >= 0.8 else 'orange' if obj.quality_score >= 0.6 else 'red'
@@ -109,6 +149,7 @@ class TradingSignalAdmin(admin.ModelAdmin):
     quality_display.short_description = 'Quality'
     
     def risk_reward_display(self, obj):
+        """Display risk-reward ratio with color coding"""
         if not obj.risk_reward_ratio:
             return '-'
         color = 'green' if obj.risk_reward_ratio >= 3.0 else 'orange' if obj.risk_reward_ratio >= 2.0 else 'red'
@@ -118,6 +159,70 @@ class TradingSignalAdmin(admin.ModelAdmin):
             obj.risk_reward_ratio
         )
     risk_reward_display.short_description = 'R:R Ratio'
+    risk_reward_display.admin_order_field = 'risk_reward_ratio'
+    
+    def performance_indicator(self, obj):
+        """Display performance indicator for executed signals"""
+        if not obj.is_executed:
+            return format_html('<span style="color: gray;">Not Executed</span>')
+        
+        if obj.is_profitable is None:
+            return format_html('<span style="color: orange;">Pending</span>')
+        
+        if obj.is_profitable:
+            profit = float(obj.profit_loss) if obj.profit_loss else 0
+            return format_html(
+                '<span style="color: green; font-weight: bold;">✓ ${:.2f}</span>',
+                profit
+            )
+        else:
+            loss = abs(float(obj.profit_loss)) if obj.profit_loss else 0
+            return format_html(
+                '<span style="color: red; font-weight: bold;">✗ ${:.2f}</span>',
+                loss
+            )
+    performance_indicator.short_description = 'Performance'
+    
+    def performance_summary(self, obj):
+        """Display performance summary in detail view"""
+        if not obj.is_executed:
+            return 'Signal not yet executed'
+        
+        summary = []
+        if obj.executed_at:
+            summary.append(f"Executed: {obj.executed_at.strftime('%Y-%m-%d %H:%M')}")
+        if obj.execution_price:
+            summary.append(f"Execution Price: ${obj.execution_price}")
+        if obj.is_profitable is not None:
+            status = "Profitable" if obj.is_profitable else "Unprofitable"
+            color = "green" if obj.is_profitable else "red"
+            summary.append(f'Status: <span style="color: {color}; font-weight: bold;">{status}</span>')
+        if obj.profit_loss:
+            summary.append(f"P/L: ${obj.profit_loss}")
+        
+        return format_html('<br>'.join(summary)) if summary else 'No performance data'
+    performance_summary.short_description = 'Performance Summary'
+    
+    def related_signals_link(self, obj):
+        """Link to related signals for the same symbol"""
+        if not obj.symbol:
+            return '-'
+        
+        related_count = TradingSignal.objects.filter(
+            symbol=obj.symbol
+        ).exclude(id=obj.id).count()
+        
+        if related_count > 0:
+            url = reverse('admin:signals_tradingsignal_changelist')
+            url += f'?symbol__id__exact={obj.symbol.id}'
+            return format_html(
+                '<a href="{}">View {} related signal(s) for {}</a>',
+                url,
+                related_count,
+                obj.symbol.symbol
+            )
+        return 'No related signals'
+    related_signals_link.short_description = 'Related Signals'
     
     def is_expired(self, obj):
         return obj.is_expired
@@ -134,7 +239,11 @@ class TradingSignalAdmin(admin.ModelAdmin):
         return 'Expired'
     time_to_expiry.short_description = 'Time to Expiry'
     
-    actions = ['mark_as_executed', 'mark_as_invalid', 'regenerate_signals']
+    actions = [
+        'mark_as_executed', 'mark_as_invalid', 'regenerate_signals',
+        'export_selected_csv', 'export_selected_excel', 'export_selected_json',
+        'calculate_performance'
+    ]
     
     def mark_as_executed(self, request, queryset):
         from django.utils import timezone
@@ -164,6 +273,79 @@ class TradingSignalAdmin(admin.ModelAdmin):
         
         self.message_user(request, f"Generated {regenerated} new signals.")
     regenerate_signals.short_description = "Regenerate signals for selected symbols"
+    
+    def export_selected_csv(self, request, queryset):
+        """Export selected signals to CSV"""
+        fields = [
+            'symbol__symbol', 'signal_type__name', 'strength', 'confidence_score',
+            'quality_score', 'entry_price', 'target_price', 'stop_loss',
+            'risk_reward_ratio', 'timeframe', 'is_valid', 'is_executed',
+            'is_profitable', 'profit_loss', 'created_at'
+        ]
+        headers = [
+            'Symbol', 'Signal Type', 'Strength', 'Confidence', 'Quality',
+            'Entry Price', 'Target Price', 'Stop Loss', 'R:R Ratio',
+            'Timeframe', 'Is Valid', 'Is Executed', 'Is Profitable',
+            'Profit/Loss', 'Created At'
+        ]
+        filename = f"signals_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}"
+        return export_queryset(queryset.select_related('symbol', 'signal_type'), 'csv', fields, headers, filename)
+    export_selected_csv.short_description = "Export selected signals to CSV"
+    
+    def export_selected_excel(self, request, queryset):
+        """Export selected signals to Excel"""
+        fields = [
+            'symbol__symbol', 'signal_type__name', 'strength', 'confidence_score',
+            'quality_score', 'entry_price', 'target_price', 'stop_loss',
+            'risk_reward_ratio', 'timeframe', 'is_valid', 'is_executed',
+            'is_profitable', 'profit_loss', 'created_at'
+        ]
+        headers = [
+            'Symbol', 'Signal Type', 'Strength', 'Confidence', 'Quality',
+            'Entry Price', 'Target Price', 'Stop Loss', 'R:R Ratio',
+            'Timeframe', 'Is Valid', 'Is Executed', 'Is Profitable',
+            'Profit/Loss', 'Created At'
+        ]
+        filename = f"signals_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}"
+        return export_queryset(queryset.select_related('symbol', 'signal_type'), 'excel', fields, headers, filename)
+    export_selected_excel.short_description = "Export selected signals to Excel"
+    
+    def export_selected_json(self, request, queryset):
+        """Export selected signals to JSON"""
+        fields = [
+            'symbol__symbol', 'signal_type__name', 'strength', 'confidence_score',
+            'quality_score', 'entry_price', 'target_price', 'stop_loss',
+            'risk_reward_ratio', 'timeframe', 'is_valid', 'is_executed',
+            'is_profitable', 'profit_loss', 'created_at'
+        ]
+        filename = f"signals_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}"
+        return export_queryset(queryset.select_related('symbol', 'signal_type'), 'json', fields, None, filename)
+    export_selected_json.short_description = "Export selected signals to JSON"
+    
+    def calculate_performance(self, request, queryset):
+        """Calculate and display performance metrics for selected signals"""
+        service = SignalPerformanceService()
+        
+        win_rate = service.calculate_win_rate(queryset)
+        profit_factor = service.calculate_profit_factor(queryset)
+        avg_pl = service.calculate_avg_profit_loss(queryset)
+        
+        message = (
+            f"Performance Metrics for {queryset.count()} signals:\n"
+            f"Win Rate: {win_rate:.1%}\n"
+            f"Profit Factor: {profit_factor:.2f}\n"
+            f"Average Profit: ${avg_pl['avg_profit']:.2f}\n"
+            f"Average Loss: ${avg_pl['avg_loss']:.2f}\n"
+            f"Average P/L: ${avg_pl['avg_total']:.2f}"
+        )
+        
+        self.message_user(request, message)
+    calculate_performance.short_description = "Calculate performance metrics"
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        qs = super().get_queryset(request)
+        return qs.select_related('symbol', 'signal_type')
 
 
 @admin.register(SignalFactorContribution)
@@ -311,9 +493,9 @@ class SignalAlertAdmin(admin.ModelAdmin):
 
 
 # Custom admin site configuration
-admin.site.site_header = "AI Trading Signal Engine Admin"
-admin.site.site_title = "Signal Engine Admin"
-admin.site.index_title = "Signal Generation System"
+admin.site.site_header = "AI Trading Signal Engine"
+admin.site.site_title = "Trading Engine Admin"
+admin.site.index_title = "Dashboard"
 
 # Add custom admin views for statistics
 class SignalStatisticsAdmin(admin.ModelAdmin):

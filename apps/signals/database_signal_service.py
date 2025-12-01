@@ -16,14 +16,14 @@ from django.core.cache import cache
 
 from apps.trading.models import Symbol
 from apps.data.models import MarketData, TechnicalIndicator
-from apps.signals.models import TradingSignal, SignalType, SignalStrength
+from apps.signals.models import TradingSignal, SignalType
 from apps.signals.strategies import (
     MovingAverageCrossoverStrategy,
-    RSIMeanReversionStrategy,
+    RSIStrategy,
     BollingerBandsStrategy,
-    MACDStrategy,
-    VolumeBreakoutStrategy
+    MACDStrategy
 )
+from apps.signals.enhanced_signal_generation_service import EnhancedSignalGenerationService
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +37,15 @@ class DatabaseSignalService:
         self.price_cache_timeout = 300  # 5 minutes cache
         self.signal_refresh_hours = 2  # Signal refresh interval
         
-        # Initialize strategies
+        # USE YOUR PERSONAL STRATEGY (Enhanced Signal Generation Service)
+        self.enhanced_service = EnhancedSignalGenerationService()
+        
+        # Keep old strategies as fallback (but YOUR STRATEGY takes priority)
         self.strategies = {
             'ma_crossover': MovingAverageCrossoverStrategy(),
-            'rsi_mean_reversion': RSIMeanReversionStrategy(),
+            'rsi': RSIStrategy(),
             'bollinger_bands': BollingerBandsStrategy(),
-            'macd': MACDStrategy(),
-            'volume_breakout': VolumeBreakoutStrategy()
+            'macd': MACDStrategy()
         }
     
     def generate_best_signals_for_all_coins(self) -> Dict[str, any]:
@@ -103,34 +105,38 @@ class DatabaseSignalService:
         }
     
     def generate_logical_signals_for_symbol(self, symbol: Symbol, market_data) -> List[TradingSignal]:
-        """Generate signals for a specific symbol using database data"""
+        """
+        Generate signals for a specific symbol using YOUR PERSONAL STRATEGY
+        Uses EnhancedSignalGenerationService with your exact multi-timeframe SMC strategy
+        """
         signals = []
         
         try:
-            # Convert market data to DataFrame for analysis
-            df = self._market_data_to_dataframe(market_data)
-            if df is None or len(df) < self.min_data_points:
-                return signals
-            
             # Get current price from database
             current_price = self.get_latest_price(symbol)
             if not current_price or current_price <= 0:
                 logger.warning(f"Invalid price for {symbol.symbol}: {current_price}")
                 return signals
             
-            # Generate signals using different strategies
-            for strategy_name, strategy in self.strategies.items():
+            # Get live prices dict (required by enhanced service)
+            live_prices = {symbol.symbol: {'price': float(current_price)}}
+            
+            # USE YOUR PERSONAL STRATEGY - Enhanced Signal Generation Service
+            # This uses your exact workflow: 1D/4H support/resistance → 4H trend → 1H/15M CHoCH→BOS → Entry at key levels → SL/TP at key levels
+            logger.info(f"Generating signals for {symbol.symbol} using YOUR PERSONAL STRATEGY")
+            signal_dicts = self.enhanced_service.generate_logical_signals_for_symbol(symbol, live_prices)
+            
+            # Convert signal dicts to TradingSignal objects
+            for signal_data in signal_dicts:
                 try:
-                    strategy_signals = strategy.generate_signals(df, current_price)
-                    for signal_data in strategy_signals:
-                        signal = self._create_trading_signal(symbol, signal_data, strategy_name)
-                        if signal:
-                            signals.append(signal)
+                    signal = self._create_trading_signal_from_dict(symbol, signal_data)
+                    if signal:
+                        signals.append(signal)
                 except Exception as e:
-                    logger.error(f"Error in {strategy_name} for {symbol.symbol}: {e}")
+                    logger.error(f"Error creating signal for {symbol.symbol}: {e}")
                     continue
             
-            logger.info(f"Generated {len(signals)} signals for {symbol.symbol}")
+            logger.info(f"Generated {len(signals)} signals for {symbol.symbol} using YOUR STRATEGY")
             return signals
             
         except Exception as e:
@@ -228,6 +234,53 @@ class DatabaseSignalService:
             logger.error(f"Error converting market data to DataFrame: {e}")
             return None
     
+    def _create_trading_signal_from_dict(self, symbol: Symbol, signal_data: Dict) -> Optional[TradingSignal]:
+        """Create a TradingSignal from enhanced service signal dict (YOUR STRATEGY)"""
+        try:
+            # Get or create signal type
+            signal_type, created = SignalType.objects.get_or_create(
+                name=signal_data.get('signal_type', 'BUY'),
+                defaults={'description': 'Generated by YOUR PERSONAL STRATEGY'}
+            )
+            
+            # Get signal strength
+            strength_value = signal_data.get('strength', 'MODERATE')
+            
+            # Get confidence score
+            confidence_score = signal_data.get('confidence_score', 0.5)
+            confidence_level = self._calculate_confidence_level(confidence_score)
+            
+            # Get quality score
+            quality_score = signal_data.get('technical_score', confidence_score)
+            
+            # Create trading signal with YOUR STRATEGY data
+            trading_signal = TradingSignal.objects.create(
+                symbol=symbol,
+                signal_type=signal_type,
+                strength=strength_value,
+                confidence_score=confidence_score,
+                confidence_level=confidence_level,
+                quality_score=quality_score,
+                entry_price=Decimal(str(signal_data.get('entry_price', 0))),
+                target_price=Decimal(str(signal_data.get('target_price', 0))),
+                stop_loss=Decimal(str(signal_data.get('stop_loss', 0))),
+                risk_reward_ratio=signal_data.get('risk_reward_ratio', 0),
+                timeframe=signal_data.get('timeframe', '1H'),
+                entry_point_type=signal_data.get('entry_point_type', 'KEY_LEVEL'),
+                notes=signal_data.get('reasoning', 'Generated by YOUR PERSONAL STRATEGY'),
+                is_valid=True,
+                data_source='database',
+                strategy_used='PERSONAL_STRATEGY_MULTI_TIMEFRAME',
+                metadata=signal_data.get('strategy_details', {})
+            )
+            
+            logger.info(f"Created {signal_type.name} signal for {symbol.symbol} using YOUR STRATEGY")
+            return trading_signal
+            
+        except Exception as e:
+            logger.error(f"Error creating trading signal from dict for {symbol.symbol}: {e}")
+            return None
+    
     def _create_trading_signal(self, symbol: Symbol, signal_data: Dict, strategy_name: str) -> Optional[TradingSignal]:
         """Create a TradingSignal from signal data"""
         try:
@@ -237,12 +290,8 @@ class DatabaseSignalService:
                 defaults={'description': f'Generated by {strategy_name}'}
             )
             
-            # Get or create signal strength
+            # Get signal strength (CharField, not ForeignKey)
             strength_value = signal_data.get('strength', 'MODERATE')
-            strength, created = SignalStrength.objects.get_or_create(
-                name=strength_value,
-                defaults={'description': f'Strength level: {strength_value}'}
-            )
             
             # Calculate confidence score
             confidence_score = signal_data.get('confidence', 0.5)
@@ -252,7 +301,7 @@ class DatabaseSignalService:
             trading_signal = TradingSignal.objects.create(
                 symbol=symbol,
                 signal_type=signal_type,
-                strength=strength,
+                strength=strength_value,
                 confidence_score=confidence_score,
                 confidence_level=confidence_level,
                 entry_price=Decimal(str(signal_data.get('entry_price', 0))),
@@ -285,36 +334,53 @@ class DatabaseSignalService:
             return 'LOW'
     
     def _select_best_signals(self, all_signals: List[TradingSignal]) -> List[TradingSignal]:
-        """Select the best 10 signals based on confidence, quality, news, and sentiment"""
+        """
+        Select the best 10 signals - PRIORITIZING YOUR PERSONAL STRATEGY
+        Signals from YOUR STRATEGY get highest priority
+        """
         if not all_signals:
             return []
         
-        # Calculate combined score for each signal (strategy + news + sentiment)
+        # Calculate combined score for each signal - YOUR STRATEGY GETS HIGHEST PRIORITY
         scored_signals = []
         for signal in all_signals:
-            # Base confidence from strategy (40% weight)
-            strategy_score = signal.confidence_score * 0.4
+            # YOUR STRATEGY BONUS (50% weight) - Signals using your strategy get massive boost
+            is_personal_strategy = (
+                hasattr(signal, 'strategy_used') and 
+                signal.strategy_used == 'PERSONAL_STRATEGY_MULTI_TIMEFRAME'
+            ) or (
+                hasattr(signal, 'metadata') and 
+                signal.metadata and 
+                signal.metadata.get('strategy') == 'PERSONAL_STRATEGY_MULTI_TIMEFRAME'
+            )
+            strategy_bonus = 0.5 if is_personal_strategy else 0.0
             
-            # Quality score (30% weight)
-            quality_score = (signal.quality_score if hasattr(signal, 'quality_score') and signal.quality_score else 0.5) * 0.3
+            # Strategy confirmations bonus (10% weight)
+            confirmations = 0
+            if hasattr(signal, 'metadata') and signal.metadata:
+                confirmations = signal.metadata.get('strategy_confirmations', 0)
+            confirmation_score = min(0.1, (confirmations / 4) * 0.1)
             
-            # News score (15% weight) - get from signal metadata or calculate
-            news_score = self._get_news_score_for_signal(signal) * 0.15
+            # Base confidence from strategy (20% weight)
+            strategy_score = signal.confidence_score * 0.2
             
-            # Sentiment score (15% weight) - get from signal metadata or calculate
-            sentiment_score = self._get_sentiment_score_for_signal(signal) * 0.15
+            # Quality score (10% weight)
+            quality_score = (signal.quality_score if hasattr(signal, 'quality_score') and signal.quality_score else 0.5) * 0.1
             
-            # Combined score
-            combined_score = strategy_score + quality_score + news_score + sentiment_score
+            # Risk-reward ratio (5% weight)
+            risk_reward = min(0.05, (signal.risk_reward_ratio or 0) / 10 * 0.05)
             
-            # Risk-reward bonus
-            rr_bonus = min(0.1, (signal.risk_reward_ratio or 0) / 10)  # Up to 10% bonus
+            # News score (2.5% weight)
+            news_score = self._get_news_score_for_signal(signal) * 0.025
             
-            final_score = combined_score + rr_bonus
+            # Sentiment score (2.5% weight)
+            sentiment_score = self._get_sentiment_score_for_signal(signal) * 0.025
+            
+            final_score = strategy_bonus + confirmation_score + strategy_score + quality_score + risk_reward + news_score + sentiment_score
             
             scored_signals.append((final_score, signal))
         
-        # Sort by combined score
+        # Sort by combined score (YOUR STRATEGY signals will be first)
         scored_signals.sort(key=lambda x: x[0], reverse=True)
         
         # Return top 10 signals

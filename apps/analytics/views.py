@@ -148,10 +148,10 @@ def news_analysis(request):
         # Get filter parameters
         symbol_filter = request.GET.get('symbol', '')
         sentiment_filter = request.GET.get('sentiment', '')
-        date_filter = request.GET.get('date_range', '24h')  # 24h, 7d, 30d
+        date_filter = request.GET.get('date_range', '30d')  # Default to 30 days to show more news
         source_filter = request.GET.get('source', '')
         
-        # Calculate date range - Focus on recent news (default to last 24 hours for current news)
+        # Calculate date range - Focus on recent news (default to last 30 days to show more news)
         now = timezone.now()
         if date_filter == '24h':
             start_date = now - timedelta(hours=24)
@@ -160,7 +160,8 @@ def news_analysis(request):
         elif date_filter == '30d':
             start_date = now - timedelta(days=30)
         else:
-            start_date = now - timedelta(hours=24)  # Default to last 24 hours for current news
+            # Default to last 30 days to show more news
+            start_date = now - timedelta(days=30)
         
         # Get current crypto news articles (ordered by time for calendar view)
         # Sort by published_at ascending (oldest first) to match calendar style
@@ -325,5 +326,43 @@ def update_sentiment_data(request):
             collect_news_data.delay()
             return JsonResponse({'status': 'success', 'message': 'News data collection started'})
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@login_required
+def fetch_news_now(request):
+    """Manually trigger news collection and return results"""
+    try:
+        from apps.sentiment.tasks import collect_news_data
+        from apps.sentiment.models import NewsArticle
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Count articles before
+        articles_before = NewsArticle.objects.filter(
+            published_at__gte=timezone.now() - timedelta(days=7)
+        ).count()
+        
+        # Run news collection synchronously for immediate feedback
+        try:
+            collect_news_data()
+            # Count articles after
+            articles_after = NewsArticle.objects.filter(
+                published_at__gte=timezone.now() - timedelta(days=7)
+            ).count()
+            new_articles = articles_after - articles_before
+            
+            return JsonResponse({
+                'status': 'success', 
+                'message': f'Successfully fetched news! Added {new_articles} new articles.',
+                'new_articles': new_articles,
+                'total_articles': articles_after
+            })
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error', 
+                'message': f'Error fetching news: {str(e)}'
+            })
+            
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})

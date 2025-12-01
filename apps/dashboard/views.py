@@ -5,6 +5,8 @@ from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.db.models import Sum, Count
 from django.contrib import messages
+from django.db import OperationalError, transaction
+import time
 from apps.trading.models import Portfolio, Position, Trade
 from apps.signals.models import TradingSignal, SignalType
 from apps.data.models import MarketData, TechnicalIndicator
@@ -12,15 +14,26 @@ from apps.data.models import MarketData, TechnicalIndicator
 
 def home(request):
     """Home page view"""
-    context = {
-        'title': 'AI-Enhanced Trading Signal Engine',
-        'description': 'Advanced trading platform powered by artificial intelligence',
-    }
-    return render(request, 'dashboard/home.html', context)
+    try:
+        context = {
+            'title': 'AI-Enhanced Trading Signal Engine',
+            'description': 'Advanced trading platform powered by artificial intelligence',
+        }
+        return render(request, 'dashboard/home.html', context)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in home view: {e}", exc_info=True)
+        # Return a simple error response instead of 500
+        from django.http import HttpResponse
+        return HttpResponse(f"Error loading page: {str(e)}", status=500)
 
 
 def login_view(request):
-    """Login view"""
+    """Login view with email verification check"""
+    if request.user.is_authenticated:
+        return redirect('dashboard:dashboard')
+    
     if request.method == 'POST':
         try:
             username = request.POST.get('username', '').strip()
@@ -37,22 +50,182 @@ def login_view(request):
                     'error': 'Please enter a password.'
                 })
             
-            # Authenticate user
-            user = authenticate(request, username=username, password=password)
+            # Authenticate user with retry logic for database locks
+            user = None
+            max_retries = 3
+            retry_delay = 0.5  # seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    user = authenticate(request, username=username, password=password)
+                    break  # Success, exit retry loop
+                except OperationalError as e:
+                    if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                        time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+                        continue
+                    else:
+                        # Re-raise if it's not a lock error or we've exhausted retries
+                        raise
+            
             if user is not None:
-                login(request, user)
-                next_url = request.GET.get('next', '/dashboard/')
-                print(f"User {username} logged in successfully, redirecting to {next_url}")
-                return redirect(next_url)
+                # Superusers and staff can always log in (bypass email verification)
+                if user.is_superuser or user.is_staff:
+                    if user.is_active:
+                        try:
+                            login(request, user)
+                            next_url = request.GET.get('next', '/dashboard/')
+                            print(f"User {username} (superuser/staff) logged in successfully, redirecting to {next_url}")
+                            return redirect(next_url)
+                        except OperationalError as e:
+                            if "database is locked" in str(e).lower():
+                                return render(request, 'dashboard/login.html', {
+                                    'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                                })
+                            raise
+                    else:
+                        return render(request, 'dashboard/login.html', {
+                            'error': 'Your account is inactive. Please contact support for assistance.'
+                        })
+                
+                # Check if user account is active
+                if not user.is_active:
+                    # Check if email is verified
+                    from apps.subscription.models import UserProfile
+                    try:
+                        profile = UserProfile.objects.get(user=user)
+                        if not profile.email_verified:
+                            # User exists but email not verified
+                            return render(request, 'dashboard/login.html', {
+                                'error': 'Your email address has not been verified. Please check your email for the verification link.',
+                                'email_not_verified': True,
+                                'user_email': user.email,
+                            })
+                    except UserProfile.DoesNotExist:
+                        # Profile doesn't exist - for regular users, require email verification
+                        # But allow login if account is active (might be a new account setup)
+                        # Create profile with email_verified=False to track verification status
+                        from apps.subscription.models import UserProfile
+                        try:
+                            profile = UserProfile.objects.create(
+                                user=user,
+                                email_verified=False,
+                                subscription_status='inactive'
+                            )
+                        except OperationalError as e:
+                            if "database is locked" in str(e).lower():
+                                return render(request, 'dashboard/login.html', {
+                                    'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                                })
+                            raise
+                        return render(request, 'dashboard/login.html', {
+                            'error': 'Your email address has not been verified. Please check your email for the verification link.',
+                            'email_not_verified': True,
+                            'user_email': user.email,
+                        })
+                    except OperationalError as e:
+                        if "database is locked" in str(e).lower():
+                            return render(request, 'dashboard/login.html', {
+                                'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                            })
+                        raise
+                    else:
+                        # Account is inactive for other reasons
+                        return render(request, 'dashboard/login.html', {
+                            'error': 'Your account is inactive. Please contact support for assistance.'
+                        })
+                
+                # User is active - check email verification for regular users
+                from apps.subscription.models import UserProfile
+                try:
+                    profile = UserProfile.objects.get(user=user)
+                    # For active users, allow login even if email not verified (can be made stricter later)
+                    # But show a warning if email is not verified
+                    if not profile.email_verified:
+                        # Still allow login but could show a warning
+                        try:
+                            login(request, user)
+                            next_url = request.GET.get('next', '/dashboard/')
+                            print(f"User {username} logged in (email not verified), redirecting to {next_url}")
+                            return redirect(next_url)
+                        except OperationalError as e:
+                            if "database is locked" in str(e).lower():
+                                return render(request, 'dashboard/login.html', {
+                                    'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                                })
+                            raise
+                    # Email is verified, proceed with login
+                    try:
+                        login(request, user)
+                        next_url = request.GET.get('next', '/dashboard/')
+                        print(f"User {username} logged in successfully, redirecting to {next_url}")
+                        return redirect(next_url)
+                    except OperationalError as e:
+                        if "database is locked" in str(e).lower():
+                            return render(request, 'dashboard/login.html', {
+                                'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                            })
+                        raise
+                except UserProfile.DoesNotExist:
+                    # No profile exists - create one and allow login
+                    from apps.subscription.models import UserProfile
+                    try:
+                        UserProfile.objects.create(
+                            user=user,
+                            email_verified=True,  # Allow login for existing active users without profile
+                            subscription_status='inactive'
+                        )
+                    except OperationalError as e:
+                        if "database is locked" in str(e).lower():
+                            return render(request, 'dashboard/login.html', {
+                                'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                            })
+                        raise
+                    # Log in the user after creating profile
+                    try:
+                        login(request, user)
+                        next_url = request.GET.get('next', '/dashboard/')
+                        print(f"User {username} logged in (profile created), redirecting to {next_url}")
+                        return redirect(next_url)
+                    except OperationalError as e:
+                        if "database is locked" in str(e).lower():
+                            return render(request, 'dashboard/login.html', {
+                                'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                            })
+                        raise
+                except OperationalError as e:
+                    if "database is locked" in str(e).lower():
+                        return render(request, 'dashboard/login.html', {
+                            'error': 'Database is temporarily locked. Please wait a moment and try again.'
+                        })
+                    raise
             else:
                 print(f"Failed login attempt for username: {username}")
                 return render(request, 'dashboard/login.html', {
-                    'error': 'Invalid username or password.'
+                    'error': 'Invalid username or password. Please check your credentials and try again.'
+                })
+        except OperationalError as e:
+            error_msg = str(e).lower()
+            if "database is locked" in error_msg:
+                return render(request, 'dashboard/login.html', {
+                    'error': 'Database is temporarily locked. This usually happens when multiple processes are accessing the database. Please wait a few seconds and try again. If the problem persists, restart the development server.'
+                })
+            else:
+                import traceback
+                print(f"Database error during login: {e}")
+                print(traceback.format_exc())
+                return render(request, 'dashboard/login.html', {
+                    'error': f'Database error: {str(e)}. Please try again or contact support.'
                 })
         except Exception as e:
+            import traceback
             print(f"Login error: {e}")
+            print(traceback.format_exc())
+            # Don't expose full error details to users, but log them
+            error_message = 'An error occurred during login. Please try again.'
+            if "database is locked" in str(e).lower():
+                error_message = 'Database is temporarily locked. Please wait a few seconds and try again.'
             return render(request, 'dashboard/login.html', {
-                'error': 'An error occurred during login. Please try again.'
+                'error': error_message
             })
     
     return render(request, 'dashboard/login.html')

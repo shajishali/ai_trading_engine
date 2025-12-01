@@ -13,7 +13,7 @@ from django.core.cache import cache
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalAlert, SignalPerformance,
-    MarketRegime, SignalStrength
+    MarketRegime
 )
 from apps.signals.database_signal_service import database_signal_service
 from apps.signals.database_technical_analysis import database_technical_analysis
@@ -21,18 +21,51 @@ from apps.signals.database_data_utils import (
     get_database_health_status, validate_data_quality,
     get_symbols_with_recent_data, get_data_statistics
 )
+from apps.signals.ml_migration_service import ml_migration_service
 from apps.trading.models import Symbol
 from apps.data.models import MarketData
 
 logger = logging.getLogger(__name__)
 
+# ML Signal Generation (optional - can be enabled/disabled)
+# Note: Migration service now handles this, but keeping for backward compatibility
+USE_ML_SIGNALS = True  # Set to False to use rule-based signals
+ML_MODEL_NAME = 'signal_xgboost'  # Options: 'signal_xgboost', 'signal_lightgbm'
+ML_MIN_CONFIDENCE = 0.5  # Minimum confidence threshold for ML signals
+
 
 @shared_task(bind=True, max_retries=3)
-def generate_database_signals_task(self):
-    """Generate signals using database data instead of live APIs"""
+def generate_database_signals_task(self, use_ml: Optional[bool] = None):
+    """
+    Generate signals using database data instead of live APIs
+    Uses migration service to determine signal generation method
+    
+    Args:
+        use_ml: Whether to use ML-based signals (None = use migration service)
+    """
     try:
-        logger.info("Starting database-driven signal generation...")
+        # Use migration service if use_ml is not explicitly set
+        if use_ml is None:
+            logger.info(f"Using migration service (phase: {ml_migration_service.phase.value})")
+            return generate_migration_signals_task()
         
+        # Legacy behavior: explicit use_ml parameter
+        if use_ml:
+            logger.info("Starting ML-based signal generation...")
+            return generate_ml_signals_task()
+        else:
+            logger.info("Starting rule-based signal generation...")
+            return generate_rule_based_signals_task()
+        
+    except Exception as e:
+        logger.error(f"Database signal generation failed: {e}")
+        # Retry with exponential backoff
+        raise self.retry(countdown=60 * (2 ** self.request.retries))
+
+
+def generate_migration_signals_task():
+    """Generate signals using migration service"""
+    try:
         # Check database health first
         health_status = get_database_health_status()
         if health_status['status'] == 'CRITICAL':
@@ -40,14 +73,108 @@ def generate_database_signals_task(self):
             return {
                 'success': False,
                 'error': 'Database health critical',
-                'health_status': health_status
+                'health_status': health_status,
+                'method': 'migration_service'
+            }
+        
+        # Get active symbols
+        active_symbols = Symbol.objects.filter(
+            is_active=True,
+            is_crypto_symbol=True
+        )
+        
+        logger.info(f"Generating signals for {active_symbols.count()} symbols using migration service")
+        logger.info(f"Migration phase: {ml_migration_service.phase.value}")
+        
+        # Generate signals for all symbols
+        all_signals = []
+        processed_count = 0
+        
+        for symbol in active_symbols:
+            try:
+                signals = ml_migration_service.generate_signals_for_symbol(
+                    symbol=symbol,
+                    prediction_horizon_hours=24
+                )
+                if signals:
+                    all_signals.extend(signals)
+                processed_count += 1
+                
+                if processed_count % 50 == 0:
+                    logger.info(f"Processed {processed_count}/{active_symbols.count()} symbols")
+                    
+            except Exception as e:
+                logger.error(f"Error generating signals for {symbol.symbol}: {e}")
+                continue
+        
+        # Select best signals by confidence score
+        all_signals.sort(key=lambda s: s.confidence_score, reverse=True)
+        best_signals = all_signals[:10]  # Top 10 signals
+        
+        logger.info(
+            f"Signal generation completed: "
+            f"{len(all_signals)} total signals generated, "
+            f"{len(best_signals)} best signals selected, "
+            f"{processed_count} symbols processed"
+        )
+        
+        # Log best signals
+        if best_signals:
+            logger.info("Best signals generated:")
+            for i, signal in enumerate(best_signals, 1):
+                signal_source = signal.metadata.get('signal_source', 'unknown') if signal.metadata else 'unknown'
+                logger.info(
+                    f"{i}. {signal.symbol.symbol} {signal.signal_type.name} - "
+                    f"Confidence: {signal.confidence_score:.1%}, "
+                    f"Source: {signal_source}, "
+                    f"Entry: ${signal.entry_price}"
+                )
+        
+        return {
+            'success': True,
+            'total_signals': len(all_signals),
+            'best_signals': len(best_signals),
+            'processed_symbols': processed_count,
+            'health_status': health_status,
+            'method': 'migration_service',
+            'phase': ml_migration_service.phase.value,
+            'signals': [{
+                'symbol': s.symbol.symbol,
+                'signal_type': s.signal_type.name,
+                'confidence_score': float(s.confidence_score),
+                'entry_price': float(s.entry_price) if s.entry_price else None,
+                'source': s.metadata.get('signal_source', 'unknown') if s.metadata else 'unknown'
+            } for s in best_signals]
+        }
+        
+    except Exception as e:
+        logger.error(f"Migration signal generation failed: {e}", exc_info=True)
+        return {
+            'success': False,
+            'error': str(e),
+            'method': 'migration_service'
+        }
+
+
+def generate_rule_based_signals_task():
+    """Generate signals using rule-based strategies (original implementation)"""
+    try:
+        # Check database health first
+        health_status = get_database_health_status()
+        if health_status['status'] == 'CRITICAL':
+            logger.error(f"Database health critical: {health_status['reason']}")
+            return {
+                'success': False,
+                'error': 'Database health critical',
+                'health_status': health_status,
+                'method': 'rule_based'
             }
         
         # Generate signals using database service
         result = database_signal_service.generate_best_signals_for_all_coins()
         
         logger.info(
-            f"Database signal generation completed: "
+            f"Rule-based signal generation completed: "
             f"{result['total_signals_generated']} total signals, "
             f"{result['best_signals_selected']} best signals selected, "
             f"{result['processed_symbols']} symbols processed"
@@ -68,21 +195,150 @@ def generate_database_signals_task(self):
             'total_signals': result['total_signals_generated'],
             'best_signals': result['best_signals_selected'],
             'processed_symbols': result['processed_symbols'],
-            'health_status': health_status
+            'health_status': health_status,
+            'method': 'rule_based'
         }
         
     except Exception as e:
-        logger.error(f"Database signal generation failed: {e}")
-        # Retry with exponential backoff
-        raise self.retry(countdown=60 * (2 ** self.request.retries))
+        logger.error(f"Rule-based signal generation failed: {e}")
+        return {
+            'success': False,
+            'error': str(e),
+            'method': 'rule_based'
+        }
+
+
+def generate_ml_signals_task():
+    """Generate signals using ML models"""
+    try:
+        from apps.signals.ml_signal_generation_service import MLSignalGenerationService
+        
+        # Check database health first
+        health_status = get_database_health_status()
+        if health_status['status'] == 'CRITICAL':
+            logger.error(f"Database health critical: {health_status['reason']}")
+            return {
+                'success': False,
+                'error': 'Database health critical',
+                'health_status': health_status,
+                'method': 'ml'
+            }
+        
+        # Initialize ML service
+        try:
+            ml_service = MLSignalGenerationService(model_name=ML_MODEL_NAME)
+        except Exception as e:
+            logger.error(f"Failed to load ML model: {e}. Falling back to rule-based signals.")
+            return generate_rule_based_signals_task()
+        
+        # Get active symbols
+        active_symbols = Symbol.objects.filter(
+            is_active=True,
+            is_crypto_symbol=True
+        )
+        
+        logger.info(f"Generating ML signals for {active_symbols.count()} symbols using {ML_MODEL_NAME}")
+        
+        # Generate signals for all symbols
+        all_signals = []
+        processed_count = 0
+        
+        for symbol in active_symbols:
+            try:
+                signals = ml_service.generate_signals_for_symbol(
+                    symbol=symbol,
+                    prediction_horizon_hours=24,
+                    min_confidence=ML_MIN_CONFIDENCE
+                )
+                if signals:
+                    all_signals.extend(signals)
+                processed_count += 1
+                
+                if processed_count % 50 == 0:
+                    logger.info(f"Processed {processed_count}/{active_symbols.count()} symbols")
+                    
+            except Exception as e:
+                logger.error(f"Error generating ML signals for {symbol.symbol}: {e}")
+                continue
+        
+        # Select best signals by confidence score
+        all_signals.sort(key=lambda s: s.confidence_score, reverse=True)
+        best_signals = all_signals[:10]  # Top 10 signals
+        
+        logger.info(
+            f"ML signal generation completed: "
+            f"{len(all_signals)} total signals generated, "
+            f"{len(best_signals)} best signals selected, "
+            f"{processed_count} symbols processed"
+        )
+        
+        # Log best signals
+        if best_signals:
+            logger.info("Best ML signals generated:")
+            for i, signal in enumerate(best_signals, 1):
+                logger.info(
+                    f"{i}. {signal.symbol.symbol} {signal.signal_type.name} - "
+                    f"Confidence: {signal.confidence_score:.1%}, "
+                    f"Entry: ${signal.entry_price}"
+                )
+        
+        return {
+            'success': True,
+            'total_signals': len(all_signals),
+            'best_signals': len(best_signals),
+            'processed_symbols': processed_count,
+            'health_status': health_status,
+            'method': 'ml',
+            'model_name': ML_MODEL_NAME,
+            'signals': [{
+                'symbol': s.symbol.symbol,
+                'signal_type': s.signal_type.name,
+                'confidence_score': float(s.confidence_score),
+                'entry_price': float(s.entry_price) if s.entry_price else None
+            } for s in best_signals]
+        }
+        
+    except Exception as e:
+        logger.error(f"ML signal generation failed: {e}", exc_info=True)
+        return {
+            'success': False,
+            'error': str(e),
+            'method': 'ml'
+        }
 
 
 @shared_task
-def generate_database_signals_for_symbol(symbol_id: int):
-    """Generate database signals for a specific symbol"""
+def generate_database_signals_for_symbol(symbol_id: int, use_ml: Optional[bool] = None):
+    """
+    Generate database signals for a specific symbol
+    
+    Args:
+        symbol_id: ID of the symbol to generate signals for
+        use_ml: Whether to use ML-based signals (None = use USE_ML_SIGNALS setting)
+    """
     try:
         symbol = Symbol.objects.get(id=symbol_id)
-        logger.info(f"Generating database signals for {symbol.symbol}")
+        use_ml_signals = use_ml if use_ml is not None else USE_ML_SIGNALS
+        
+        if use_ml_signals:
+            logger.info(f"Generating ML signals for {symbol.symbol}")
+            return generate_ml_signals_for_symbol_task(symbol_id)
+        else:
+            logger.info(f"Generating rule-based signals for {symbol.symbol}")
+            return generate_rule_based_signals_for_symbol_task(symbol_id)
+        
+    except Symbol.DoesNotExist:
+        logger.error(f"Symbol with id {symbol_id} not found")
+        return {'success': False, 'error': 'Symbol not found'}
+    except Exception as e:
+        logger.error(f"Error generating database signals for symbol {symbol_id}: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def generate_rule_based_signals_for_symbol_task(symbol_id: int):
+    """Generate rule-based signals for a specific symbol"""
+    try:
+        symbol = Symbol.objects.get(id=symbol_id)
         
         # Validate data quality
         quality = validate_data_quality(symbol, hours_back=24)
@@ -91,7 +347,8 @@ def generate_database_signals_for_symbol(symbol_id: int):
             return {
                 'success': False,
                 'error': f'Data quality issue: {quality["reason"]}',
-                'quality': quality
+                'quality': quality,
+                'method': 'rule_based'
             }
         
         # Get recent market data
@@ -101,22 +358,79 @@ def generate_database_signals_for_symbol(symbol_id: int):
         # Generate signals
         signals = database_signal_service.generate_logical_signals_for_symbol(symbol, market_data)
         
-        logger.info(f"Generated {len(signals)} database signals for {symbol.symbol}")
+        logger.info(f"Generated {len(signals)} rule-based signals for {symbol.symbol}")
         
         return {
             'success': True,
             'symbol': symbol.symbol,
             'signals_generated': len(signals),
             'signals': [signal.id for signal in signals],
-            'quality': quality
+            'quality': quality,
+            'method': 'rule_based'
         }
         
     except Symbol.DoesNotExist:
         logger.error(f"Symbol with id {symbol_id} not found")
-        return {'success': False, 'error': 'Symbol not found'}
+        return {'success': False, 'error': 'Symbol not found', 'method': 'rule_based'}
     except Exception as e:
-        logger.error(f"Error generating database signals for symbol {symbol_id}: {e}")
-        return {'success': False, 'error': str(e)}
+        logger.error(f"Error generating rule-based signals for symbol {symbol_id}: {e}")
+        return {'success': False, 'error': str(e), 'method': 'rule_based'}
+
+
+def generate_ml_signals_for_symbol_task(symbol_id: int):
+    """Generate ML signals for a specific symbol"""
+    try:
+        from apps.signals.ml_signal_generation_service import MLSignalGenerationService
+        
+        symbol = Symbol.objects.get(id=symbol_id)
+        
+        # Validate data quality
+        quality = validate_data_quality(symbol, hours_back=24)
+        if not quality['is_valid']:
+            logger.warning(f"Insufficient data quality for {symbol.symbol}: {quality['reason']}")
+            return {
+                'success': False,
+                'error': f'Data quality issue: {quality["reason"]}',
+                'quality': quality,
+                'method': 'ml'
+            }
+        
+        # Initialize ML service
+        try:
+            ml_service = MLSignalGenerationService(model_name=ML_MODEL_NAME)
+        except Exception as e:
+            logger.error(f"Failed to load ML model: {e}")
+            return {
+                'success': False,
+                'error': f'ML model loading failed: {str(e)}',
+                'method': 'ml'
+            }
+        
+        # Generate signals
+        signals = ml_service.generate_signals_for_symbol(
+            symbol=symbol,
+            prediction_horizon_hours=24,
+            min_confidence=ML_MIN_CONFIDENCE
+        )
+        
+        logger.info(f"Generated {len(signals)} ML signals for {symbol.symbol}")
+        
+        return {
+            'success': True,
+            'symbol': symbol.symbol,
+            'signals_generated': len(signals),
+            'signals': [signal.id for signal in signals],
+            'quality': quality,
+            'method': 'ml',
+            'model_name': ML_MODEL_NAME
+        }
+        
+    except Symbol.DoesNotExist:
+        logger.error(f"Symbol with id {symbol_id} not found")
+        return {'success': False, 'error': 'Symbol not found', 'method': 'ml'}
+    except Exception as e:
+        logger.error(f"Error generating ML signals for symbol {symbol_id}: {e}")
+        return {'success': False, 'error': str(e), 'method': 'ml'}
 
 
 @shared_task

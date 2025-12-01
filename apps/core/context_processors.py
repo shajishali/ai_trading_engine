@@ -1,132 +1,57 @@
 """
-Global context processors for the AI Trading Engine
-Automatically adds live cryptocurrency prices to every page
+Context processors for admin dashboard and general site context
 """
 
-from django.core.cache import cache
+from django.urls import reverse
+from apps.core.admin_widgets import get_statistics_cards, get_quick_actions, ActivityFeedItem
+from apps.core.admin_site import CustomAdminSite
 
 
 def live_crypto_prices(request):
-    """Global context processor for live cryptocurrency prices"""
-    try:
-        # Try to get cached prices first
-        live_prices = cache.get('live_crypto_prices')
-        
-        if not live_prices:
-            # If no cached prices, try to fetch from real price service
-            try:
-                from apps.data.real_price_service import get_live_prices
-                live_prices = get_live_prices()
-            except:
-                live_prices = {}
-        
-        # Get all available cryptocurrencies for display
-        global_crypto_prices = {}
-        
-        # Sort symbols by market cap/importance (Top 20 first, then others)
-        priority_symbols = [
-            'BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'USDC', 'XRP', 'STETH', 'ADA', 'AVAX',
-            'DOGE', 'TRX', 'LINK', 'DOT', 'MATIC', 'TON', 'SHIB', 'DAI', 'UNI', 'BCH'
-        ]
-        other_symbols = []
-        
-        for symbol in live_prices.keys():
-            if symbol not in priority_symbols:
-                other_symbols.append(symbol)
-        
-        # Add priority symbols first, then all others
-        all_symbols = priority_symbols + sorted(other_symbols)
-        
-        for symbol in all_symbols:
-            if symbol in live_prices:
-                price_data = live_prices[symbol]
-                global_crypto_prices[symbol] = {
-                    'price': price_data['price'],
-                    'change_24h': price_data['change_24h'],
-                    'volume_24h': price_data['volume_24h'],
-                    'source': price_data.get('source', 'API')
-                }
-        
-        return {
-            'global_crypto_prices': global_crypto_prices,
-            'has_live_prices': len(global_crypto_prices) > 0
-        }
-        
-    except Exception:
-        # Return empty data if anything fails
-        return {
-            'global_crypto_prices': {},
-            'has_live_prices': False
-        }
+    """Context processor for live crypto prices (placeholder)"""
+    # This can be implemented to provide live crypto prices to templates
+    return {}
 
 
 def market_status(request):
-    """Global context processor for market status"""
-    try:
-        # Get market status from cache or calculate
-        market_status_data = cache.get('market_status')
-        
-        if not market_status_data:
-            # Calculate basic market status
-            try:
-                from apps.data.real_price_service import get_live_prices
-                live_prices = get_live_prices()
-                
-                if live_prices:
-                    # Calculate overall market sentiment
-                    total_change = 0
-                    positive_count = 0
-                    
-                    for symbol, data in live_prices.items():
-                        change = data.get('change_24h', 0)
-                        total_change += change
-                        if change > 0:
-                            positive_count += 1
-                    
-                    total_symbols = len(live_prices)
-                    market_sentiment = 'bullish' if positive_count > total_symbols / 2 else 'bearish'
-                    avg_change = total_change / total_symbols if total_symbols > 0 else 0
-                    
-                    market_status_data = {
-                        'sentiment': market_sentiment,
-                        'average_change': round(avg_change, 2),
-                        'positive_symbols': positive_count,
-                        'total_symbols': total_symbols,
-                        'last_updated': 'Live'
-                    }
-                else:
-                    market_status_data = {
-                        'sentiment': 'neutral',
-                        'average_change': 0,
-                        'positive_symbols': 0,
-                        'total_symbols': 0,
-                        'last_updated': 'Offline'
-                    }
-                
-                # Cache for 1 minute
-                cache.set('market_status', market_status_data, 60)
-                
-            except:
-                market_status_data = {
-                    'sentiment': 'neutral',
-                    'average_change': 0,
-                    'positive_symbols': 0,
-                    'total_symbols': 0,
-                    'last_updated': 'Offline'
-                }
-        
-        return {
-            'market_status': market_status_data
-        }
-        
-    except Exception:
-        return {
-            'market_status': {
-                'sentiment': 'neutral',
-                'average_change': 0,
-                'positive_symbols': 0,
-                'total_symbols': 0,
-                'last_updated': 'Offline'
-            }
-        }
+    """Context processor for market status (placeholder)"""
+    # This can be implemented to provide market status to templates
+    return {}
 
+
+def admin_dashboard_context(request):
+    """Provide context for admin dashboard"""
+    try:
+        if not request.path.startswith('/admin/'):
+            return {}
+        
+        # Only process for admin pages
+        if not hasattr(request, 'user') or not request.user.is_staff:
+            return {}
+        
+        # Get statistics
+        admin_site = CustomAdminSite()
+        stats = admin_site.get_dashboard_statistics()
+        recent_activity = admin_site.get_recent_activity()
+        
+        # Convert activity to widget items
+        activity_items = []
+        for activity in recent_activity:
+            activity_items.append(ActivityFeedItem(
+                message=activity['message'],
+                time=activity['time'],
+                url=activity.get('url'),
+                type=activity.get('type', 'info')
+            ))
+        
+        return {
+            'statistics_cards': get_statistics_cards(stats),
+            'quick_actions': get_quick_actions(),
+            'recent_activity': activity_items,
+        }
+    except Exception as e:
+        # If there's any error, return empty dict to prevent 500 errors
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in admin_dashboard_context: {e}", exc_info=True)
+        return {}

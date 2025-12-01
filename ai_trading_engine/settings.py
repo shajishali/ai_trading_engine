@@ -11,8 +11,18 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import logging
 from pathlib import Path
 from decouple import config
+
+# PyMySQL configuration (if using PyMySQL instead of mysqlclient)
+try:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+except ImportError:
+    pass
+
+logger = logging.getLogger(__name__)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -111,17 +121,18 @@ ROOT_URLCONF = 'ai_trading_engine.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [FRONTEND_DIR / 'templates'],
+        'DIRS': [BASE_DIR / 'templates', FRONTEND_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
-                    'context_processors': [
-            'django.template.context_processors.debug',
-            'django.template.context_processors.request',
-            'django.contrib.auth.context_processors.auth',
-            'django.contrib.messages.context_processors.messages',
-            'apps.core.context_processors.live_crypto_prices',
-            'apps.core.context_processors.market_status',
-        ],
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+                'apps.core.context_processors.live_crypto_prices',
+                'apps.core.context_processors.market_status',
+                'apps.core.context_processors.admin_dashboard_context',
+            ],
         },
     },
 ]
@@ -135,37 +146,19 @@ ASGI_APPLICATION = 'ai_trading_engine.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# For development, use SQLite. For production, use MySQL
-if DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': config('DB_NAME', default='ai_trading_engine'),
-            'USER': config('DB_USER', default='trading_user'),
-            'PASSWORD': config('DB_PASSWORD', default=''),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-            },
-        }
-    }
-
-# Database connection optimization for Phase 5
+# Database Configuration - MySQL
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.mysql'),
+        'NAME': config('DB_NAME', default='ai_trading_engine'),
+        'USER': config('DB_USER', default='trading_user'),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='3306'),
         'OPTIONS': {
-            'timeout': 20,
-            'check_same_thread': False,
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'isolation_level': 'read committed',
         },
         'CONN_MAX_AGE': 600,  # 10 minutes connection pooling
         'ATOMIC_REQUESTS': True,
@@ -316,6 +309,7 @@ else:
     STATIC_ROOT = FRONTEND_DIR / 'staticfiles'
     STATICFILES_DIRS = [
         FRONTEND_DIR / 'static',
+        BASE_DIR / 'static',  # Add backend static directory for admin CSS
     ]
     
     # Local media files configuration
@@ -371,6 +365,8 @@ TRADING_SETTINGS = {
 # API Keys for external services
 NEWS_API_KEY = config('NEWS_API_KEY', default=None)
 CRYPTOPANIC_API_KEY = config('CRYPTOPANIC_API_KEY', default=None)
+CRYPTONEWS_API_KEY = config('CRYPTONEWS_API_KEY', default=None)  # CryptoNewsAPI.com
+STOCKDATA_API_KEY = config('STOCKDATA_API_KEY', default=None)  # StockData.org
 
 # Enhanced Logging configuration for Phase 5
 LOGGING = {
@@ -446,6 +442,16 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'apps.subscription': {
+            'handlers': ['console', 'file', 'json_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.subscription.services': {
+            'handlers': ['console', 'file', 'json_file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         # Automation task loggers
         'apps.data.tasks': {
             'handlers': ['console', 'automation_file', 'file', 'error_file'],
@@ -473,6 +479,21 @@ LOGGING = {
 # Site configuration for django-allauth
 SITE_ID = 1
 
+# Email Configuration
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@ai-trading-engine.com')
+SERVER_EMAIL = config('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
+
+# Email Verification Settings
+EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
+EMAIL_VERIFICATION_RESEND_COOLDOWN_MINUTES = 5
+EMAIL_VERIFICATION_MAX_ATTEMPTS = 3
+
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -485,10 +506,17 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': [
             'profile',
             'email',
+            'openid',
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
-        }
+        },
+        'APP': {
+            'client_id': config('GOOGLE_OAUTH2_CLIENT_ID', default=''),
+            'secret': config('GOOGLE_OAUTH2_CLIENT_SECRET', default=''),
+            'key': ''
+        },
+        'OAUTH_PKCE_ENABLED': True,  # Enhanced security with PKCE
     },
     'facebook': {
         'METHOD': 'oauth2',
@@ -517,6 +545,9 @@ ACCOUNT_RATE_LIMITS = {
 }
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'  # Google emails are pre-verified
+SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_STORE_TOKENS = False  # Don't store OAuth tokens (security best practice)
 
 # Authentication settings
 LOGIN_URL = '/login/'

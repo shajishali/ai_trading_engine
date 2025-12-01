@@ -164,6 +164,34 @@ class SignalGenerationService:
         engine_signals = self.engine.evaluate_symbol(symbol)
         signals.extend(engine_signals)
         
+        # Generate buy signals based on sentiment and technical analysis
+        buy_signals = self._generate_buy_signals(
+            symbol=symbol,
+            market_data=market_data,
+            technical_score=technical_score,
+            sentiment_score=sentiment_score,
+            news_score=news_score,
+            volume_score=volume_score,
+            pattern_score=pattern_score,
+            economic_score=economic_score,
+            sector_score=sector_score
+        )
+        signals.extend(buy_signals)
+        
+        # Generate sell signals based on sentiment and technical analysis
+        sell_signals = self._generate_sell_signals(
+            symbol=symbol,
+            market_data=market_data,
+            technical_score=technical_score,
+            sentiment_score=sentiment_score,
+            news_score=news_score,
+            volume_score=volume_score,
+            pattern_score=pattern_score,
+            economic_score=economic_score,
+            sector_score=sector_score
+        )
+        signals.extend(sell_signals)
+        
         # Filter signals by quality criteria
         filtered_signals = self._filter_signals_by_quality(signals)
         
@@ -676,8 +704,8 @@ class SignalGenerationService:
             sector_score * 0.05
         )
         
-        # Generate buy signal if conditions are met
-        if combined_score > 0.3:  # Bullish threshold
+        # Generate buy signal if conditions are met (balanced threshold)
+        if combined_score > 0.2:  # Bullish threshold (lowered from 0.3 to match sell threshold)
             confidence_score = min(1.0, combined_score + 0.5)
             
             if confidence_score >= self.min_confidence_threshold:
@@ -698,8 +726,8 @@ class SignalGenerationService:
                 if signal:
                     signals.append(signal)
         
-        # Generate strong buy signal
-        if combined_score > 0.6:
+        # Generate strong buy signal (balanced threshold)
+        if combined_score > 0.5:  # Lowered from 0.6 to match sell threshold
             confidence_score = min(1.0, combined_score + 0.3)
             
             if confidence_score >= self.min_confidence_threshold:
@@ -740,8 +768,8 @@ class SignalGenerationService:
             sector_score * 0.05
         )
         
-        # Generate sell signal if conditions are met
-        if combined_score < -0.3:  # Bearish threshold
+        # Generate sell signal if conditions are met (lowered threshold for more sell signals)
+        if combined_score < -0.2:  # Bearish threshold (lowered from -0.3 to generate more sell signals)
             confidence_score = min(1.0, abs(combined_score) + 0.5)
             
             if confidence_score >= self.min_confidence_threshold:
@@ -762,8 +790,8 @@ class SignalGenerationService:
                 if signal:
                     signals.append(signal)
         
-        # Generate strong sell signal
-        if combined_score < -0.6:
+        # Generate strong sell signal (lowered threshold)
+        if combined_score < -0.5:  # Lowered from -0.6
             confidence_score = min(1.0, abs(combined_score) + 0.3)
             
             if confidence_score >= self.min_confidence_threshold:

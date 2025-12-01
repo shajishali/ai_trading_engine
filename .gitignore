@@ -77,6 +77,9 @@ Thumbs.db
 # Database
 *.db
 *.sqlite3
+*.sqlite3-journal
+dump.rdb
+*.rdb
 
 # Logs
 logs/
@@ -84,7 +87,63 @@ logs/
 
 # Celery
 celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
 celerybeat.pid
+
+# Redis
+redis-*.exe
+redis-*.pdb
+*.rdb
+redis.conf
+*.dll
+
+# Test artifacts
+*.har
+test_*.json
+*_test_results.json
+*_test*.png
+backtest_results_*.png
+na_issue_*.png
+
+# Temporary scripts
+test_*.py
+fix_*.py
+check_*.py
+debug_*.py
+monitor_*.py
+setup_*.py
+run_*.py
+generate_*.py
+analyze_*.py
+fetch_*.py
+categorize_*.py
+show_*.py
+*_verification*.py
+*_diagnostic*.py
+*_cleanup*.py
+investigate_*.py
+separate_*.py
+phase*_*.py
+comprehensive_*.py
+simple_*.py
+final_*.py
+enhanced_*.py
+quick_*.py
+SIMPLE_*.py
+TARGETED_*.py
+MASTER_*.py
+FINAL_*.py
+
+# Temporary files
+*.txt.bak
+WORKING_SOLUTION.txt
+SOLUTION_GUIDE.txt
+MANUAL_FIX_INSTRUCTIONS.txt
+START_INSTRUCTIONS.txt
+*_REPORT_*.txt
+temp_*.txt
+debug_*.html
 
 # Jupyter Notebook
 .ipynb_checkpoints

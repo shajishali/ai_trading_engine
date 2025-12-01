@@ -66,51 +66,90 @@ app.conf.update(
     # Beat schedule for periodic tasks
     # Tasks are automatically routed to correct queues via task_routes
     beat_schedule={
-        'update-crypto-prices': {
-            'task': 'apps.data.tasks.update_crypto_prices',
-            'schedule': crontab(minute='*/30'),  # Every 30 minutes
-            'options': {'queue': 'data', 'priority': 10},  # Explicitly route to data queue
-        },
-        'generate-trading-signals': {
-            'task': 'apps.signals.unified_signal_task.generate_unified_signals_task',
-            'schedule': crontab(minute=49),  # Every hour at :49 minutes (18:49, 19:49, 20:49, etc.)
-            'options': {'queue': 'signals', 'priority': 8},  # Explicitly route to signals queue
-        },
-        'update-sentiment-analysis': {
-            'task': 'apps.sentiment.tasks.aggregate_sentiment_scores',
-            'schedule': crontab(minute='*/10'),  # Every 10 minutes
-            'options': {'queue': 'sentiment', 'priority': 6},  # Explicitly route to sentiment queue
-        },
-        'collect-news-data': {
-            'task': 'apps.sentiment.tasks.collect_news_data',
-            'schedule': crontab(minute='*/15'),  # Every 15 minutes
-            'options': {'queue': 'sentiment', 'priority': 7},  # Explicitly route to sentiment queue
-        },
-        'collect-social-media-data': {
-            'task': 'apps.sentiment.tasks.collect_social_media_data',
-            'schedule': crontab(minute='*/20'),  # Every 20 minutes
-            'options': {'queue': 'sentiment', 'priority': 6},  # Explicitly route to sentiment queue
-        },
-        'cleanup-old-data': {
-            'task': 'apps.data.tasks.cleanup_old_data_task',
-            'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
-            'options': {'queue': 'data', 'priority': 2},  # Explicitly route to data queue
-        },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # 'update-crypto-prices': {
+        #     'task': 'apps.data.tasks.update_crypto_prices',
+        #     'schedule': crontab(minute='*/30'),  # Every 30 minutes
+        #     'options': {'queue': 'data', 'priority': 10},  # Explicitly route to data queue
+        # },
+        # DISABLED: Signal generation tasks (disabled per user request)
+        # 'generate-trading-signals': {
+        #     'task': 'apps.signals.unified_signal_task.generate_unified_signals_task',
+        #     'schedule': crontab(minute=49),  # Every hour at :49 minutes (18:49, 19:49, 20:49, etc.)
+        #     'options': {'queue': 'signals', 'priority': 8},  # Explicitly route to signals queue
+        # },
+        # DISABLED: Sentiment analysis tasks (disabled per user request)
+        # 'update-sentiment-analysis': {
+        #     'task': 'apps.sentiment.tasks.aggregate_sentiment_scores',
+        #     'schedule': crontab(minute='*/10'),  # Every 10 minutes
+        #     'options': {'queue': 'sentiment', 'priority': 6},  # Explicitly route to sentiment queue
+        # },
+        # DISABLED: News data collection (disabled per user request)
+        # 'collect-news-data': {
+        #     'task': 'apps.sentiment.tasks.collect_news_data',
+        #     'schedule': crontab(minute='*/15'),  # Every 15 minutes
+        #     'options': {'queue': 'sentiment', 'priority': 7},  # Explicitly route to sentiment queue
+        # },
+        # DISABLED: Social media data collection (disabled per user request)
+        # 'collect-social-media-data': {
+        #     'task': 'apps.sentiment.tasks.collect_social_media_data',
+        #     'schedule': crontab(minute='*/20'),  # Every 20 minutes
+        #     'options': {'queue': 'sentiment', 'priority': 6},  # Explicitly route to sentiment queue
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # 'cleanup-old-data': {
+        #     'task': 'apps.data.tasks.cleanup_old_data_task',
+        #     'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
+        #     'options': {'queue': 'data', 'priority': 2},  # Explicitly route to data queue
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
         # Historical data update tasks for backtesting database
-        'historical-incremental-hourly': {
-            'task': 'apps.data.tasks.update_historical_data_task',
+        # 'historical-incremental-hourly': {
+        #     'task': 'apps.data.tasks.update_historical_data_task',
+        #     'schedule': crontab(minute=0),  # Every hour at minute 0
+        #     'options': {'queue': 'data', 'priority': 5},  # Explicitly route to data queue
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # Enhanced hourly data collection for top 100 coins with multi-source fallback
+        # 'enhanced-hourly-data-collection': {
+        #     'task': 'apps.data.enhanced_tasks.enhanced_hourly_data_collection_task',
+        #     'schedule': crontab(minute=5),  # Every hour at minute 5 (after previous hour completes)
+        #     'options': {'queue': 'data', 'priority': 9},  # High priority for data collection
+        #     'kwargs': {'max_coins': 100},  # Limit to 100 coins for testing
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # Enhanced gap filling (daily) - limited to 100 coins
+        # 'enhanced-gap-filling': {
+        #     'task': 'apps.data.enhanced_tasks.enhanced_gap_filling_task',
+        #     'schedule': crontab(hour=3, minute=0),  # Daily at 3 AM UTC
+        #     'options': {'queue': 'data', 'priority': 6},
+        #     'kwargs': {'max_coins': 100},  # Limit to 100 coins for testing
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # Enhanced data quality check (every 6 hours) - limited to 100 coins
+        # 'enhanced-data-quality-check': {
+        #     'task': 'apps.data.enhanced_tasks.enhanced_data_quality_check_task',
+        #     'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
+        #     'options': {'queue': 'data', 'priority': 4},
+        #     'kwargs': {'max_coins': 100},  # Limit to 100 coins for testing
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # 'historical-incremental-daily-backup': {
+        #     'task': 'apps.data.tasks.update_historical_data_daily_task',
+        #     'schedule': crontab(hour=2, minute=30),  # Daily at 2:30 AM UTC (backup)
+        #     'options': {'queue': 'data', 'priority': 4},  # Explicitly route to data queue
+        # },
+        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # 'historical-weekly-gap-check': {
+        #     'task': 'apps.data.tasks.weekly_gap_check_and_fill_task',
+        #     'schedule': crontab(hour=3, minute=0, day_of_week='sun'),  # Weekly on Sunday at 3 AM UTC
+        #     'options': {'queue': 'data', 'priority': 3},  # Explicitly route to data queue
+        # },
+        # ACTIVE: Update coin task (only task running)
+        'fetch-and-store-coins': {
+            'task': 'apps.data.tasks.fetch_and_store_coins_task',
             'schedule': crontab(minute=0),  # Every hour at minute 0
             'options': {'queue': 'data', 'priority': 5},  # Explicitly route to data queue
-        },
-        'historical-incremental-daily-backup': {
-            'task': 'apps.data.tasks.update_historical_data_daily_task',
-            'schedule': crontab(hour=2, minute=30),  # Daily at 2:30 AM UTC (backup)
-            'options': {'queue': 'data', 'priority': 4},  # Explicitly route to data queue
-        },
-        'historical-weekly-gap-check': {
-            'task': 'apps.data.tasks.weekly_gap_check_and_fill_task',
-            'schedule': crontab(hour=3, minute=0, day_of_week='sun'),  # Weekly on Sunday at 3 AM UTC
-            'options': {'queue': 'data', 'priority': 3},  # Explicitly route to data queue
         },
         # DISABLED: Monthly cleanup to preserve all historical data from 2020
         # 'historical-cleanup-monthly': {

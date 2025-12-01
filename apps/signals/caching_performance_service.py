@@ -20,7 +20,6 @@ import hashlib
 from apps.trading.models import Symbol
 from apps.data.models import MarketData, TechnicalIndicator
 from apps.signals.models import (
-    ChartImage, ChartPattern, EntryPoint, ChartMLModel, ChartMLPrediction,
     TradingSignal, SignalHistory
 )
 
@@ -45,7 +44,6 @@ class CachingService:
         # Cache key prefixes
         self.cache_prefixes = {
             'model': 'ml_model',
-            'prediction': 'ml_prediction',
             'signal': 'trading_signal',
             'market_data': 'market_data',
             'pattern': 'chart_pattern',
@@ -576,10 +574,6 @@ class AsyncProcessingService:
             
             if task_type == 'signal_generation':
                 self._process_signal_generation_task(task_data)
-            elif task_type == 'ml_prediction':
-                self._process_ml_prediction_task(task_data)
-            elif task_type == 'pattern_detection':
-                self._process_pattern_detection_task(task_data)
             else:
                 logger.warning(f"Unknown task type: {task_type}")
                 
@@ -599,36 +593,6 @@ class AsyncProcessingService:
                 
         except Exception as e:
             logger.error(f"Error processing signal generation task: {e}")
-    
-    def _process_ml_prediction_task(self, task_data: Dict[str, Any]):
-        """Process ML prediction task"""
-        try:
-            chart_image_id = task_data.get('chart_image_id')
-            model_id = task_data.get('model_id')
-            
-            if chart_image_id and model_id:
-                from apps.signals.ml_model_training_service import MLModelTrainingService
-                ml_service = MLModelTrainingService()
-                chart_image = ChartImage.objects.get(id=chart_image_id)
-                prediction = ml_service.predict_entry_points(chart_image, model_id)
-                logger.info(f"Generated ML prediction for chart {chart_image_id}")
-                
-        except Exception as e:
-            logger.error(f"Error processing ML prediction task: {e}")
-    
-    def _process_pattern_detection_task(self, task_data: Dict[str, Any]):
-        """Process pattern detection task"""
-        try:
-            chart_image_id = task_data.get('chart_image_id')
-            if chart_image_id:
-                from apps.signals.smc_pattern_recognition_service import SMCPatternRecognitionService
-                pattern_service = SMCPatternRecognitionService()
-                chart_image = ChartImage.objects.get(id=chart_image_id)
-                patterns = pattern_service.detect_patterns_for_chart(chart_image)
-                logger.info(f"Detected {len(patterns)} patterns for chart {chart_image_id}")
-                
-        except Exception as e:
-            logger.error(f"Error processing pattern detection task: {e}")
     
     def queue_task(self, task_type: str, task_data: Dict[str, Any]) -> bool:
         """Queue an async task"""

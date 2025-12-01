@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 import requests
+from requests.exceptions import HTTPError
 from django.db import transaction
 from django.utils import timezone
 
@@ -70,10 +71,23 @@ class HistoricalDataManager:
             logger.error(f"Unsupported timeframe: {timeframe}")
             return False
 
-        mapped = self.symbol_mapping.get(symbol.symbol.upper())
+        # Try to get mapped symbol (for Binance)
+        symbol_upper = symbol.symbol.upper()
+        mapped = self.symbol_mapping.get(symbol_upper)
+        
+        # If not in mapping, handle different cases:
         if not mapped:
-            logger.error(f"Symbol not supported for backfill: {symbol.symbol}")
-            return False
+            # Case 1: Symbol already ends with USDT (e.g., XRPUSDT -> XRPUSDT)
+            if symbol_upper.endswith('USDT'):
+                mapped = symbol_upper
+                logger.debug(f"Symbol {symbol.symbol} is already a USDT pair: {mapped}")
+            # Case 2: Try to construct Binance symbol (e.g., BTC -> BTCUSDT)
+            else:
+                mapped = f"{symbol_upper}USDT"
+                # Safely encode symbol name for Windows console
+                safe_symbol = symbol.symbol.encode('ascii', 'replace').decode('ascii')
+                safe_mapped = mapped.encode('ascii', 'replace').decode('ascii')
+                logger.warning(f"Symbol {safe_symbol} not in mapping, trying {safe_mapped} (may fail if pair doesn't exist)")
 
         # Ensure all dates are UTC
         if start is None:
@@ -100,10 +114,12 @@ class HistoricalDataManager:
                 saved = self._save_market_data(symbol, timeframe, klines)
                 total_saved += saved
                 # Avoid Unicode arrows to be compatible with Windows console
+                # Safely encode symbol name for Windows console
+                safe_symbol = symbol.symbol.encode('ascii', 'replace').decode('ascii')
                 logger.info(
                     "Saved %s records for %s %s %s -> %s",
                     saved,
-                    symbol.symbol,
+                    safe_symbol,
                     timeframe,
                     str(current.date()),
                     str(window_end.date()),
@@ -118,7 +134,9 @@ class HistoricalDataManager:
                 time.sleep(self.base_delay_seconds)
 
         self._update_range(symbol, timeframe, start, end, total_saved)
-        logger.info("Backfill complete: %s %s, total_saved=%s", symbol.symbol, timeframe, total_saved)
+        # Safely encode symbol name for Windows console
+        safe_symbol = symbol.symbol.encode('ascii', 'replace').decode('ascii')
+        logger.info("Backfill complete: %s %s, total_saved=%s", safe_symbol, timeframe, total_saved)
         return True
 
     def _fetch_klines_chunk(self, mapped_symbol: str, start: datetime, end: datetime, interval: str) -> List[Dict]:
@@ -143,7 +161,25 @@ class HistoricalDataManager:
         for attempt in range(3):
             try:
                 resp = requests.get(self.binance_api_base, params=params, timeout=30)
-                resp.raise_for_status()
+                
+                # Log detailed error information for debugging
+                if resp.status_code != 200:
+                    error_msg = f"Binance API error for {mapped_symbol}: Status {resp.status_code}"
+                    try:
+                        error_body = resp.json()
+                        error_msg += f" - {error_body}"
+                        logger.error(f"{error_msg} | Params: {params}")
+                    except:
+                        error_msg += f" - {resp.text[:200]}"
+                        logger.error(f"{error_msg} | Params: {params}")
+                    
+                    # Don't retry on 400 Bad Request (invalid symbol) - it won't succeed
+                    if resp.status_code == 400:
+                        logger.error(f"Invalid trading pair: {mapped_symbol}. Skipping retries.")
+                        return []
+                    
+                    resp.raise_for_status()
+                
                 data = resp.json()
 
                 parsed: List[Dict] = []
@@ -159,12 +195,19 @@ class HistoricalDataManager:
                         'volume': Decimal(str(k[5])) if k[5] is not None else Decimal('0'),
                     })
                 return parsed
-            except Exception as e:
+            except requests.exceptions.HTTPError as e:
+                # HTTP errors (400, 404, 500, etc.)
                 delay = 0.5 * (2 ** attempt)
-                logger.warning(f"Fetch attempt {attempt+1} failed: {e}; retrying in {delay:.1f}s")
+                error_detail = f"HTTP {e.response.status_code}" if hasattr(e, 'response') else str(e)
+                logger.warning(f"Fetch attempt {attempt+1} failed for {mapped_symbol}: {error_detail}; retrying in {delay:.1f}s")
+                time.sleep(delay)
+            except Exception as e:
+                # Other errors (timeout, connection, etc.)
+                delay = 0.5 * (2 ** attempt)
+                logger.warning(f"Fetch attempt {attempt+1} failed for {mapped_symbol}: {e}; retrying in {delay:.1f}s")
                 time.sleep(delay)
 
-        logger.error("Failed to fetch klines after retries")
+        logger.error(f"Failed to fetch klines for {mapped_symbol} after {3} retries")
         return []
 
     def _save_market_data(self, symbol: Symbol, timeframe: str, records: List[Dict]) -> int:

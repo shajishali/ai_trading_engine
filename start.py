@@ -160,6 +160,12 @@ class TradingEngine:
         print(f"   • Portfolio: http://localhost:8000/dashboard/portfolio/")
         print(f"   • Backtesting: http://localhost:8000/backtesting/")
         print()
+        print(f"{Colors.CYAN}⚙️  Running Services:{Colors.END}")
+        print(f"   • Django Server (main web interface)")
+        print(f"   • Celery Worker (executes tasks)")
+        print(f"   • Celery Beat (schedules update coin task only)")
+        print(f"   • Active Task: fetch-and-store-coins (every hour)")
+        print()
         print(f"{Colors.YELLOW}⚠️  Press Ctrl+C to stop all services{Colors.END}")
         print(f"{Colors.GREEN}{Colors.BOLD}=" * 50)
         print(f"{Colors.END}")
@@ -173,14 +179,16 @@ class TradingEngine:
             # Step 2: Start Redis
             self.start_redis()
             
-            # Step 3: Start Celery Worker
+            # Step 3: Start Celery Worker (required for executing scheduled tasks)
+            # Only the update coin task is scheduled - other tasks are disabled
             self.start_service("Celery Worker", [
                 sys.executable, "-m", "celery", 
                 "-A", "ai_trading_engine", 
                 "worker", "-l", "info", "--pool=solo"
             ])
             
-            # Step 4: Start Celery Beat
+            # Step 4: Start Celery Beat (schedules the update coin task only)
+            # Only 'fetch-and-store-coins' task is active - all others are disabled
             self.start_service("Celery Beat", [
                 sys.executable, "-m", "celery", 
                 "-A", "ai_trading_engine", 
@@ -192,10 +200,17 @@ class TradingEngine:
                 sys.executable, "manage.py", "runserver", "0.0.0.0:8000"
             ])
             
-            # Step 6: Print success message
+            # Step 6: Open browser
+            import webbrowser
+            time.sleep(2)  # Wait 2 seconds for server to start
+            self.print_status("Opening web browser...")
+            webbrowser.open('http://localhost:8000')
+            self.print_status("Browser opened", "SUCCESS")
+            
+            # Step 7: Print success message
             self.print_success_message()
             
-            # Step 7: Keep running until interrupted
+            # Step 8: Keep running until interrupted
             try:
                 while self.running:
                     time.sleep(1)

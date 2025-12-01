@@ -209,29 +209,83 @@ def collect_news_data():
         from_date = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         articles = news_service.get_crypto_news(from_date=from_date)
         
+        logger.info(f"Fetched {len(articles)} articles from news API")
+        
+        new_articles_count = 0
         for article_data in articles:
             # Check if article already exists
-            if NewsArticle.objects.filter(url=article_data['url']).exists():
+            if NewsArticle.objects.filter(url=article_data.get('url', '')).exists():
+                continue
+            
+            # Skip if required fields are missing
+            if not article_data.get('url') or not article_data.get('title'):
+                logger.warning(f"Skipping article with missing required fields: {article_data}")
                 continue
             
             # Analyze sentiment
             content = f"{article_data['title']} {article_data.get('description', '')}"
             sentiment_result = sentiment_service.analyze_text_sentiment(content)
             
+            # Parse published date - handle different formats
+            published_at = timezone.now()  # Default to now
+            try:
+                published_at_str = article_data.get('publishedAt', '')
+                if published_at_str:
+                    # Handle ISO format with Z or +00:00
+                    if published_at_str.endswith('Z'):
+                        published_at_str = published_at_str.replace('Z', '+00:00')
+                    # Try parsing with fromisoformat first
+                    try:
+                        published_at = datetime.fromisoformat(published_at_str.replace('Z', '+00:00'))
+                        # Convert to timezone-aware if needed
+                        if published_at.tzinfo is None:
+                            published_at = timezone.make_aware(published_at)
+                    except (ValueError, AttributeError):
+                        # Fallback: try parsing with strptime for common formats
+                        try:
+                            published_at = datetime.strptime(published_at_str, '%Y-%m-%dT%H:%M:%S%z')
+                            if published_at.tzinfo is None:
+                                published_at = timezone.make_aware(published_at)
+                        except ValueError:
+                            # Try other common formats
+                            for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S']:
+                                try:
+                                    published_at = datetime.strptime(published_at_str, fmt)
+                                    if published_at.tzinfo is None:
+                                        published_at = timezone.make_aware(published_at)
+                                    break
+                                except ValueError:
+                                    continue
+            except Exception as e:
+                logger.warning(f"Error parsing date for article {article_data.get('title', 'Unknown')}: {e}, using current time")
+                published_at = timezone.now()
+            
+            # Convert sentiment label to uppercase format (POSITIVE/NEGATIVE/NEUTRAL)
+            sentiment_label_raw = sentiment_result.get('sentiment_label', 'neutral').upper()
+            sentiment_label_map = {
+                'BULLISH': 'POSITIVE',
+                'BEARISH': 'NEGATIVE',
+                'NEUTRAL': 'NEUTRAL'
+            }
+            sentiment_label = sentiment_label_map.get(sentiment_label_raw, 'NEUTRAL')
+            
             # Create news article
             article = NewsArticle.objects.create(
                 source=NewsSource.objects.get_or_create(
                     name=article_data.get('source', {}).get('name', 'Unknown'),
-                    url=article_data.get('source', {}).get('url', '')
+                    defaults={'url': article_data.get('source', {}).get('url', '')}
                 )[0],
-                title=article_data['title'],
-                content=article_data.get('description', ''),
+                title=article_data['title'][:500],  # Truncate if too long
+                content=article_data.get('description', '')[:5000] if article_data.get('description') else '',  # Limit content length
                 url=article_data['url'],
-                published_at=datetime.fromisoformat(article_data['publishedAt'].replace('Z', '+00:00')),
-                sentiment_score=sentiment_result['sentiment_score'],
-                sentiment_label=sentiment_result['sentiment_label'],
-                confidence_score=sentiment_result['confidence_score']
+                published_at=published_at,
+                sentiment_score=sentiment_result.get('sentiment_score', 0.0),
+                sentiment_label=sentiment_label,
+                confidence_score=sentiment_result.get('confidence_score', 0.0),
+                impact_score=0.0  # Will be calculated below
             )
+            
+            new_articles_count += 1
             
             # Create crypto mentions - use active crypto symbols from database
             active_crypto_assets = Symbol.objects.filter(
@@ -242,28 +296,57 @@ def collect_news_data():
             
             # If no active symbols, fall back to common ones
             if not crypto_symbols:
-                crypto_symbols = ['BTC', 'ETH', 'ADA', 'DOT', 'LINK', 'UNI', 'AAVE']
+                crypto_symbols = ['BTC', 'ETH', 'ADA', 'DOT', 'LINK', 'UNI', 'AAVE', 'SOL', 'MATIC', 'AVAX']
             
             mentions = sentiment_service.analyze_crypto_mentions(content, crypto_symbols)
+            
+            # Also check for currencies from CryptoNewsAPI response
+            if 'currencies' in article_data and article_data['currencies']:
+                for currency in article_data['currencies']:
+                    if currency not in crypto_symbols:
+                        crypto_symbols.append(currency)
             
             for mention in mentions:
                 try:
                     asset = Symbol.objects.get(symbol=mention['symbol'])
+                    # Convert sentiment label for crypto mentions
+                    mention_sentiment_raw = mention.get('sentiment_label', 'neutral').upper()
+                    mention_sentiment_map = {
+                        'BULLISH': 'POSITIVE',
+                        'BEARISH': 'NEGATIVE',
+                        'NEUTRAL': 'NEUTRAL'
+                    }
+                    mention_sentiment_label = mention_sentiment_map.get(mention_sentiment_raw, 'NEUTRAL')
+                    
                     CryptoMention.objects.create(
                         asset=asset,
                         news_article=article,
                         mention_type='news',
-                        sentiment_score=mention['sentiment_score'],
-                        sentiment_label=mention['sentiment_label'],
-                        confidence_score=mention['confidence_score']
+                        sentiment_score=mention.get('sentiment_score', 0.0),
+                        sentiment_label=mention_sentiment_label,
+                        confidence_score=mention.get('confidence_score', 0.0),
+                        impact_weight=1.0
                     )
                 except Symbol.DoesNotExist:
                     continue
+            
+            # Update impact score after mentions are created
+            # Calculate impact score
+            mention_count = article.cryptomention_set.count()
+            impact_score = article.confidence_score or 0.0
+            if mention_count > 0:
+                impact_score += min(mention_count * 0.1, 0.3)
+            hours_ago = (timezone.now() - article.published_at).total_seconds() / 3600
+            if hours_ago < 24:
+                impact_score += 0.2 * (1 - hours_ago / 24)
+            impact_score = min(max(impact_score, 0.0), 1.0)
+            article.impact_score = impact_score
+            article.save(update_fields=['impact_score'])
                     
     except Exception as e:
-        logger.error(f"Error collecting news data: {e}")
+        logger.error(f"Error collecting news data: {e}", exc_info=True)
     
-    logger.info("News data collection completed")
+    logger.info(f"News data collection completed. Added {new_articles_count} new articles.")
 
 
 @shared_task

@@ -5,6 +5,11 @@ app_name = 'subscription'
 
 urlpatterns = [
     path('signup/', views.signup_view, name='signup'),
+    path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
+    path('verification-pending/', views.verification_pending, name='verification_pending'),
+    path('verification-success/', views.verification_success, name='verification_success'),
+    path('verification-error/', views.verification_error, name='verification_error'),
+    path('resend-verification/', views.resend_verification, name='resend_verification'),
     path('choice/', views.subscription_choice, name='subscription_choice'),
     path('trial/', views.start_trial, name='start_trial'),
     path('upgrade/<int:plan_id>/', views.upgrade_subscription, name='upgrade_subscription'),

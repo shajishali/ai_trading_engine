@@ -29,22 +29,33 @@ handler404 = 'apps.core.views.handler404'
 handler500 = 'apps.core.views.handler500'
 handler403 = 'apps.core.views.handler403'
 
+# Serve static and media files during development FIRST (before catch-all patterns)
+# This ensures static files are served before any catch-all patterns like dashboard
+static_urlpatterns = []
+if settings.DEBUG:
+    from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+    static_urlpatterns = staticfiles_urlpatterns()
+    # Also serve from STATIC_ROOT if it exists
+    if settings.STATIC_ROOT:
+        static_urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    # Serve media files
+    if settings.MEDIA_ROOT:
+        static_urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/auth/', include('rest_framework.urls')),
     path('accounts/', include('allauth.urls')),
     path('signals/', include('apps.signals.urls')),  # Move signals before dashboard
-    path('', include('apps.dashboard.urls')),
     path('trading/', include('apps.trading.urls')),
     path('data/', include('apps.data.urls')),
     path('sentiment/', include('apps.sentiment.urls')),
     path('analytics/', include('apps.analytics.urls')),
     path('subscription/', include('apps.subscription.urls')),
     path('core/', include('apps.core.urls')),
+    path('', include('apps.dashboard.urls')),  # Dashboard last as catch-all
 ]
 
-# Serve static and media files during development
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Add static URL patterns at the BEGINNING so they're checked first
+urlpatterns = static_urlpatterns + urlpatterns

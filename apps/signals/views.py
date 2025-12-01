@@ -34,88 +34,187 @@ class SignalAPIView(View):
     """API view for signal operations"""
     
     def get(self, request):
-        """Get signals with optional filtering"""
+        """Get signals with optional filtering - with retry logic for database locks"""
+        import time
+        from django.db import OperationalError
+        
+        # Get query parameters
+        symbol = request.GET.get('symbol')
+        signal_type = request.GET.get('signal_type')
+        is_valid = request.GET.get('is_valid', 'true').lower() == 'true'
+        limit = int(request.GET.get('limit', 50))
+        
+        # Create cache key based on parameters
+        cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}"
+        cached_data = cache.get(cache_key)
+        
+        # Always try to return cached data first if available (even if stale)
+        if cached_data:
+            logger.info(f"Returning cached data for key: {cache_key}")
+            # Try to get fresh data in background, but return cached immediately
+            try:
+                # Attempt to refresh cache in background (non-blocking)
+                self._refresh_cache_async(cache_key, symbol, signal_type, is_valid, limit)
+            except:
+                pass  # Ignore errors in background refresh
+            return JsonResponse(cached_data)
+        
+        # If no cache, try to get fresh data with retry logic
+        max_retries = 3
+        retry_delay = 0.5
+        
+        for attempt in range(max_retries):
+            try:
+                # Build optimized query with select_related and prefetch_related
+                # Use iterator() to avoid loading all into memory and reduce lock time
+                queryset = TradingSignal.objects.select_related(
+                    'symbol', 'signal_type'
+                )
+                
+                if symbol:
+                    queryset = queryset.filter(symbol__symbol__iexact=symbol)
+                
+                if signal_type:
+                    queryset = queryset.filter(signal_type__name=signal_type)
+                
+                queryset = queryset.filter(is_valid=is_valid)
+                signals = list(queryset.order_by('-created_at')[:limit])
+                
+                # Get synchronized prices for all symbols
+                from apps.signals.price_sync_service import price_sync_service
+                
+                # Serialize signals with optimized data access and synchronized prices
+                signal_data = []
+                for signal in signals:
+                    symbol = signal.symbol.symbol
+                    
+                    # Get synchronized price data for this symbol
+                    sync_prices = price_sync_service.get_synchronized_prices(symbol)
+                    
+                    current_price = sync_prices.get('current_price')
+                    price_change_24h = sync_prices.get('price_change_24h')
+                    price_discrepancy = sync_prices.get('price_discrepancy_percent', 0)
+                    price_status = sync_prices.get('price_status', 'unknown')
+                    price_alert = sync_prices.get('price_alert')
+                    
+                    signal_data.append({
+                        'id': signal.id,
+                        'symbol': symbol,
+                        'signal_type': signal.signal_type.name,
+                        'strength': signal.strength,
+                        'confidence_score': signal.confidence_score,
+                        'confidence_level': signal.confidence_level,
+                        'entry_price': float(signal.entry_price) if signal.entry_price else None,
+                        'target_price': float(signal.target_price) if signal.target_price else None,
+                        'stop_loss': float(signal.stop_loss) if signal.stop_loss else None,
+                        'current_price': current_price,  # Synchronized current price
+                        'price_change_24h': price_change_24h,  # 24h price change
+                        'price_discrepancy_percent': price_discrepancy,  # Price difference from entry
+                        'price_status': price_status,  # Price reliability status
+                        'price_alert': price_alert,  # Price discrepancy alerts
+                        'risk_reward_ratio': signal.risk_reward_ratio,
+                        'quality_score': signal.quality_score,
+                        'is_valid': signal.is_valid,
+                        'is_executed': signal.is_executed,
+                        'is_profitable': signal.is_profitable,
+                        'profit_loss': float(signal.profit_loss) if signal.profit_loss else None,
+                        'created_at': signal.created_at.isoformat(),
+                        'expires_at': signal.expires_at.isoformat() if signal.expires_at else None,
+                        'technical_score': signal.technical_score,
+                        'sentiment_score': signal.sentiment_score,
+                        'news_score': signal.news_score,
+                        'volume_score': signal.volume_score,
+                        'pattern_score': signal.pattern_score,
+                        # New timeframe and entry point fields
+                        'timeframe': signal.timeframe,
+                        'entry_point_type': signal.entry_point_type,
+                        'entry_point_details': signal.entry_point_details,
+                        'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
+                        'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
+                        'entry_confidence': signal.entry_confidence
+                    })
+                
+                response_data = {
+                    'success': True,
+                    'signals': signal_data,
+                    'count': len(signal_data),
+                    'cached_at': timezone.now().isoformat()
+                }
+                
+                # Cache the response for 5 minutes
+                cache.set(cache_key, response_data, 300)
+                
+                return JsonResponse(response_data)
+                
+            except OperationalError as e:
+                if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                    logger.warning(f"Database locked, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+                else:
+                    # If all retries failed, return cached data or empty response
+                    logger.error(f"Database lock error after {max_retries} attempts: {e}")
+                    # Try to get any cached data, even if it's old
+                    stale_cache = cache.get(cache_key)
+                    if stale_cache:
+                        logger.info("Returning stale cached data due to database lock")
+                        return JsonResponse(stale_cache)
+                    # Return empty response with error message
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Database temporarily unavailable. Please try again in a moment.',
+                        'signals': [],
+                        'count': 0
+                    }, status=503)
+            except Exception as e:
+                logger.error(f"Error getting signals: {e}")
+                # Try to return cached data even if there's an error
+                stale_cache = cache.get(cache_key)
+                if stale_cache:
+                    logger.info("Returning stale cached data due to error")
+                    return JsonResponse(stale_cache)
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                }, status=500)
+    
+    def _refresh_cache_async(self, cache_key, symbol, signal_type, is_valid, limit):
+        """Refresh cache asynchronously without blocking"""
         try:
-            # Get query parameters
-            symbol = request.GET.get('symbol')
-            signal_type = request.GET.get('signal_type')
-            is_valid = request.GET.get('is_valid', 'true').lower() == 'true'
-            limit = int(request.GET.get('limit', 50))
-            
-            # Create cache key based on parameters
-            cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}"
-            cached_data = cache.get(cache_key)
-            
-            if cached_data:
-                logger.info(f"Returning cached data for key: {cache_key}")
-                return JsonResponse(cached_data)
-            
-            # Build optimized query with select_related and prefetch_related
-            queryset = TradingSignal.objects.select_related(
-                'symbol', 'signal_type'
-            )
-            
+            queryset = TradingSignal.objects.select_related('symbol', 'signal_type')
             if symbol:
                 queryset = queryset.filter(symbol__symbol__iexact=symbol)
-            
             if signal_type:
                 queryset = queryset.filter(signal_type__name=signal_type)
-            
             queryset = queryset.filter(is_valid=is_valid)
-            signals = queryset.order_by('-created_at')[:limit]
+            signals = list(queryset.order_by('-created_at')[:limit])
             
-            # Get synchronized prices for all symbols
+            # Serialize and cache (same logic as main get method)
             from apps.signals.price_sync_service import price_sync_service
-            
-            # Serialize signals with optimized data access and synchronized prices
             signal_data = []
             for signal in signals:
-                symbol = signal.symbol.symbol
-                
-                # Get synchronized price data for this symbol
-                sync_prices = price_sync_service.get_synchronized_prices(symbol)
-                
+                symbol_name = signal.symbol.symbol
+                sync_prices = price_sync_service.get_synchronized_prices(symbol_name)
                 current_price = sync_prices.get('current_price')
-                price_change_24h = sync_prices.get('price_change_24h')
-                price_discrepancy = sync_prices.get('price_discrepancy_percent', 0)
-                price_status = sync_prices.get('price_status', 'unknown')
-                price_alert = sync_prices.get('price_alert')
                 
                 signal_data.append({
                     'id': signal.id,
-                    'symbol': symbol,
+                    'symbol': symbol_name,
+                    'symbol_name': signal.symbol.name,
                     'signal_type': signal.signal_type.name,
                     'strength': signal.strength,
-                    'confidence_score': signal.confidence_score,
-                    'confidence_level': signal.confidence_level,
+                    'confidence_score': float(signal.confidence_score) if signal.confidence_score else None,
                     'entry_price': float(signal.entry_price) if signal.entry_price else None,
                     'target_price': float(signal.target_price) if signal.target_price else None,
                     'stop_loss': float(signal.stop_loss) if signal.stop_loss else None,
-                    'current_price': current_price,  # Synchronized current price
-                    'price_change_24h': price_change_24h,  # 24h price change
-                    'price_discrepancy_percent': price_discrepancy,  # Price difference from entry
-                    'price_status': price_status,  # Price reliability status
-                    'price_alert': price_alert,  # Price discrepancy alerts
-                    'risk_reward_ratio': signal.risk_reward_ratio,
-                    'quality_score': signal.quality_score,
+                    'current_price': current_price,
                     'is_valid': signal.is_valid,
                     'is_executed': signal.is_executed,
                     'is_profitable': signal.is_profitable,
-                    'profit_loss': float(signal.profit_loss) if signal.profit_loss else None,
                     'created_at': signal.created_at.isoformat(),
-                    'expires_at': signal.expires_at.isoformat() if signal.expires_at else None,
-                    'technical_score': signal.technical_score,
-                    'sentiment_score': signal.sentiment_score,
-                    'news_score': signal.news_score,
-                    'volume_score': signal.volume_score,
-                    'pattern_score': signal.pattern_score,
-                    # New timeframe and entry point fields
                     'timeframe': signal.timeframe,
                     'entry_point_type': signal.entry_point_type,
-                    'entry_point_details': signal.entry_point_details,
-                    'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
-                    'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
-                    'entry_confidence': signal.entry_confidence
                 })
             
             response_data = {
@@ -124,18 +223,9 @@ class SignalAPIView(View):
                 'count': len(signal_data),
                 'cached_at': timezone.now().isoformat()
             }
-            
-            # Cache the response for 5 minutes
             cache.set(cache_key, response_data, 300)
-            
-            return JsonResponse(response_data)
-            
         except Exception as e:
-            logger.error(f"Error getting signals: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            }, status=500)
+            logger.debug(f"Background cache refresh failed: {e}")
     
     def post(self, request):
         """Generate signals for a symbol"""

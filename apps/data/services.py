@@ -47,6 +47,53 @@ class CoinGeckoService:
             logger.error(f"Error fetching top coins: {e}")
             return []
     
+    def get_all_coins(self, max_coins: int = 1000) -> List[Dict]:
+        """
+        Get all available coins from CoinGecko (paginated)
+        
+        Args:
+            max_coins: Maximum number of coins to fetch (default: 1000)
+        """
+        try:
+            all_coins = []
+            page = 1
+            per_page = 250  # Maximum per page for CoinGecko API
+            
+            while len(all_coins) < max_coins:
+                try:
+                    coins = self.api.get_coins_markets(
+                        vs_currency='usd',
+                        order='market_cap_desc',
+                        per_page=per_page,
+                        page=page,
+                        sparkline=False
+                    )
+                    
+                    if not coins or len(coins) == 0:
+                        break
+                    
+                    all_coins.extend(coins)
+                    logger.info(f"Fetched page {page}: {len(coins)} coins (Total: {len(all_coins)})")
+                    
+                    # If we got less than per_page, we've reached the end
+                    if len(coins) < per_page:
+                        break
+                    
+                    page += 1
+                    # Add small delay to avoid rate limiting
+                    import time
+                    time.sleep(0.6)  # CoinGecko rate limit: 10-50 calls/minute
+                    
+                except Exception as e:
+                    logger.warning(f"Error fetching page {page}: {e}")
+                    break
+            
+            logger.info(f"Total coins fetched: {len(all_coins)}")
+            return all_coins[:max_coins]  # Return up to max_coins
+        except Exception as e:
+            logger.error(f"Error fetching all coins: {e}")
+            return []
+    
     def get_coin_data(self, coin_id: str) -> Optional[Dict]:
         """Get detailed data for a specific coin"""
         try:
@@ -84,10 +131,24 @@ class CryptoDataIngestionService:
             }
         )
     
-    def sync_crypto_symbols(self) -> bool:
-        """Sync crypto symbols from CoinGecko"""
+    def sync_crypto_symbols(self, limit: Optional[int] = None, max_coins: int = 1000) -> bool:
+        """
+        Sync crypto symbols from CoinGecko
+        
+        Args:
+            limit: Number of coins to sync (None = all available coins up to max_coins)
+            max_coins: Maximum number of coins to fetch when limit is None (default: 1000)
+        """
         try:
-            coins = self.coingecko.get_top_coins(limit=200)
+            if limit:
+                coins = self.coingecko.get_top_coins(limit=min(limit, 250))  # API limit per call
+                logger.info(f"Syncing top {limit} coins from CoinGecko")
+            else:
+                coins = self.coingecko.get_all_coins(max_coins=max_coins)
+                logger.info(f"Syncing ALL available coins from CoinGecko (up to {max_coins})")
+            
+            created_count = 0
+            updated_count = 0
             
             with transaction.atomic():
                 for coin in coins:
@@ -97,53 +158,92 @@ class CryptoDataIngestionService:
                             'name': coin['name'],
                             'symbol_type': 'CRYPTO',
                             'exchange': 'CoinGecko',
-                            'is_active': True
+                            'is_active': True,
+                            'is_crypto_symbol': True,
+                            'market_cap_rank': coin.get('market_cap_rank')
                         }
                     )
                     
                     if created:
-                        logger.info(f"Created new symbol: {symbol.symbol}")
+                        created_count += 1
+                        logger.info(f"Created new symbol: {symbol.symbol} ({coin['name']})")
+                    else:
+                        # Update existing symbol to ensure it's active
+                        if not symbol.is_active:
+                            symbol.is_active = True
+                            symbol.is_crypto_symbol = True
+                            symbol.market_cap_rank = coin.get('market_cap_rank')
+                            symbol.save()
+                            updated_count += 1
             
+            logger.info(f"Symbol sync completed: {created_count} created, {updated_count} updated, {len(coins)} total")
             return True
         except Exception as e:
             logger.error(f"Error syncing crypto symbols: {e}")
             return False
     
-    def sync_market_data(self, symbol: Symbol) -> bool:
-        """Sync market data for a specific symbol"""
+    def sync_market_data(self, symbol: Symbol, days: int = 30) -> bool:
+        """Sync market data for a specific symbol from CoinGecko"""
         try:
-            # Get historical data for the symbol
+            from apps.data.models import MarketData
+            
+            # Get CoinGecko coin ID (try symbol name or symbol itself)
             coin_id = symbol.symbol.lower()
-            historical_data = self.coingecko.get_historical_data(coin_id, days=30)
+            
+            # Try to get coin ID from CoinGecko
+            try:
+                # Get coin list to find the correct ID
+                coin_list = self.coingecko.api.get_coins_list()
+                coin_info = next((c for c in coin_list if c['symbol'].upper() == symbol.symbol.upper()), None)
+                if coin_info:
+                    coin_id = coin_info['id']
+            except:
+                pass  # Fallback to symbol name
+            
+            historical_data = self.coingecko.get_historical_data(coin_id, days=days)
             
             if not historical_data or 'prices' not in historical_data:
-                logger.warning(f"No historical data found for {symbol.symbol}")
+                logger.warning(f"No historical data found for {symbol.symbol} (coin_id: {coin_id})")
                 return False
             
+            saved_count = 0
             with transaction.atomic():
                 for price_data in historical_data['prices']:
-                    timestamp = datetime.fromtimestamp(price_data[0] / 1000)
+                    from datetime import timezone as dt_timezone
+                    timestamp = datetime.fromtimestamp(price_data[0] / 1000, tz=dt_timezone.utc)
                     price = Decimal(str(price_data[1]))
                     
+                    # Get market data if available (for OHLCV)
+                    market_caps = historical_data.get('market_caps', [])
+                    total_volumes = historical_data.get('total_volumes', [])
+                    
+                    # Find matching volume and market cap
+                    volume = Decimal('0')
+                    for vol_data in total_volumes:
+                        if abs(vol_data[0] - price_data[0]) < 1000:  # Within 1 second
+                            volume = Decimal(str(vol_data[1]))
+                            break
+                    
                     # Create or update market data
-                    market_data, created = MarketData.objects.get_or_create(
+                    market_data, created = MarketData.objects.update_or_create(
                         symbol=symbol,
                         timestamp=timestamp,
+                        timeframe='1h',
                         defaults={
                             'open_price': price,
                             'high_price': price,
                             'low_price': price,
                             'close_price': price,
-                            'volume': Decimal('0'),
+                            'volume': volume,
                             'source': self.data_source
                         }
                     )
                     
-                    if not created:
-                        market_data.close_price = price
-                        market_data.save()
+                    if created:
+                        saved_count += 1
             
-            return True
+            logger.info(f"Synced {saved_count} market data records for {symbol.symbol}")
+            return saved_count > 0
         except Exception as e:
             logger.error(f"Error syncing market data for {symbol.symbol}: {e}")
             return False

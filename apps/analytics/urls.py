@@ -1,6 +1,5 @@
 from django.urls import path
 from . import views
-from . import ml_views
 
 app_name = 'analytics'
 
@@ -11,19 +10,8 @@ urlpatterns = [
     path('news/', views.news_analysis, name='news_analysis'),
     path('sentiment/', views.market_sentiment_view, name='market_sentiment'),
     
-    # Machine Learning views (Phase 5B)
-    path('ml/', ml_views.ml_dashboard, name='ml_dashboard'),
-    path('ml/train/', ml_views.train_model, name='train_model'),
-    path('ml/predict/', ml_views.make_prediction, name='make_prediction'),
-    path('ml/regime/', ml_views.market_regime_analysis, name='market_regime_analysis'),
-    path('ml/sentiment/', ml_views.sentiment_ml_analysis, name='sentiment_ml_analysis'),
-    path('ml/features/', ml_views.feature_engineering_dashboard, name='feature_engineering_dashboard'),
-    
     # API endpoints
     path('api/market-data/', views.market_data_api, name='market_data_api'),
     path('api/sentiment/update/', views.update_sentiment_data, name='update_sentiment_data'),
-    
-    # ML API endpoints
-    path('api/ml/performance/', ml_views.model_performance_api, name='model_performance_api'),
-    path('api/ml/predictions/', ml_views.prediction_history_api, name='prediction_history_api'),
+    path('api/news/fetch/', views.fetch_news_now, name='fetch_news_now'),
 ]
