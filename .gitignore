@@ -1,0 +1,112 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Environment variables (CRITICAL - never commit these!)
+.env
+.env.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!env.example
+!env.production.template
+
+# Database
+*.db
+*.sqlite3
+*.sqlite3-journal
+db.sqlite3
+db.sqlite3-journal
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backups
+backups/
+*.backup
+*.bak
+*.archived
+
+# Media files (user uploads)
+media/
+staticfiles/
+
+# Redis binaries (Windows)
+redis-*.exe
+redis-*.pdb
+*.dll
+Redis-*.zip
+
+# ML Models (large files - consider Git LFS)
+# Uncomment if models are too large for regular git
+# ml_models/*.pkl
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
+tmp_*
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+celerybeat.pid
+
+# Test artifacts
+*.har
+test_*.json
+*_test_results.json
+
+# Node modules (if any frontend build tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
