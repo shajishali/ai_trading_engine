@@ -51,3 +51,8 @@ else:
     print("⚠ Some tables are empty or have errors")
 print("=" * 60)
 
+
+
+
+
+
