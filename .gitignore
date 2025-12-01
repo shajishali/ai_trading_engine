@@ -21,6 +21,14 @@ wheels/
 *.egg
 MANIFEST
 
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
 # Virtual Environment
 venv/
 env/
@@ -46,6 +54,8 @@ venv.bak/
 *.sqlite3-journal
 db.sqlite3
 db.sqlite3-journal
+dump.rdb
+*.rdb
 
 # Logs
 logs/
@@ -85,6 +95,7 @@ redis-*.exe
 redis-*.pdb
 *.dll
 Redis-*.zip
+redis.conf
 
 # ML Models (large files - consider Git LFS)
 # Uncomment if models are too large for regular git
@@ -96,6 +107,21 @@ Redis-*.zip
 temp_*
 tmp_*
 
+# Future Web Features (if needed)
+# web-features/node_modules/
+# web-features/.pnp
+# web-features/.pnp.js
+# web-features/coverage/
+# web-features/build/
+# web-features/.DS_Store
+# web-features/.env.local
+# web-features/.env.development.local
+# web-features/.env.test.local
+# web-features/.env.production.local
+# web-features/npm-debug.log*
+# web-features/yarn-debug.log*
+# web-features/yarn-error.log*
+
 # Celery
 celerybeat-schedule
 celerybeat-schedule-shm
@@ -106,10 +132,85 @@ celerybeat.pid
 *.har
 test_*.json
 *_test_results.json
+*_test*.png
+backtest_results_*.png
+na_issue_*.png
+
+# Temporary scripts
+test_*.py
+fix_*.py
+check_*.py
+debug_*.py
+monitor_*.py
+setup_*.py
+run_*.py
+generate_*.py
+analyze_*.py
+fetch_*.py
+categorize_*.py
+show_*.py
+*_verification*.py
+*_diagnostic*.py
+*_cleanup*.py
+investigate_*.py
+separate_*.py
+phase*_*.py
+comprehensive_*.py
+simple_*.py
+final_*.py
+enhanced_*.py
+quick_*.py
+SIMPLE_*.py
+TARGETED_*.py
+MASTER_*.py
+FINAL_*.py
+
+# Temporary files
+*.txt.bak
+WORKING_SOLUTION.txt
+SOLUTION_GUIDE.txt
+MANUAL_FIX_INSTRUCTIONS.txt
+START_INSTRUCTIONS.txt
+*_REPORT_*.txt
+temp_*.txt
+debug_*.html
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # Node modules (if any frontend build tools)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-

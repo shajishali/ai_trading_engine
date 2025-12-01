@@ -1,0 +1,8 @@
+# Testing dependencies for AI Trading Engine
+playwright>=1.40.0
+pytest>=7.0.0
+pytest-django>=4.5.0
+pytest-playwright>=0.4.0
+selenium>=4.0.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
