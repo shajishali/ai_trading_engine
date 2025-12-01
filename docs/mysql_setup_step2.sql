@@ -22,3 +22,8 @@ SHOW DATABASES LIKE 'ai_trading_engine';
 -- Success message
 SELECT 'Database and user created successfully!' as Status;
 
+
+
+
+
+

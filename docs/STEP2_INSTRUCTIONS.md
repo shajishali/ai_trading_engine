@@ -67,3 +67,8 @@ Enter the `trading_user` password. If you can connect, Step 2 is complete!
 
 Once Step 2 is complete, proceed to **Step 3: Install MySQL Python Client**
 
+
+
+
+
+

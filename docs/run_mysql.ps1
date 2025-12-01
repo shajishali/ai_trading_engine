@@ -10,3 +10,8 @@ Write-Host ""
 
 mysql -u root -p
 
+
+
+
+
+
