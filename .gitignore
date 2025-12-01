@@ -67,11 +67,14 @@ logs/
 ehthumbs.db
 Thumbs.db
 
-# Backups
+# Backups (exclude all backup files)
 backups/
 *.backup
 *.bak
 *.archived
+*.sqlite3.backup*
+*.sqlite3.archived*
+sqlite_data_export.json
 
 # Media files (user uploads)
 media/
