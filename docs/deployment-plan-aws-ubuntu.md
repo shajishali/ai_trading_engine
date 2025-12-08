@@ -1,4 +1,79 @@
 # AWS Ubuntu Deployment Plan - AI Trading Engine
+
+## 🪟 Windows Deployment Guide (PuTTY/PuTTYgen)
+
+**This deployment plan is optimized for Windows users using PuTTY and PuTTYgen.**
+
+### Required Windows Tools
+- ✅ **PuTTY** - SSH terminal client (https://www.putty.org/)
+- ✅ **PuTTYgen** - SSH key generator (included with PuTTY)
+- ✅ **WinSCP** (Recommended) - File transfer GUI (https://winscp.net/)
+
+### Quick Start for Windows Users
+1. **Install PuTTY and PuTTYgen** (download from putty.org)
+2. **Generate SSH key** with PuTTYgen (see Phase 0.1)
+3. **Connect to server** using PuTTY (see Phase 1.1)
+4. **Setup key authentication** (see Phase 1.2)
+5. **Use WinSCP** for easier file transfers and editing
+
+**All commands in this guide are run through PuTTY terminal window.**
+
+---
+
+## ⚠️ CRITICAL: Pre-Deployment Verification
+
+**Before starting deployment, verify these critical items match your current project structure:**
+
+### Project Structure (VERIFIED)
+```
+trading-engine/                    # Root directory (cloned from Git)
+├── backend/                       # Django application
+│   ├── ai_trading_engine/        # Django project settings
+│   │   ├── settings.py           # Development settings
+│   │   ├── settings_production.py # Production settings (MUST UPDATE for MySQL)
+│   │   ├── wsgi.py
+│   │   └── celery.py
+│   ├── apps/                     # Django apps (analytics, core, data, signals, etc.)
+│   ├── manage.py
+│   ├── requirements.txt
+│   ├── gunicorn.conf.py          # Gunicorn config (uses settings_production)
+│   ├── env.production.template   # Environment variables template
+│   ├── staticfiles/              # Collected static files (when USE_S3=False)
+│   ├── media/                    # Media files
+│   ├── logs/                     # Application logs
+│   └── templates/                # Backend templates
+└── frontend/                      # Frontend templates and static files
+    ├── templates/                # Frontend templates
+    └── static/                   # Frontend static source files
+```
+
+### Critical Configuration Changes Required
+
+1. **Database Configuration** ⚠️ **MUST FIX**
+   - `settings_production.py` currently defaults to **PostgreSQL**
+   - Deployment plan uses **MySQL**
+   - **Action Required**: Update `settings_production.py` database config to MySQL (see Phase 3.5)
+
+2. **Static Files Location**
+   - When `USE_S3=False`: Static files collected to `backend/staticfiles/`
+   - When `USE_S3=True`: Static files served from S3
+   - Nginx configured to serve from `backend/staticfiles/` (local storage)
+
+3. **Templates Location**
+   - Templates in both `backend/templates/` and `frontend/templates/`
+   - Django settings already configured to use both locations
+
+4. **Settings Module**
+   - Production uses: `ai_trading_engine.settings_production`
+   - Configured in: `gunicorn.conf.py`
+
+5. **Environment Variables**
+   - Use `env.production.template` as base
+   - Copy to `.env` in `backend/` directory
+   - Fill in all required values
+
+---
+
 ## Server Specifications
 - **OS**: Ubuntu (version to be confirmed)
 - **Storage**: 50 GB
@@ -46,13 +121,45 @@
 - ⏳ IP address confirmation
 - ⏳ Git repository cleanup (uncommitted changes)
 - ⏳ Final local testing
+- ⏳ Update `settings_production.py` to use MySQL (currently defaults to PostgreSQL)
 
-#### 0.1 Server Access & Information Gathering
+#### 0.1 PuTTY and PuTTYgen Setup (Windows Users)
+
+**Download and Install:**
+1. Download PuTTY from: https://www.putty.org/
+2. Download PuTTYgen (usually included with PuTTY)
+3. Install both applications
+
+**Generate SSH Key Pair with PuTTYgen:**
+1. Open **PuTTYgen**
+2. Click **Generate** button
+3. Move your mouse randomly over the blank area to generate randomness
+4. Once generated:
+   - **Key comment**: Add a comment like "trading-engine-production"
+   - **Key passphrase**: Enter a strong passphrase (optional but recommended)
+   - **Key passphrase confirmation**: Re-enter the passphrase
+5. Click **Save private key** → Save as `trading-engine-key.ppk` (keep this secure!)
+6. Click **Save public key** → Save as `trading-engine-key.pub`
+7. **Copy the public key text** from the text box (you'll need this on the server)
+
+**Alternative: Convert Existing SSH Key to PuTTY Format:**
+- If you have an existing `id_rsa` key, use PuTTYgen:
+  1. Click **Conversions** → **Import key**
+  2. Select your `id_rsa` file
+  3. Click **Save private key** to save as `.ppk` format
+
+#### 0.2 Server Access & Information Gathering
+- [x] **Server IP Address**: `52.221.248.235` ✅
+- [x] **SSH Username**: `ubuntu` ✅
+- [x] **Key File**: PEM file in Downloads folder ✅
+- [ ] Convert PEM to PuTTY format (.ppk) using PuTTYgen
+- [ ] Configure PuTTY session with server details
+- [ ] Test connection to server
 - [ ] Confirm Ubuntu version (Ubuntu 20.04 LTS or 22.04 LTS recommended)
-- [ ] Get SSH access credentials (username, password, or SSH key)
-- [ ] Confirm IP address and ensure it's accessible
 - [ ] Check if firewall ports are open (22, 80, 443, 8000)
 - [ ] Verify domain name (if available) or use IP address
+
+**See**: `docs/server-access-setup.md` for detailed setup instructions
 
 #### 0.2 Local Environment Preparation
 - [ ] Ensure all code is committed to Git repository
@@ -73,25 +180,123 @@
 **Estimated Time**: 1-2 hours  
 **Status**: ⏳ Pending
 
-### 1.1 Initial Server Access
-```bash
-# Connect to server
-ssh username@<IP_ADDRESS>
+### 1.1 Initial Server Access with PuTTY
 
+**IMPORTANT**: You have a PEM key file. You need to convert it to PuTTY format first!
+
+**Step 1: Convert PEM to PuTTY Format (.ppk)**
+
+1. **Open PuTTYgen**
+2. **Click**: Conversions → Import key
+3. **Navigate** to your Downloads folder
+4. **Select** your PEM file (usually `*.pem`)
+5. **Click**: Save private key
+6. **Save as**: `trading-engine-key.ppk` (recommended location: `C:\Users\YourUsername\.ssh\`)
+
+**Step 2: Configure PuTTY Session**
+
+1. **Open PuTTY**
+2. **Configure Connection:**
+   - **Host Name (or IP address)**: `52.221.248.235`
+   - **Port**: `22`
+   - **Connection type**: `SSH`
+3. **Set Username:**
+   - Go to **Connection** → **Data**
+   - **Auto-login username**: `ubuntu`
+4. **Configure SSH Key:**
+   - Go to **Connection** → **SSH** → **Auth**
+   - Click **Browse** under "Private key file for authentication"
+   - Select your `trading-engine-key.ppk` file
+5. **Save Session:**
+   - Go back to **Session** category
+   - Enter name: "Trading Engine Server"
+   - Click **Save**
+6. **Click Open** to connect
+7. **Accept the host key** when prompted (click Yes)
+
+**You should now be connected!**
+
+**See detailed instructions**: `docs/server-access-setup.md`
+
+**Commands to run in PuTTY terminal:**
+```bash
 # Update system packages
 sudo apt update
 sudo apt upgrade -y
 ```
 
-### 1.2 Create Deployment User
+**Tip**: You can increase font size in PuTTY: **Window** → **Appearance** → **Font settings**
+
+### 1.2 Setup SSH Key Authentication and Create Deployment User
+
+**A. Setup SSH Key Authentication (Recommended for Security):**
+
+**On Windows (Your Local Machine):**
+1. You should already have your public key from PuTTYgen (the text you copied)
+2. If not, open PuTTYgen → Load your `.ppk` key → Copy the public key text
+
+**On Server (via PuTTY terminal):**
+```bash
+# Create .ssh directory for your current user
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+
+# Create authorized_keys file (paste your public key here)
+nano ~/.ssh/authorized_keys
+# Paste your public key (from PuTTYgen) into this file
+# Press Ctrl+X, then Y, then Enter to save
+
+# Set correct permissions
+chmod 600 ~/.ssh/authorized_keys
+```
+
+**B. Configure PuTTY to Use Your Private Key:**
+
+1. **Open PuTTY**
+2. **Load your saved session** (or create new one)
+3. Go to **Connection** → **SSH** → **Auth**
+4. Click **Browse** under **Private key file for authentication**
+5. Select your `trading-engine-key.ppk` file
+6. Go back to **Session** and **Save** the session
+7. **Open** the connection - it should now use key authentication
+
+**C. Create Deployment User:**
 ```bash
 # Create dedicated user for deployment
 sudo adduser tradingengine
+# Follow prompts to set password and user info
+
+# Add user to sudo group
 sudo usermod -aG sudo tradingengine
 
 # Switch to new user
 su - tradingengine
 ```
+
+**D. Setup SSH Key for Deployment User:**
+
+**On Windows:**
+1. Open PuTTYgen → Load your `.ppk` key → Copy public key text again
+
+**On Server (still in PuTTY, now as tradingengine user):**
+```bash
+# Create .ssh directory
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+
+# Add your public key
+nano ~/.ssh/authorized_keys
+# Paste your public key, save and exit (Ctrl+X, Y, Enter)
+
+# Set permissions
+chmod 600 ~/.ssh/authorized_keys
+```
+
+**E. Test Key Authentication:**
+1. **Close current PuTTY session**
+2. **Open new PuTTY session** with your saved configuration
+3. **Connect** - it should log in automatically without password
+4. If it asks for passphrase, enter the one you set in PuTTYgen
 
 ### 1.3 Install Essential Packages
 ```bash
@@ -272,16 +477,46 @@ mysql_config --version
 **Status**: ⏳ Pending
 
 ### 3.1 Clone Repository
+
+**Option A: Using Git with HTTPS (Easier for PuTTY users):**
 ```bash
 # Navigate to home directory
 cd ~
 
 # Clone your repository (replace with your repo URL)
-git clone <YOUR_REPOSITORY_URL> trading-engine
+git clone https://github.com/username/repo.git trading-engine
 cd trading-engine/backend
+```
 
-# Or if using SSH:
-# git clone git@github.com:username/repo.git trading-engine
+**Option B: Using Git with SSH Key (If you have GitHub SSH key setup):**
+```bash
+# Navigate to home directory
+cd ~
+
+# Clone using SSH
+git clone git@github.com:username/repo.git trading-engine
+cd trading-engine/backend
+```
+
+**Option C: Upload Project Files Using WinSCP (Alternative Method):**
+
+If Git is not available or you prefer file transfer:
+
+1. **Download WinSCP**: https://winscp.net/eng/download.php
+2. **Open WinSCP** and create new session:
+   - **File protocol**: SFTP
+   - **Host name**: Your server IP
+   - **Port number**: 22
+   - **User name**: tradingengine
+   - **Password**: (or use your .ppk key file)
+3. **Connect** to server
+4. **Navigate** to `/home/tradingengine/` on server
+5. **Upload** your entire project folder from Windows to server
+6. **Rename** uploaded folder to `trading-engine` if needed
+
+**After uploading, in PuTTY terminal:**
+```bash
+cd ~/trading-engine/backend
 ```
 
 ### 3.2 Create Virtual Environment
@@ -315,39 +550,115 @@ pip install djangorestframework
 ```
 
 ### 3.4 Configure Environment Variables
+
+**Option A: Edit on Server (using PuTTY terminal):**
 ```bash
-# Create .env file for production
+# Copy the production template
+cp env.production.template .env
+
+# Edit the .env file with your actual values
 nano .env
-
-# Add all required environment variables:
-# SECRET_KEY=your-secret-key-here
-# DEBUG=False
-# ALLOWED_HOSTS=your-ip-address,your-domain.com
-# DATABASE_URL=mysql://tradingengine_user:password@localhost:3306/trading_engine_db
-# Or use Django settings format:
-# DB_NAME=trading_engine_db
-# DB_USER=tradingengine_user
-# DB_PASSWORD=your-password-here
-# DB_HOST=localhost
-# DB_PORT=3306
-# REDIS_URL=redis://localhost:6379/0
-# CELERY_BROKER_URL=redis://localhost:6379/0
-# CELERY_RESULT_BACKEND=redis://localhost:6379/0
-# ... (all other environment variables)
+# Use nano editor:
+# - Arrow keys to navigate
+# - Type to edit
+# - Ctrl+X to exit (will prompt to save)
+# - Y to confirm save
+# - Enter to confirm filename
 ```
 
-### 3.5 Update Django Settings for Production
+**Option B: Edit Locally and Upload (Easier for Windows users):**
+
+1. **On Windows**: Open `backend/env.production.template` in Notepad++
+2. **Fill in all values** and save as `.env` (make sure it's `.env`, not `.env.txt`)
+3. **Open WinSCP** (or use PuTTY's PSCP command)
+4. **Upload** the `.env` file to `/home/tradingengine/trading-engine/backend/`
+
+**Using PSCP (PuTTY's command-line tool):**
+```powershell
+# Open PowerShell on Windows
+# Navigate to your project directory
+cd "D:\Research Development\backend"
+
+# Upload .env file (replace with your details)
+pscp -i "C:\path\to\trading-engine-key.ppk" .env tradingengine@YOUR_IP_ADDRESS:/home/tradingengine/trading-engine/backend/
+```
+
+**Using WinSCP (GUI method - easier):**
+1. Open WinSCP
+2. Connect to server
+3. Navigate to `/home/tradingengine/trading-engine/backend/`
+4. Drag and drop your `.env` file from Windows
+
+**Required Environment Variables (based on `env.production.template`):**
 ```bash
-# Edit settings file
-nano ai_trading_engine/settings.py
+# Django Core Settings
+DEBUG=False
+SECRET_KEY=CHANGE-THIS-TO-A-STRONG-RANDOM-SECRET-KEY
+PRODUCTION_SECRET_KEY=CHANGE-THIS-TO-A-STRONG-RANDOM-SECRET-KEY
+ALLOWED_HOSTS=YOUR_IP_ADDRESS,YOUR_DOMAIN.com
+PRODUCTION_ALLOWED_HOSTS=YOUR_IP_ADDRESS,YOUR_DOMAIN.com
+
+# Database Configuration (MySQL)
+DB_ENGINE=django.db.backends.mysql
+DB_NAME=trading_engine_db
+DB_USER=tradingengine_user
+DB_PASSWORD=YOUR_STRONG_PASSWORD_HERE
+DB_HOST=localhost
+DB_PORT=3306
+
+# Redis Configuration
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
+
+# Celery Configuration
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+CELERY_WORKER_CONCURRENCY=2
+
+# AWS S3 (Optional - set USE_S3=False for local storage)
+USE_S3=False
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS=https://yourdomain.com
 ```
 
-**Update Database Configuration:**
+**Generate a strong SECRET_KEY:**
+```bash
+python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+```
+
+### 3.5 Configure Production Settings
+
+**IMPORTANT**: The project uses `settings_production.py` for production. You need to update it to use MySQL instead of PostgreSQL.
+
+**Option A: Edit on Server (using PuTTY terminal):**
+```bash
+# Edit production settings file
+nano ai_trading_engine/settings_production.py
+# Use nano editor (see nano tips below)
+```
+
+**Option B: Edit Locally and Upload (Easier for Windows users):**
+1. **On Windows**: Use WinSCP to download `settings_production.py`
+2. **Edit** with Notepad++ or your preferred editor
+3. **Upload** back to server using WinSCP
+
+**Nano Editor Tips (for PuTTY users):**
+- **Navigate**: Arrow keys
+- **Search**: Ctrl+W (type search term, press Enter)
+- **Save**: Ctrl+O (press Enter to confirm)
+- **Exit**: Ctrl+X (will prompt to save if modified)
+- **Cut line**: Ctrl+K
+- **Paste**: Ctrl+U
+
+**Update Database Configuration in settings_production.py:**
 ```python
-# Replace SQLite configuration with MySQL
+# Change from PostgreSQL to MySQL
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.mysql',  # Changed from postgresql
         'NAME': config('DB_NAME', default='trading_engine_db'),
         'USER': config('DB_USER', default='tradingengine_user'),
         'PASSWORD': config('DB_PASSWORD'),
@@ -356,32 +667,21 @@ DATABASES = {
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'isolation_level': 'read committed',
         },
         'CONN_MAX_AGE': 600,  # Connection pooling for MySQL
     }
 }
-
-# Ensure:
-# - DEBUG = False
-# - ALLOWED_HOSTS includes your IP and domain
-# - Static files configuration
-# - Security settings (CSRF, CORS, etc.)
 ```
 
-**Alternative: Using mysqlclient or PyMySQL:**
-```python
-# If using PyMySQL (easier to install), add this at the top of settings.py:
-# import pymysql
-# pymysql.install_as_MySQLdb()
+**Note**: The project already uses PyMySQL (configured in `settings.py`), so MySQL should work without additional configuration. The `settings_production.py` file currently defaults to PostgreSQL, so you must change it to MySQL as shown above.
 
-# Then use same DATABASES configuration above
-```
-
-### 3.6 Run Migrations
+### 3.6 Run Migrations and Setup
 ```bash
 # Activate virtual environment
 source venv/bin/activate
+
+# Set production settings module
+export DJANGO_SETTINGS_MODULE=ai_trading_engine.settings_production
 
 # Run migrations
 python manage.py migrate
@@ -390,19 +690,36 @@ python manage.py migrate
 python manage.py createsuperuser
 
 # Collect static files
+# Note: This collects to backend/staticfiles/ when USE_S3=False
+# If USE_S3=True, static files are uploaded to S3
 python manage.py collectstatic --noinput
+
+# Verify static files were collected
+ls -la staticfiles/
 ```
 
 ### 3.7 Test Application Locally
 ```bash
-# Test Django server
+# Test Django server with production settings
+export DJANGO_SETTINGS_MODULE=ai_trading_engine.settings_production
 python manage.py runserver 0.0.0.0:8000
 
 # Test from another terminal or browser
 curl http://localhost:8000
 
+# Check if static files are being served
+curl http://localhost:8000/static/admin/css/base.css
+
 # If successful, stop the server (Ctrl+C)
 ```
+
+**Important Project Structure Notes:**
+- Project root contains: `backend/` and `frontend/` directories
+- Django app is in: `backend/`
+- Templates are in: `backend/templates/` and `frontend/templates/`
+- Static files (when USE_S3=False): Collected to `backend/staticfiles/`
+- Media files: Stored in `backend/media/`
+- Production settings: `backend/ai_trading_engine/settings_production.py`
 
 ---
 
@@ -545,12 +862,10 @@ User=tradingengine
 Group=tradingengine
 WorkingDirectory=/home/tradingengine/trading-engine/backend
 Environment="PATH=/home/tradingengine/trading-engine/backend/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=ai_trading_engine.settings_production"
 ExecStart=/home/tradingengine/trading-engine/backend/venv/bin/gunicorn \
-    --workers 2 \
-    --worker-class sync \
+    --config gunicorn.conf.py \
     --bind unix:/run/gunicorn.sock \
-    --access-logfile /var/log/gunicorn/access.log \
-    --error-logfile /var/log/gunicorn/error.log \
     ai_trading_engine.wsgi:application
 
 Restart=always
@@ -559,6 +874,8 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 ```
+
+**Note**: The project includes `gunicorn.conf.py` which already has optimized settings. The service uses this config file. Make sure `settings_production.py` is configured for MySQL (see Phase 3.5).
 
 ### 6.2 Create Required Directories
 ```bash
@@ -589,10 +906,19 @@ sudo systemctl status gunicorn
 **Status**: ⏳ Pending
 
 ### 7.1 Create Nginx Configuration
+
+**Option A: Create on Server (using PuTTY terminal):**
 ```bash
 # Create Nginx site configuration
 sudo nano /etc/nginx/sites-available/trading-engine
 ```
+
+**Option B: Create Locally and Upload (Easier for Windows users):**
+1. **On Windows**: Create new file `trading-engine` (no extension)
+2. **Copy** the configuration below into the file
+3. **Use WinSCP** to upload to `/etc/nginx/sites-available/trading-engine`
+   - Note: You'll need sudo access, so upload to `/home/tradingengine/` first
+   - Then in PuTTY: `sudo mv ~/trading-engine /etc/nginx/sites-available/`
 
 **Content for trading-engine:**
 ```nginx
@@ -612,13 +938,15 @@ server {
     client_max_body_size 10M;
 
     # Static files
+    # Note: Static files are collected to backend/staticfiles/ when USE_S3=False
+    # If using S3, static files are served from S3 and this location is not used
     location /static/ {
         alias /home/tradingengine/trading-engine/backend/staticfiles/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
-    # Media files (if any)
+    # Media files
     location /media/ {
         alias /home/tradingengine/trading-engine/backend/media/;
         expires 7d;
@@ -782,12 +1110,23 @@ chmod +x ~/health_check.sh
 **Status**: ⏳ Pending
 
 ### 9.1 Database Backup Script
+
+**Option A: Create on Server (using PuTTY terminal):**
 ```bash
 # Create backup directory
 mkdir -p ~/backups
 
 # Create backup script
 nano ~/backup_database.sh
+```
+
+**Option B: Create Locally and Upload (Easier for Windows users):**
+1. **On Windows**: Create `backup_database.sh` file
+2. **Copy** the script content below into the file
+3. **Use WinSCP** to upload to `/home/tradingengine/backup_database.sh`
+4. **In PuTTY terminal**, make it executable:
+```bash
+chmod +x ~/backup_database.sh
 ```
 
 **Content:**
@@ -943,15 +1282,17 @@ python manage.py collectstatic --noinput
 **Status**: ⏳ Pending
 
 ### 12.1 Pre-Launch Checklist
-- [ ] All services running (Gunicorn, Celery, PostgreSQL, Redis, Nginx)
+- [ ] All services running (Gunicorn, Celery, MySQL, Redis, Nginx)
 - [ ] Database migrations completed
-- [ ] Static files collected
-- [ ] Environment variables configured
+- [ ] Static files collected to `backend/staticfiles/` (or uploaded to S3 if USE_S3=True)
+- [ ] Environment variables configured in `.env` file
+- [ ] `settings_production.py` updated to use MySQL (not PostgreSQL)
 - [ ] Firewall configured
 - [ ] SSL certificate installed (if using domain)
 - [ ] Backup script tested
 - [ ] Health check script working
-- [ ] Logs are being written
+- [ ] Logs are being written to `backend/logs/`
+- [ ] Templates loading from both `backend/templates/` and `frontend/templates/`
 
 ### 12.2 Functional Testing
 ```bash
@@ -978,10 +1319,13 @@ sudo journalctl -u celery-beat -f
 - [ ] Application accessible via IP/domain
 - [ ] All API endpoints working
 - [ ] Celery tasks executing
-- [ ] Database connections working
+- [ ] MySQL database connections working (verify not using PostgreSQL)
 - [ ] Redis connections working
-- [ ] Static files loading
-- [ ] No errors in logs
+- [ ] Static files loading from `backend/staticfiles/` (or S3 if configured)
+- [ ] Media files accessible from `backend/media/`
+- [ ] Templates loading correctly (from both backend and frontend directories)
+- [ ] No errors in logs (`backend/logs/` directory)
+- [ ] Gunicorn using `settings_production` module
 
 ---
 
@@ -1007,6 +1351,35 @@ sudo journalctl -u celery-beat -f
 ---
 
 ## Troubleshooting Guide
+
+### PuTTY Connection Issues
+
+**Problem: "Network error: Connection refused"**
+- Check if server IP is correct
+- Verify port 22 is open
+- Check if server is running
+- Try pinging the server IP from Windows: `ping <IP_ADDRESS>`
+
+**Problem: "Server unexpectedly closed network connection"**
+- Check server firewall settings
+- Verify SSH service is running on server
+- Check server logs
+
+**Problem: "Authentication failed"**
+- Verify username is correct
+- If using password: Check password is correct
+- If using key: Verify key file path in PuTTY → Connection → SSH → Auth
+- Make sure public key is in `~/.ssh/authorized_keys` on server
+
+**Problem: "PuTTY window closes immediately after opening"**
+- Check PuTTY → Connection → Data → Auto-login username is set
+- Verify key file is correct
+- Check PuTTY → Session → Logging (enable to see errors)
+
+**Problem: "Permission denied (publickey)"**
+- Verify public key is in `~/.ssh/authorized_keys` on server
+- Check file permissions: `chmod 600 ~/.ssh/authorized_keys`
+- Verify private key file (.ppk) is correct in PuTTY settings
 
 ### Service Won't Start
 ```bash
@@ -1055,6 +1428,8 @@ du -sh /var/log/*
 sudo journalctl --vacuum-time=7d
 ```
 
+**Tip**: Use WinSCP to visually browse directories and identify large files/folders
+
 ---
 
 ## Resource Allocation (2GB RAM)
@@ -1081,6 +1456,11 @@ sudo journalctl --vacuum-time=7d
 
 ## Quick Reference Commands
 
+### PuTTY Connection
+1. **Open PuTTY** → Load saved session → Click **Open**
+2. **Enter passphrase** if using key authentication
+3. **You're connected!** All commands below run in PuTTY terminal
+
 ### Service Management
 ```bash
 # Start/Stop/Restart services
@@ -1096,7 +1476,10 @@ sudo systemctl status <service-name>
 
 # View logs
 sudo journalctl -u <service-name> -f
+# Press Ctrl+C to exit log view
 ```
+
+**Tip**: Use WinSCP to view log files with a GUI editor instead of command line
 
 ### Application Management
 ```bash
@@ -1114,6 +1497,8 @@ python manage.py collectstatic --noinput
 python manage.py createsuperuser
 ```
 
+**Tip**: All these commands run in PuTTY terminal. Make sure you're in the correct directory (`~/trading-engine/backend`) and virtual environment is activated.
+
 ### Database Management
 ```bash
 # Backup
@@ -1124,6 +1509,62 @@ gunzip < backup_file.sql.gz | mysql -u tradingengine_user -p trading_engine_db
 # Or using credentials file:
 # gunzip < backup_file.sql.gz | mysql --defaults-file=~/.my.cnf trading_engine_db
 ```
+
+### File Management with WinSCP
+- **View logs**: Connect with WinSCP → Navigate to `/home/tradingengine/trading-engine/backend/logs/` → Right-click → Edit
+- **Edit config files**: Navigate to file → Right-click → Edit → WinSCP opens in Notepad++
+- **Upload files**: Drag and drop from Windows to server
+- **Download files**: Drag and drop from server to Windows
+- **Set permissions**: Right-click file → Properties → Change permissions
+```
+
+---
+
+## Windows Tools for Deployment
+
+### Required Tools
+1. **PuTTY** - SSH terminal client
+   - Download: https://www.putty.org/
+   - Used for: Command-line access to server
+
+2. **PuTTYgen** - SSH key generator
+   - Usually included with PuTTY
+   - Used for: Generating SSH key pairs
+
+3. **WinSCP** (Recommended) - File transfer client
+   - Download: https://winscp.net/eng/download.php
+   - Used for: Uploading/downloading files, editing files with GUI
+   - Alternative: Use PSCP (command-line, included with PuTTY)
+
+### PuTTY Tips for Windows Users
+
+**Copy/Paste in PuTTY:**
+- **Copy**: Select text with mouse (automatically copies)
+- **Paste**: Right-click in PuTTY window (or Shift+Insert)
+
+**Saving PuTTY Sessions:**
+- Configure all settings (host, port, username, key file)
+- Go to **Session** → Enter name → Click **Save**
+- Next time: Load session → Click **Open**
+
+**PuTTY Window Settings:**
+- Increase font: **Window** → **Appearance** → **Font settings**
+- Increase window size: **Window** → **Appearance** → **Window**
+- Enable scrollback: **Window** → **Selection** → Increase scrollback lines
+
+**Using WinSCP for File Editing:**
+- Connect to server with WinSCP
+- Right-click any file → **Edit**
+- WinSCP will download, open in Notepad++, and upload when saved
+- Much easier than using `nano` or `vi` for Windows users
+
+**Using PSCP (Command-line file transfer):**
+```powershell
+# Upload file
+pscp -i "C:\path\to\key.ppk" localfile.txt user@server:/remote/path/
+
+# Download file
+pscp -i "C:\path\to\key.ppk" user@server:/remote/path/file.txt ./
 ```
 
 ---
@@ -1136,6 +1577,15 @@ gunzip < backup_file.sql.gz | mysql -u tradingengine_user -p trading_engine_db
 4. **SSL**: Highly recommended if using a domain name
 5. **Monitoring**: Consider setting up basic monitoring alerts
 6. **Backups**: Test backup restoration process before going live
+7. **Project Structure**: 
+   - Root directory contains `backend/` and `frontend/` folders
+   - Django application is in `backend/`
+   - Static files collected to `backend/staticfiles/` when USE_S3=False
+   - Templates in both `backend/templates/` and `frontend/templates/`
+8. **Database**: The deployment plan uses MySQL, but `settings_production.py` defaults to PostgreSQL. **You must update `settings_production.py` to use MySQL** (see Phase 3.5)
+9. **Settings Module**: Production uses `ai_trading_engine.settings_production` (configured in `gunicorn.conf.py`)
+10. **Static Files**: If `USE_S3=True` in `.env`, static files are served from S3. If `USE_S3=False`, they're served from `backend/staticfiles/`
+11. **Windows Users**: This deployment plan is optimized for Windows users using PuTTY/PuTTYgen. All SSH commands are run through PuTTY terminal. Use WinSCP for easier file transfers and editing.
 
 ---
 

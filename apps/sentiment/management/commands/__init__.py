@@ -1,1 +1,0 @@
-# Sentiment analysis management commands
