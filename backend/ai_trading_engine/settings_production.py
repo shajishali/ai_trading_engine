@@ -255,7 +255,6 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'apps.core.middleware.SecurityHeadersMiddleware',
     'apps.core.middleware.RequestValidationMiddleware',
-    'apps.core.middleware.APIRateLimitMiddleware',
     'apps.core.middleware.CSRFProtectionMiddleware',
     'apps.core.middleware.AuditLoggingMiddleware',
     'apps.core.middleware.IPWhitelistMiddleware',
@@ -263,6 +262,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'apps.core.middleware.APIRateLimitMiddleware',  # Moved after AuthenticationMiddleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.core.middleware.PerformanceMonitoringMiddleware',
