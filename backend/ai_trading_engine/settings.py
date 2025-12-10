@@ -111,7 +111,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # 'allauth.account.middleware.AccountMiddleware',  # Not required for allauth 0.54.0
     'apps.core.middleware.PerformanceMonitoringMiddleware',
-    'apps.core.middleware.APIRateLimitMiddleware',
+    # 'apps.core.middleware.APIRateLimitMiddleware',  # Disabled - rate limiting removed
     # 'apps.subscription.middleware.SubscriptionMiddleware',
     # 'apps.subscription.middleware.SubscriptionRedirectMiddleware',
 ]
