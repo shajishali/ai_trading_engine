@@ -113,7 +113,7 @@ PRODUCTION_ALLOWED_HOSTS=52.221.248.235
 # Database Configuration (MySQL) - Use values from Phase 2
 DB_ENGINE=django.db.backends.mysql
 DB_NAME=trading_engine_db
-DB_USER=tradingengine_user
+DB_USER=trading_user
 DB_PASSWORD=your-database-password-here  # From Phase 2
 DB_HOST=localhost
 DB_PORT=3306
@@ -181,7 +181,7 @@ python manage.py migrate
 **If you see database connection errors**:
 - Check that MySQL is running: `sudo systemctl status mysql`
 - Verify database credentials in `.env` file
-- Test database connection: `mysql -u tradingengine_user -p trading_engine_db`
+- Test database connection: `mysql -u trading_user -p trading_engine_db`
 
 ---
 
@@ -303,7 +303,7 @@ pip install python-decouple
 ### "Database connection error"
 ```bash
 # Test MySQL connection
-mysql -u tradingengine_user -p trading_engine_db
+mysql -u trading_user -p trading_engine_db
 
 # Check MySQL is running
 sudo systemctl status mysql

@@ -82,15 +82,15 @@ sudo mysql -u root -p
 **In MySQL prompt, run:**
 ```sql
 CREATE DATABASE trading_engine_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'tradingengine_user'@'localhost' IDENTIFIED BY 'YOUR_STRONG_PASSWORD_HERE';
-GRANT ALL PRIVILEGES ON trading_engine_db.* TO 'tradingengine_user'@'localhost';
+CREATE USER 'trading_user'@'localhost' IDENTIFIED BY 'YOUR_STRONG_PASSWORD_HERE';
+GRANT ALL PRIVILEGES ON trading_engine_db.* TO 'trading_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
 
 **Test connection:**
 ```bash
-mysql -u tradingengine_user -p trading_engine_db
+mysql -u trading_user -p trading_engine_db
 # Enter password, should see mysql> prompt
 # Type: EXIT; to exit
 ```
@@ -140,7 +140,7 @@ SECRET_KEY=GENERATE_STRONG_SECRET_KEY_HERE
 ALLOWED_HOSTS=52.221.248.235
 DB_ENGINE=django.db.backends.mysql
 DB_NAME=trading_engine_db
-DB_USER=tradingengine_user
+DB_USER=trading_user
 DB_PASSWORD=YOUR_DB_PASSWORD_HERE
 DB_HOST=localhost
 DB_PORT=3306
@@ -168,7 +168,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',  # Changed from postgresql
         'NAME': config('DB_NAME', default='trading_engine_db'),
-        'USER': config('DB_USER', default='tradingengine_user'),
+        'USER': config('DB_USER', default='trading_user'),
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='3306'),
@@ -468,7 +468,7 @@ sudo tail -f /var/log/nginx/error.log
 ### Database connection error
 ```bash
 # Test MySQL connection
-mysql -u tradingengine_user -p trading_engine_db
+mysql -u trading_user -p trading_engine_db
 
 # Check .env file has correct DB credentials
 cat .env | grep DB_

@@ -42,8 +42,9 @@ CSRF_COOKIE_SECURE = False
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME', default='trading_engine_db'),
-        'USER': config('DB_USER', default='tradingengine_user'),
+        # Use the same default as local/dev to avoid silent mismatches
+        'NAME': config('DB_NAME', default='ai_trading_engine'),
+        'USER': config('DB_USER', default='trading_user'),
         'PASSWORD': config('DB_PASSWORD', default=''),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='3306'),

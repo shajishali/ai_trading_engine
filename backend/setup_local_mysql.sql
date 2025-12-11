@@ -8,7 +8,7 @@ CREATE DATABASE IF NOT EXISTS ai_trading_engine CHARACTER SET utf8mb4 COLLATE ut
 DROP USER IF EXISTS 'trading_user'@'localhost';
 
 -- Create user with password from .env file
-CREATE USER 'trading_user'@'localhost' IDENTIFIED BY 'TradingEngine2024!@#Pass';
+CREATE USER 'trading_user'@'localhost' IDENTIFIED BY '12345';
 
 -- Grant all privileges
 GRANT ALL PRIVILEGES ON ai_trading_engine.* TO 'trading_user'@'localhost';
