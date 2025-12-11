@@ -69,8 +69,8 @@ class UserAdmin(EnhancedSearchMixin, BaseUserAdmin):
     
     list_filter = [
         'is_active', 'is_staff', 'is_superuser', 'date_joined',
-        ('profile__subscription_status', admin.RelatedFieldListFilter),
-        ('profile__subscription_plan', admin.RelatedFieldListFilter),
+        'profile__subscription_status',  # CharField with choices - Django auto-creates filter
+        ('profile__subscription_plan', admin.RelatedFieldListFilter),  # ForeignKey - relation field
     ]
     
     search_fields = ['username', 'email', 'first_name', 'last_name']
@@ -122,13 +122,14 @@ class UserAdmin(EnhancedSearchMixin, BaseUserAdmin):
             
             if limit > 0:
                 percentage = (used / limit) * 100
+                percentage_str = f"{percentage:.0f}"
                 color = 'green' if percentage < 70 else 'orange' if percentage < 90 else 'red'
                 return format_html(
-                    '<span style="color: {};">{}/{} ({:.0f}%)</span>',
+                    '<span style="color: {};">{}/{} ({}%)</span>',
                     color,
                     used,
                     limit,
-                    percentage
+                    percentage_str
                 )
             return format_html('<span style="color: gray;">{}/-</span>', used)
         except UserProfile.DoesNotExist:

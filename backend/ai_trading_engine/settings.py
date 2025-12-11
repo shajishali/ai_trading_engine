@@ -499,6 +499,15 @@ EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
 EMAIL_VERIFICATION_RESEND_COOLDOWN_MINUTES = 5
 EMAIL_VERIFICATION_MAX_ATTEMPTS = 3
 
+# Force HTTPS in email verification links (for production)
+# Set to True in production to ensure all verification links use HTTPS
+# If None, will auto-detect based on SECURE_SSL_REDIRECT setting
+FORCE_HTTPS_IN_EMAILS = config('FORCE_HTTPS_IN_EMAILS', default=None, cast=lambda x: x.lower() == 'true' if x else None)
+
+# Use HTTP in production (set to True if you're using HTTP instead of HTTPS in production)
+# This will override FORCE_HTTPS_IN_EMAILS and use HTTP for all verification links
+USE_HTTP_IN_PRODUCTION = config('USE_HTTP_IN_PRODUCTION', default=False, cast=bool)
+
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',

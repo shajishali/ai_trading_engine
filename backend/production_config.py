@@ -252,6 +252,10 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@your-domain.com')
 
+# Email verification links - Use HTTP in production (set to True if using HTTP)
+USE_HTTP_IN_PRODUCTION = os.environ.get('USE_HTTP_IN_PRODUCTION', 'True').lower() == 'true'
+FORCE_HTTPS_IN_EMAILS = False  # Disabled when using HTTP
+
 # Monitoring and Alerting
 SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
 if SENTRY_DSN:

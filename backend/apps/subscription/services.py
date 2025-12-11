@@ -485,8 +485,18 @@ class EmailVerificationService:
         # Ensure domain doesn't contain protocol (security)
         domain = domain.replace('http://', '').replace('https://', '').split('/')[0]
         
-        # Always use HTTP for localhost/127.0.0.1 (development)
-        # Use HTTPS only for production domains (not localhost)
+        # Check if we should force HTTPS (production setting)
+        force_https = getattr(settings, 'FORCE_HTTPS_IN_EMAILS', None)
+        if force_https is None:
+            # Auto-detect: Use HTTPS if SECURE_SSL_REDIRECT is enabled (production indicator)
+            # But allow override via USE_HTTP_IN_PRODUCTION setting
+            use_http_in_production = getattr(settings, 'USE_HTTP_IN_PRODUCTION', False)
+            if use_http_in_production:
+                force_https = False
+            else:
+                force_https = getattr(settings, 'SECURE_SSL_REDIRECT', False)
+        
+        # Check if domain is localhost/private IP (development only)
         is_localhost = (
             'localhost' in domain.lower() or 
             '127.0.0.1' in domain or 
@@ -495,11 +505,14 @@ class EmailVerificationService:
             domain.startswith('172.')
         )
         
-        # Determine protocol: HTTP for localhost, HTTPS for production
-        if is_localhost or settings.DEBUG:
-            protocol = 'http'
-        else:
+        # Determine protocol:
+        # - Use HTTPS if explicitly forced (and not using HTTP in production)
+        # - Use HTTP for localhost or if USE_HTTP_IN_PRODUCTION is True
+        if force_https and not getattr(settings, 'USE_HTTP_IN_PRODUCTION', False):
             protocol = 'https'
+        else:
+            # Use HTTP for localhost or when HTTP is preferred in production
+            protocol = 'http'
         
         return f"{protocol}://{domain}/subscription/verify-email/{token}/"
 
