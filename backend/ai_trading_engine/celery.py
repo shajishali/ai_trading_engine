@@ -19,6 +19,8 @@ app.conf.update(
     task_routes={
         'apps.trading.tasks.*': {'queue': 'trading', 'priority': 10},
         'apps.signals.tasks.*': {'queue': 'signals', 'priority': 8},
+        # Route new database signal tasks through the existing signals queue
+        'apps.signals.database_signal_tasks.*': {'queue': 'signals', 'priority': 9},
         'apps.sentiment.tasks.*': {'queue': 'sentiment', 'priority': 6},
         'apps.data.tasks.*': {'queue': 'data', 'priority': 4},
         'apps.analytics.tasks.*': {'queue': 'analytics', 'priority': 5},
@@ -66,7 +68,8 @@ app.conf.update(
     # Beat schedule for periodic tasks
     # Tasks are automatically routed to correct queues via task_routes
     beat_schedule={
-        # TEMPORARILY DISABLED: Only keeping update coin task active
+        # NOTE: Most legacy periodic tasks remain disabled; coin updates and
+        # database-driven signal generation are enabled.
         # 'update-crypto-prices': {
         #     'task': 'apps.data.tasks.update_crypto_prices',
         #     'schedule': crontab(minute='*/30'),  # Every 30 minutes
@@ -145,11 +148,19 @@ app.conf.update(
         #     'schedule': crontab(hour=3, minute=0, day_of_week='sun'),  # Weekly on Sunday at 3 AM UTC
         #     'options': {'queue': 'data', 'priority': 3},  # Explicitly route to data queue
         # },
-        # ACTIVE: Update coin task (only task running)
+        # ACTIVE: Update coin task
         'fetch-and-store-coins': {
             'task': 'apps.data.tasks.fetch_and_store_coins_task',
             'schedule': crontab(minute=0),  # Every hour at minute 0
             'options': {'queue': 'data', 'priority': 5},  # Explicitly route to data queue
+        },
+        # NEW: Database-driven / hybrid signal generation
+        # Use rule-based enhanced strategy (no ML) by default to match local behavior.
+        'generate-database-signals': {
+            'task': 'apps.signals.database_signal_tasks.generate_database_signals_task',
+            'schedule': crontab(minute='*/30'),  # Every 30 minutes
+            'options': {'queue': 'signals', 'priority': 9},
+            'kwargs': {'use_ml': False},
         },
         # DISABLED: Monthly cleanup to preserve all historical data from 2020
         # 'historical-cleanup-monthly': {

@@ -152,12 +152,23 @@ ASGI_APPLICATION = 'ai_trading_engine.asgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Database Configuration - MySQL
+DB_PASSWORD = config('DB_PASSWORD', default='')
+if not DB_PASSWORD:
+    logger.warning(
+        "⚠️  WARNING: DB_PASSWORD is empty! Database connection will fail.\n"
+        "   To fix this:\n"
+        "   1. Create a .env file in the backend directory\n"
+        "   2. Add: DB_PASSWORD=your_mysql_password\n"
+        "   3. Make sure the MySQL user 'trading_user' exists with that password\n"
+        "   See QUICK_FIX.md for detailed instructions."
+    )
+
 DATABASES = {
     'default': {
         'ENGINE': config('DB_ENGINE', default='django.db.backends.mysql'),
         'NAME': config('DB_NAME', default='ai_trading_engine'),
         'USER': config('DB_USER', default='trading_user'),
-        'PASSWORD': config('DB_PASSWORD', default=''),
+        'PASSWORD': DB_PASSWORD,
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='3306'),
         'OPTIONS': {
