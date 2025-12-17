@@ -135,6 +135,11 @@ TARGETED_*.py
 MASTER_*.py
 FINAL_*.py
 
+# IMPORTANT: keep production automation & data services tracked,
+# even though their filenames match the ignore patterns above.
+!scripts/run_signal_generation.py
+!apps/data/enhanced_multi_source_service.py
+
 # Temporary files
 *.txt.bak
 WORKING_SOLUTION.txt
