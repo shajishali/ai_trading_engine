@@ -7,7 +7,17 @@ echo "============================================================"
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
+
+# Project root is the parent of the scripts directory (the Django backend directory)
+PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+echo "Script directory : $SCRIPT_DIR"
+echo "Project directory: $PROJECT_DIR"
+echo ""
+
+# Always run Celery from the Django project root so that the ai_trading_engine
+# package is importable (fixes: 'The module ai_trading_engine was not found')
+cd "$PROJECT_DIR"
 
 # Check if Redis is already running
 if pgrep -x "redis-server" > /dev/null; then
