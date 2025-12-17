@@ -45,30 +45,19 @@ logger = logging.getLogger(__name__)
 
 def generate_signals():
     """
-    Generate trading signals.
-    Prefer the Django management command if available; fall back to the
-    Celery task implementation if the command is not registered in this
-    environment (e.g., some production deployments).
+    Generate trading signals by directly invoking the task implementation.
+    This avoids relying on a Django management command that may not be
+    deployed to all environments (e.g., production where *.py patterns
+    were previously ignored).
     """
     try:
         logger.info("=" * 60)
-        logger.info("Starting signal generation cycle...")
+        logger.info("Starting signal generation cycle (task-based)...")
         logger.info("=" * 60)
 
-        try:
-            # Preferred path: use the management command
-            logger.info("Attempting to run management command 'generate_signals'...")
-            call_command('generate_signals', verbosity=2)
-            logger.info("Management command 'generate_signals' completed successfully.")
-        except CommandError as ce:
-            # Fallback path: directly invoke the Celery task implementation
-            logger.warning(
-                "Management command 'generate_signals' is not available in this "
-                "environment; falling back to task-based generation. "
-                f"Details: {ce}"
-            )
-            result = generate_signals_for_all_symbols()
-            logger.info(f"Fallback task 'generate_signals_for_all_symbols' completed: {result}")
+        # Directly call the task function (synchronously) to generate signals
+        result = generate_signals_for_all_symbols()
+        logger.info(f"Task 'generate_signals_for_all_symbols' completed: {result}")
         
         # Get count of active signals
         active_signals = TradingSignal.objects.filter(is_valid=True).count()
