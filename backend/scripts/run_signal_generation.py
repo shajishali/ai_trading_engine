@@ -20,8 +20,9 @@ sys.path.insert(0, backend_dir)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ai_trading_engine.settings')
 django.setup()
 
-from django.core.management import call_command
+from django.core.management import call_command, CommandError
 from apps.signals.models import TradingSignal
+from apps.signals.tasks import generate_signals_for_all_symbols
 
 # Configure logging with UTF-8 encoding support
 # Ensure stdout uses UTF-8 encoding on Windows
@@ -44,15 +45,30 @@ logger = logging.getLogger(__name__)
 
 def generate_signals():
     """
-    Generate trading signals using Django management command
+    Generate trading signals.
+    Prefer the Django management command if available; fall back to the
+    Celery task implementation if the command is not registered in this
+    environment (e.g., some production deployments).
     """
     try:
         logger.info("=" * 60)
         logger.info("Starting signal generation cycle...")
         logger.info("=" * 60)
-        
-        # Call the Django management command
-        call_command('generate_signals', verbosity=2)
+
+        try:
+            # Preferred path: use the management command
+            logger.info("Attempting to run management command 'generate_signals'...")
+            call_command('generate_signals', verbosity=2)
+            logger.info("Management command 'generate_signals' completed successfully.")
+        except CommandError as ce:
+            # Fallback path: directly invoke the Celery task implementation
+            logger.warning(
+                "Management command 'generate_signals' is not available in this "
+                "environment; falling back to task-based generation. "
+                f"Details: {ce}"
+            )
+            result = generate_signals_for_all_symbols()
+            logger.info(f"Fallback task 'generate_signals_for_all_symbols' completed: {result}")
         
         # Get count of active signals
         active_signals = TradingSignal.objects.filter(is_valid=True).count()
