@@ -150,6 +150,63 @@
     body:not([data-theme]) .stats-card p {
         color: #f0f0f0 !important;
     }
+    
+    /* Footer Styles */
+    footer {
+        margin-top: 4rem !important;
+        background: linear-gradient(135deg, #0056b3 0%, #007bff 50%, #0d6efd 100%) !important;
+        box-shadow: 0 -4px 20px rgba(0, 123, 255, 0.5) !important;
+        position: relative;
+    }
+    
+    footer::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(0, 86, 179, 0.95) 0%, rgba(0, 123, 255, 0.95) 50%, rgba(13, 110, 253, 0.95) 100%);
+        z-index: -1;
+    }
+    
+    footer a {
+        transition: all 0.3s ease;
+    }
+    
+    footer a:hover {
+        opacity: 1 !important;
+        color: #ffffff !important;
+        transform: translateX(5px);
+    }
+    
+    footer .fab:hover,
+    footer .fas:hover {
+        transform: scale(1.2);
+        transition: transform 0.3s ease;
+    }
+    
+    footer h5 {
+        color: #ffffff !important;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    footer ul li {
+        transition: all 0.2s ease;
+    }
+    
+    footer ul li:hover {
+        transform: translateX(3px);
+    }
+    
+    /* Ensure footer is visible in all themes */
+    body[data-theme="light"] footer,
+    body[data-theme="dark"] footer,
+    body:not([data-theme]) footer {
+        background: linear-gradient(135deg, #0056b3 0%, #007bff 50%, #0d6efd 100%) !important;
+    }
 </style>
 
 <div class="container">
@@ -285,45 +342,6 @@
         </div>
     </div>
 
-    <!-- Technology Stack -->
-    <div class="row mb-5">
-        <div class="col-12">
-            <h2 class="text-center mb-4">Technology Stack</h2>
-        </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-server me-2"></i>Backend</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success me-2"></i>Django 4.2.7</li>
-                        <li><i class="fas fa-check text-success me-2"></i>MySQL Database</li>
-                        <li><i class="fas fa-check text-success me-2"></i>RESTful API</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Celery Task Queue</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-robot me-2"></i>AI/ML</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success me-2"></i>scikit-learn</li>
-                        <li><i class="fas fa-check text-success me-2"></i>pandas & numpy</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Technical Indicators</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Pattern Recognition</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Call to Action -->
     <div class="row">
         <div class="col-12 text-center">
@@ -345,7 +363,126 @@
     </div>
 </div>
 
-
+<!-- Footer Section -->
+<footer class="mt-5 py-3" style="background: linear-gradient(135deg, #0056b3 0%, #007bff 50%, #0d6efd 100%); color: white; border-radius: 15px 15px 0 0; box-shadow: 0 -4px 20px rgba(0, 123, 255, 0.4);">
+    <div class="container">
+        <div class="row">
+            <!-- About Section -->
+            <div class="col-md-4 mb-3">
+                <h5 class="mb-2">
+                    <i class="fas fa-chart-line me-2"></i>AI Trading Engine
+                </h5>
+                <p class="text-light" style="opacity: 0.95; font-size: 0.9rem;">
+                    Advanced AI-powered trading platform with real-time signals, machine learning insights, and comprehensive analytics for informed trading decisions.
+                </p>
+                <div class="mt-2">
+                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="Facebook" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="Twitter" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="LinkedIn" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-linkedin"></i>
+                    </a>
+                    <a href="#" class="text-white" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="GitHub" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-github"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Quick Links -->
+            <div class="col-md-2 mb-3">
+                <h5 class="mb-2">Quick Links</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <a href="{% url 'dashboard:dashboard' %}" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="/signals/" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Trading Signals
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{% url 'analytics:dashboard' %}" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Analytics
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="{% url 'analytics:backtesting' %}" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>AI/ML Tools
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Resources -->
+            <div class="col-md-3 mb-3">
+                <h5 class="mb-2">Resources</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <a href="#" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Documentation
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>API Reference
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Trading Guides
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Market Analysis
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Contact & Support -->
+            <div class="col-md-3 mb-3">
+                <h5 class="mb-2">Contact & Support</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2 text-light" style="opacity: 0.95;">
+                        <i class="fas fa-envelope me-2"></i>support@aitrading.com
+                    </li>
+                    <li class="mb-2 text-light" style="opacity: 0.95;">
+                        <i class="fas fa-phone me-2"></i>+1 (555) 123-4567
+                    </li>
+                    <li class="mb-2 text-light" style="opacity: 0.95;">
+                        <i class="fas fa-clock me-2"></i>24/7 Support Available
+                    </li>
+                    <li class="mb-2">
+                        <a href="#" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                            <i class="fas fa-question-circle me-2"></i>Help Center
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Copyright Section -->
+        <hr class="my-3" style="border-color: rgba(255,255,255,0.3);">
+        <div class="row">
+            <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
+                <p class="mb-0 text-light" style="opacity: 0.9;">
+                    &copy; {% now "Y" %} AI Trading Engine. All rights reserved.
+                </p>
+            </div>
+            <div class="col-md-6 text-center text-md-end">
+                <a href="#" class="text-light me-3" style="text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Privacy Policy</a>
+                <a href="#" class="text-light me-3" style="text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Terms of Service</a>
+                <a href="#" class="text-light" style="text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Disclaimer</a>
+            </div>
+        </div>
+    </div>
+</footer>
 
 <!-- Theme Toggle Script for Home Page (only for non-authenticated users) -->
 {% if not user.is_authenticated %}
