@@ -28,6 +28,11 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
     """
     
     def process_response(self, request, response):
+        # Safety check: ensure response is not None
+        if response is None:
+            logger.error(f"None response detected for path: {request.path}")
+            response = HttpResponse("Internal Server Error", status=500)
+        
         # Security Headers
         response['X-Content-Type-Options'] = 'nosniff'
         response['X-Frame-Options'] = 'DENY'
@@ -290,6 +295,11 @@ class AuditLoggingMiddleware(MiddlewareMixin):
     
     def process_response(self, request, response):
         """Log request details and add security headers"""
+        # Safety check: ensure response is not None
+        if response is None:
+            logger.error(f"None response detected in AuditLoggingMiddleware for path: {request.path}")
+            response = HttpResponse("Internal Server Error", status=500)
+        
         if hasattr(request, 'start_time'):
             duration = time.time() - request.start_time
             self.log_request(request, response, duration)
@@ -313,6 +323,11 @@ class PerformanceMonitoringMiddleware(MiddlewareMixin):
     
     def process_response(self, request, response):
         """Log performance metrics"""
+        # Safety check: ensure response is not None
+        if response is None:
+            logger.error(f"None response detected in PerformanceMonitoringMiddleware for path: {request.path}")
+            response = HttpResponse("Internal Server Error", status=500)
+        
         if hasattr(request, 'start_time'):
             duration = time.time() - request.start_time
             

@@ -19,7 +19,12 @@ def home(request):
             'title': 'AI-Enhanced Trading Signal Engine',
             'description': 'Advanced trading platform powered by artificial intelligence',
         }
-        return render(request, 'dashboard/home.html', context)
+        response = render(request, 'dashboard/home.html', context)
+        # Ensure we always return a response
+        if response is None:
+            from django.http import HttpResponse
+            return HttpResponse("Error loading page", status=500)
+        return response
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
