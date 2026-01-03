@@ -73,11 +73,11 @@ app.conf.update(
         #     'options': {'queue': 'data', 'priority': 10},  # Explicitly route to data queue
         # },
         # DISABLED: Signal generation tasks (disabled per user request)
-        # 'generate-trading-signals': {
-        #     'task': 'apps.signals.unified_signal_task.generate_unified_signals_task',
-        #     'schedule': crontab(minute=49),  # Every hour at :49 minutes (18:49, 19:49, 20:49, etc.)
-        #     'options': {'queue': 'signals', 'priority': 8},  # Explicitly route to signals queue
-        # },
+          'generate-trading-signals': {
+              'task': 'apps.signals.unified_signal_task.generate_unified_signals_task',
+              'schedule': crontab(minute=49),  # Every hour at :49 minutes (18:49, 19:49, 20:49, etc.)
+              'options': {'queue': 'signals', 'priority': 8},  # Explicitly route to signals queue
+          },
         # DISABLED: Sentiment analysis tasks (disabled per user request)
         # 'update-sentiment-analysis': {
         #     'task': 'apps.sentiment.tasks.aggregate_sentiment_scores',
@@ -85,11 +85,11 @@ app.conf.update(
         #     'options': {'queue': 'sentiment', 'priority': 6},  # Explicitly route to sentiment queue
         # },
         # DISABLED: News data collection (disabled per user request)
-        # 'collect-news-data': {
-        #     'task': 'apps.sentiment.tasks.collect_news_data',
-        #     'schedule': crontab(minute='*/15'),  # Every 15 minutes
-        #     'options': {'queue': 'sentiment', 'priority': 7},  # Explicitly route to sentiment queue
-        # },
+          'collect-news-data': {
+              'task': 'apps.sentiment.tasks.collect_news_data',
+              'schedule': crontab(minute='*/15'),  # Every 15 minutes
+              'options': {'queue': 'sentiment', 'priority': 7},  # Explicitly route to sentiment queue
+          },
         # DISABLED: Social media data collection (disabled per user request)
         # 'collect-social-media-data': {
         #     'task': 'apps.sentiment.tasks.collect_social_media_data',

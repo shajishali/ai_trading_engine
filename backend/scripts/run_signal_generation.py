@@ -47,8 +47,7 @@ def generate_signals():
     """
     Generate trading signals by directly invoking the task implementation.
     This avoids relying on a Django management command that may not be
-    deployed to all environments (e.g., production where *.py patterns
-    were previously ignored).
+    deployed to all environments.
     """
     try:
         logger.info("=" * 60)
@@ -58,21 +57,20 @@ def generate_signals():
         # Directly call the task function (synchronously) to generate signals
         result = generate_signals_for_all_symbols()
         logger.info(f"Task 'generate_signals_for_all_symbols' completed: {result}")
-        
+
         # Get count of active signals
         active_signals = TradingSignal.objects.filter(is_valid=True).count()
         logger.info(f"Total active signals in database: {active_signals}")
-        
+
         logger.info("=" * 60)
         logger.info("Signal generation cycle completed successfully!")
         logger.info("=" * 60)
-        
+
         return True
-        
+
     except Exception as e:
         logger.error(f"Error during signal generation: {e}", exc_info=True)
         return False
-
 
 def main():
     """

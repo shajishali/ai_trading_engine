@@ -21,7 +21,7 @@ DEBUG = False
 SECRET_KEY = config('PRODUCTION_SECRET_KEY', default=SECRET_KEY)
 
 # Production allowed hosts
-ALLOWED_HOSTS = config('PRODUCTION_ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config('PRODUCTION_ALLOWED_HOSTS', default='localhost,127.0.0.1,cryptai.it.com,52.221.248.235').split(',')
 
 # Security settings for production
 SECURE_BROWSER_XSS_FILTER = True

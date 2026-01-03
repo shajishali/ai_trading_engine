@@ -43,9 +43,9 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         csp_policy = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
+            "font-src 'self'data:https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "connect-src 'self' wss:; "
             "frame-ancestors 'none';"
         )
@@ -469,13 +469,3 @@ class RequestValidationMiddleware(MiddlewareMixin):
             return HttpResponse(header_message, status=400)
         
         return None
-
-
-
-
-
-
-
-
-
-
