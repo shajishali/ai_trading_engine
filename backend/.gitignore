@@ -139,6 +139,7 @@ FINAL_*.py
 # even though their filenames match the ignore patterns above.
 !scripts/run_signal_generation.py
 !apps/data/enhanced_multi_source_service.py
+!apps/signals/enhanced_signal_generation_service.py
 
 # Temporary files
 *.txt.bak
