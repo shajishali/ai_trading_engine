@@ -78,7 +78,19 @@ class SignalAPIView(View):
                     queryset = queryset.filter(signal_type__name=signal_type)
                 
                 queryset = queryset.filter(is_valid=is_valid)
-                signals = list(queryset.order_by('-created_at')[:limit])
+                
+                # For main signals page (no filters), show top 10 best signals by quality
+                # For filtered/history views, show by creation date
+                if not symbol and not signal_type and limit >= 50:
+                    # Main signals page - get top 10 best signals by combined score
+                    signals = list(queryset.order_by(
+                        '-quality_score', 
+                        '-confidence_score', 
+                        '-created_at'
+                    )[:10])
+                else:
+                    # Filtered view or history - order by creation date
+                    signals = list(queryset.order_by('-created_at')[:limit])
                 
                 # Get synchronized prices for all symbols
                 from apps.signals.price_sync_service import price_sync_service
@@ -188,7 +200,18 @@ class SignalAPIView(View):
             if signal_type:
                 queryset = queryset.filter(signal_type__name=signal_type)
             queryset = queryset.filter(is_valid=is_valid)
-            signals = list(queryset.order_by('-created_at')[:limit])
+            
+            # For main signals page (no filters), show top 10 best signals by quality
+            if not symbol and not signal_type and limit >= 50:
+                # Main signals page - get top 10 best signals by combined score
+                signals = list(queryset.order_by(
+                    '-quality_score', 
+                    '-confidence_score', 
+                    '-created_at'
+                )[:10])
+            else:
+                # Filtered view or history - order by creation date
+                signals = list(queryset.order_by('-created_at')[:limit])
             
             # Serialize and cache (same logic as main get method)
             from apps.signals.price_sync_service import price_sync_service
