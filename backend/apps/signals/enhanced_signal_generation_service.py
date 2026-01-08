@@ -209,16 +209,19 @@ class EnhancedSignalGenerationService:
         4. SL/TP: Set to next key levels (support/resistance)
         """
         try:
-            # Step 1: Identify support and resistance on 1D or 4H timeframe
+            # Step 1: Identify support and resistance on 1D or 4H timeframe (fallback to 1H)
             support_resistance = self._identify_support_resistance_levels(symbol, self.higher_timeframes)
-            if not support_resistance.get('support_levels') or not support_resistance.get('resistance_levels'):
-                logger.debug(f"No clear support/resistance levels for {symbol.symbol}")
-                return None
+            # Allow signals even if support/resistance not perfect (will use fallback percentages)
+            if not support_resistance.get('support_levels') and not support_resistance.get('resistance_levels'):
+                logger.debug(f"No clear support/resistance levels for {symbol.symbol}, will use fallback")
+                # Create empty levels - will use fallback percentages in SL/TP calculation
+                support_resistance = {'support_levels': [], 'resistance_levels': []}
             
-            # Step 2: Analyze 4H trend (must be bullish for BUY)
+            # Step 2: Analyze 4H trend (must be bullish for BUY, but allow NEUTRAL with strong confirmations)
             trend_4h = self._analyze_trend_4h(symbol)
-            if trend_4h.get('direction') != 'BULLISH':
-                logger.debug(f"4H trend not bullish for {symbol.symbol}: {trend_4h.get('direction')}")
+            trend_direction = trend_4h.get('direction')
+            if trend_direction not in ['BULLISH', 'NEUTRAL']:
+                logger.debug(f"4H trend not bullish/neutral for {symbol.symbol}: {trend_direction}")
                 return None
             
             # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
@@ -302,16 +305,19 @@ class EnhancedSignalGenerationService:
         4. SL/TP: Set to next key levels (support/resistance)
         """
         try:
-            # Step 1: Identify support and resistance on 1D or 4H timeframe
+            # Step 1: Identify support and resistance on 1D or 4H timeframe (fallback to 1H)
             support_resistance = self._identify_support_resistance_levels(symbol, self.higher_timeframes)
-            if not support_resistance.get('support_levels') or not support_resistance.get('resistance_levels'):
-                logger.debug(f"No clear support/resistance levels for {symbol.symbol}")
-                return None
+            # Allow signals even if support/resistance not perfect (will use fallback percentages)
+            if not support_resistance.get('support_levels') and not support_resistance.get('resistance_levels'):
+                logger.debug(f"No clear support/resistance levels for {symbol.symbol}, will use fallback")
+                # Create empty levels - will use fallback percentages in SL/TP calculation
+                support_resistance = {'support_levels': [], 'resistance_levels': []}
             
-            # Step 2: Analyze 4H trend (must be bearish for SELL)
+            # Step 2: Analyze 4H trend (must be bearish for SELL, but allow NEUTRAL with strong confirmations)
             trend_4h = self._analyze_trend_4h(symbol)
-            if trend_4h.get('direction') != 'BEARISH':
-                logger.debug(f"4H trend not bearish for {symbol.symbol}: {trend_4h.get('direction')}")
+            trend_direction = trend_4h.get('direction')
+            if trend_direction not in ['BEARISH', 'NEUTRAL']:
+                logger.debug(f"4H trend not bearish/neutral for {symbol.symbol}: {trend_direction}")
                 return None
             
             # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
@@ -613,11 +619,12 @@ class EnhancedSignalGenerationService:
             return None, 'ERROR'
 
     def _identify_support_resistance_levels(self, symbol: Symbol, timeframes: List[str]) -> Dict:
-        """Step 1: Identify support and resistance levels on 1D or 4H timeframe"""
+        """Step 1: Identify support and resistance levels on 1D or 4H timeframe (fallback to 1H if not available)"""
         try:
             all_support_levels = []
             all_resistance_levels = []
             
+            # Try requested timeframes first
             for timeframe in timeframes:
                 # Get market data for timeframe
                 market_data = self._get_timeframe_market_data(symbol, timeframe)
@@ -644,6 +651,27 @@ class EnhancedSignalGenerationService:
                 all_resistance_levels.extend([r['price'] for r in resistance_levels])
                 all_support_levels.extend([s['price'] for s in support_levels])
             
+            # If no levels found, try 1H as fallback
+            if not all_support_levels and not all_resistance_levels:
+                logger.debug(f"No support/resistance found on {timeframes}, trying 1H fallback for {symbol.symbol}")
+                market_data_1h = self._get_timeframe_market_data(symbol, '1H')
+                if market_data_1h and len(market_data_1h) >= self.support_resistance_lookback:
+                    highs = [float(d['high']) for d in market_data_1h]
+                    lows = [float(d['low']) for d in market_data_1h]
+                    closes = [float(d['close']) for d in market_data_1h]
+                    
+                    swing_highs = self._find_swing_highs(highs, closes)
+                    swing_lows = self._find_swing_lows(lows, closes)
+                    
+                    resistance_levels = self._cluster_levels(swing_highs, self.level_tolerance)
+                    support_levels = self._cluster_levels(swing_lows, self.level_tolerance)
+                    
+                    resistance_levels = [r for r in resistance_levels if r['touches'] >= self.min_touches_for_level]
+                    support_levels = [s for s in support_levels if s['touches'] >= self.min_touches_for_level]
+                    
+                    all_resistance_levels.extend([r['price'] for r in resistance_levels])
+                    all_support_levels.extend([s['price'] for s in support_levels])
+            
             # Remove duplicates and sort
             all_resistance_levels = sorted(set(all_resistance_levels), reverse=True)
             all_support_levels = sorted(set(all_support_levels))
@@ -651,7 +679,7 @@ class EnhancedSignalGenerationService:
             return {
                 'support_levels': all_support_levels,
                 'resistance_levels': all_resistance_levels,
-                'timeframes_analyzed': timeframes
+                'timeframes_analyzed': timeframes + (['1H'] if not all_support_levels and not all_resistance_levels else [])
             }
             
         except Exception as e:
@@ -659,11 +687,15 @@ class EnhancedSignalGenerationService:
             return {'support_levels': [], 'resistance_levels': []}
     
     def _analyze_trend_4h(self, symbol: Symbol) -> Dict:
-        """Step 2: Analyze 4H timeframe to determine trend direction"""
+        """Step 2: Analyze 4H timeframe to determine trend direction (fallback to 1H if 4H not available)"""
         try:
             market_data = self._get_timeframe_market_data(symbol, '4H')
+            # Fallback to 1H if 4H data not available
             if not market_data or len(market_data) < 20:
-                return {'direction': 'NEUTRAL', 'strength': 0.0}
+                logger.debug(f"No 4H data for {symbol.symbol}, using 1H fallback")
+                market_data = self._get_timeframe_market_data(symbol, '1H')
+                if not market_data or len(market_data) < 20:
+                    return {'direction': 'NEUTRAL', 'strength': 0.0}
             
             prices = [float(d['close']) for d in market_data]
             highs = [float(d['high']) for d in market_data]
