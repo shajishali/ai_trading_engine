@@ -125,11 +125,11 @@ class SignalAPIView(View):
                         created_at__lt=current_hour_end
                     )
                     
-                    # Get top 10 best signals from this hour by combined score
+                    # Get top 10 most recent signals from this hour (prioritize recency)
                     signals = list(queryset.order_by(
+                        '-created_at',  # Most recent first
                         '-quality_score', 
-                        '-confidence_score', 
-                        '-created_at'
+                        '-confidence_score'
                     )[:10])
                 else:
                     # Filtered view or history - order by creation date
@@ -257,11 +257,11 @@ class SignalAPIView(View):
                     created_at__lt=current_hour_end
                 )
                 
-                # Get top 10 best signals from this hour by combined score
+                # Get top 10 most recent signals from this hour (prioritize recency)
                 signals = list(queryset.order_by(
+                    '-created_at',  # Most recent first
                     '-quality_score', 
-                    '-confidence_score', 
-                    '-created_at'
+                    '-confidence_score'
                 )[:10])
             else:
                 # Filtered view or history - order by creation date
