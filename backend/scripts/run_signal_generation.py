@@ -12,6 +12,8 @@ import time
 import logging
 from datetime import datetime
 from django.utils import timezone
+from django.db import connection, connections
+from django.db.utils import InterfaceError, OperationalError
 
 # Setup Django environment
 # Get the backend directory (parent of scripts directory)
@@ -43,6 +45,39 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def close_db_connections():
+    """Close all database connections to prevent timeout issues"""
+    try:
+        for conn in connections.all():
+            conn.close()
+        logger.debug("Closed all database connections")
+    except Exception as e:
+        logger.warning(f"Error closing database connections: {e}")
+
+
+def ensure_db_connection():
+    """Ensure database connection is active, reconnect if needed"""
+    try:
+        connection.ensure_connection()
+        logger.debug("Database connection verified")
+        return True
+    except (InterfaceError, OperationalError) as e:
+        logger.warning(f"Database connection error: {e}, attempting to reconnect...")
+        try:
+            # Close all connections
+            close_db_connections()
+            # Reconnect
+            connection.ensure_connection()
+            logger.info("Database connection reestablished")
+            return True
+        except Exception as reconnect_error:
+            logger.error(f"Failed to reconnect to database: {reconnect_error}")
+            return False
+    except Exception as e:
+        logger.error(f"Unexpected database error: {e}")
+        return False
+
+
 def generate_signals():
     """
     Generate trading signals by directly invoking the task implementation.
@@ -50,6 +85,14 @@ def generate_signals():
     deployed to all environments.
     """
     try:
+        # Close old connections before starting
+        close_db_connections()
+        
+        # Ensure we have a fresh database connection
+        if not ensure_db_connection():
+            logger.error("Cannot establish database connection, skipping this cycle")
+            return False
+        
         logger.info("=" * 60)
         logger.info("Starting signal generation cycle (task-based)...")
         logger.info("=" * 60)
@@ -58,6 +101,12 @@ def generate_signals():
         result = generate_signals_for_all_symbols()
         logger.info(f"Task 'generate_signals_for_all_symbols' completed: {result}")
 
+        # Close connections after query to prevent timeout
+        close_db_connections()
+        
+        # Reconnect for the count query
+        ensure_db_connection()
+        
         # Get count of active signals
         active_signals = TradingSignal.objects.filter(is_valid=True).count()
         logger.info(f"Total active signals in database: {active_signals}")
@@ -68,8 +117,17 @@ def generate_signals():
 
         return True
 
+    except (InterfaceError, OperationalError) as e:
+        logger.error(f"Database connection error during signal generation: {e}")
+        logger.info("Attempting to reconnect...")
+        close_db_connections()
+        if ensure_db_connection():
+            logger.info("Reconnected successfully, will retry in next cycle")
+        return False
     except Exception as e:
         logger.error(f"Error during signal generation: {e}", exc_info=True)
+        # Close connections on any error
+        close_db_connections()
         return False
 
 def main():
@@ -101,6 +159,12 @@ def main():
             logger.info(f"[TIME] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             logger.info("")
             
+            # Ensure database connection before each cycle
+            if not ensure_db_connection():
+                logger.error("Cannot establish database connection, waiting before retry...")
+                time.sleep(60)  # Wait 1 minute before retrying
+                continue
+            
             # Generate signals
             success = generate_signals()
             
@@ -108,6 +172,9 @@ def main():
                 logger.info(f"[OK] Cycle #{cycle_count} completed successfully")
             else:
                 logger.warning(f"[WARNING] Cycle #{cycle_count} completed with errors")
+            
+            # Close connections before waiting
+            close_db_connections()
             
             # Wait for next cycle
             logger.info("")
