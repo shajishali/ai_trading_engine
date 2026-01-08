@@ -1457,6 +1457,13 @@ function formatEntryPointType(type) {
 
 // View signal details
 function viewSignal(signalId) {
+    // Ensure Bootstrap is loaded
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap not loaded. Please refresh the page.');
+        showNotification('Error: Page resources not fully loaded. Please refresh the page.', 'danger');
+        return;
+    }
+    
     console.log('Viewing signal:', signalId); // Debug log
     currentSignalId = signalId;
     
