@@ -1457,15 +1457,25 @@ function formatEntryPointType(type) {
 
 // View signal details
 function viewSignal(signalId) {
-    // Ensure Bootstrap is loaded
-    if (typeof bootstrap === 'undefined') {
-        console.error('Bootstrap not loaded. Please refresh the page.');
-        showNotification('Error: Page resources not fully loaded. Please refresh the page.', 'danger');
-        return;
-    }
-    
     console.log('Viewing signal:', signalId); // Debug log
     currentSignalId = signalId;
+    
+    // Ensure Bootstrap is loaded - load it dynamically if missing
+    if (typeof bootstrap === 'undefined') {
+        console.warn('Bootstrap not loaded. Attempting to load it...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js';
+        script.onload = function() {
+            console.log('Bootstrap loaded successfully, retrying viewSignal...');
+            viewSignal(signalId); // Retry after Bootstrap loads
+        };
+        script.onerror = function() {
+            console.error('Failed to load Bootstrap');
+            showNotification('Error: Failed to load required resources. Please refresh the page.', 'danger');
+        };
+        document.head.appendChild(script);
+        return;
+    }
     
     // Load signal details via AJAX to get complete information including detailed_explanation
     fetch(`/signals/api/signals/${signalId}/`)
