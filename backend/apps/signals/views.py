@@ -72,10 +72,13 @@ class SignalAPIView(View):
                             logger.info(f"Returning cached data for key: {cache_key} (current hour)")
                             return JsonResponse(cached_data)
                         else:
-                            logger.info(f"Cached data is from previous hour, refreshing for key: {cache_key}")
+                            logger.info(f"Cached data is from previous hour ({first_signal_time}), refreshing for key: {cache_key}")
                             cache.delete(cache_key)  # Clear stale cache
-                    except:
-                        pass  # If parsing fails, continue to fetch fresh data
+                            cached_data = None  # Force fresh fetch
+                    except Exception as e:
+                        logger.warning(f"Error checking cache timestamp: {e}, refreshing cache")
+                        cache.delete(cache_key)  # Clear cache on error
+                        cached_data = None  # Force fresh fetch
         
         # Always try to return cached data first if available (even if stale) - for filtered views only
         if cached_data and (symbol or signal_type or limit < 50):
