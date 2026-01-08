@@ -225,23 +225,42 @@ class EnhancedSignalGenerationService:
                 return None
             
             # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
+            # If workflow fails, use simpler entry logic with fallback
             entry_analysis = self._analyze_entry_workflow(symbol, 'BUY', current_price, support_resistance)
             if not entry_analysis.get('entry_confirmed'):
-                return None
+                # Fallback: Use simpler entry logic if CHoCH/BOS not detected
+                logger.debug(f"Entry workflow not confirmed for {symbol.symbol}, using fallback entry logic")
+                entry_analysis = {
+                    'entry_confirmed': True,
+                    'choch_detected': False,
+                    'bos_detected': False,
+                    'entry_price': float(current_price),
+                    'entry_timeframe': '1H',
+                    'entry_type': 'CURRENT_PRICE',
+                    'entry_at_key_level': False,
+                    'confirmations': 1  # Minimal confirmation
+                }
             
-            # Get entry price at key level
-            entry_price = entry_analysis.get('entry_price')
-            if entry_price is None:
-                return None
+            # Get entry price at key level (or use current price as fallback)
+            entry_price = Decimal(str(entry_analysis.get('entry_price', float(current_price))))
             
-            # Step 4: Set SL/TP at next key levels
+            # Step 4: Set SL/TP at next key levels (use fallback if key levels not found)
             sl_tp_levels = self._calculate_sl_tp_from_key_levels(
                 entry_price, 'BUY', support_resistance, entry_analysis
             )
             
+            # If key levels not valid, use fallback percentages
             if not sl_tp_levels.get('valid'):
-                logger.debug(f"Invalid SL/TP levels for {symbol.symbol}")
-                return None
+                logger.debug(f"No valid key levels for SL/TP for {symbol.symbol}, using fallback percentages")
+                stop_loss_price = entry_price * Decimal(str(1 - self.fallback_stop_loss_percentage))
+                take_profit_price = entry_price * Decimal(str(1 + self.fallback_take_profit_percentage))
+                sl_tp_levels = {
+                    'valid': True,
+                    'stop_loss': stop_loss_price,
+                    'take_profit': take_profit_price,
+                    'sl_at_key_level': False,
+                    'tp_at_key_level': False
+                }
             
             stop_loss_price = sl_tp_levels.get('stop_loss')
             take_profit_price = sl_tp_levels.get('take_profit')
@@ -260,7 +279,10 @@ class EnhancedSignalGenerationService:
                 trend_4h, entry_analysis, support_resistance, risk_reward_ratio
             )
             
-            if confidence < self.min_confidence_threshold:
+            # Lower confidence threshold when using fallback entry (no CHoCH/BOS)
+            min_confidence = self.min_confidence_threshold * 0.8 if not entry_analysis.get('choch_detected') else self.min_confidence_threshold
+            if confidence < min_confidence:
+                logger.debug(f"Confidence too low for {symbol.symbol}: {confidence:.2f} < {min_confidence:.2f}")
                 return None
             
             return {
@@ -321,23 +343,42 @@ class EnhancedSignalGenerationService:
                 return None
             
             # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
+            # If workflow fails, use simpler entry logic with fallback
             entry_analysis = self._analyze_entry_workflow(symbol, 'SELL', current_price, support_resistance)
             if not entry_analysis.get('entry_confirmed'):
-                return None
+                # Fallback: Use simpler entry logic if CHoCH/BOS not detected
+                logger.debug(f"Entry workflow not confirmed for {symbol.symbol}, using fallback entry logic")
+                entry_analysis = {
+                    'entry_confirmed': True,
+                    'choch_detected': False,
+                    'bos_detected': False,
+                    'entry_price': float(current_price),
+                    'entry_timeframe': '1H',
+                    'entry_type': 'CURRENT_PRICE',
+                    'entry_at_key_level': False,
+                    'confirmations': 1  # Minimal confirmation
+                }
             
-            # Get entry price at key level
-            entry_price = entry_analysis.get('entry_price')
-            if entry_price is None:
-                return None
+            # Get entry price at key level (or use current price as fallback)
+            entry_price = Decimal(str(entry_analysis.get('entry_price', float(current_price))))
             
-            # Step 4: Set SL/TP at next key levels
+            # Step 4: Set SL/TP at next key levels (use fallback if key levels not found)
             sl_tp_levels = self._calculate_sl_tp_from_key_levels(
                 entry_price, 'SELL', support_resistance, entry_analysis
             )
             
+            # If key levels not valid, use fallback percentages
             if not sl_tp_levels.get('valid'):
-                logger.debug(f"Invalid SL/TP levels for {symbol.symbol}")
-                return None
+                logger.debug(f"No valid key levels for SL/TP for {symbol.symbol}, using fallback percentages")
+                stop_loss_price = entry_price * Decimal(str(1 + self.fallback_stop_loss_percentage))
+                take_profit_price = entry_price * Decimal(str(1 - self.fallback_take_profit_percentage))
+                sl_tp_levels = {
+                    'valid': True,
+                    'stop_loss': stop_loss_price,
+                    'take_profit': take_profit_price,
+                    'sl_at_key_level': False,
+                    'tp_at_key_level': False
+                }
             
             stop_loss_price = sl_tp_levels.get('stop_loss')
             take_profit_price = sl_tp_levels.get('take_profit')
@@ -356,7 +397,10 @@ class EnhancedSignalGenerationService:
                 trend_4h, entry_analysis, support_resistance, risk_reward_ratio
             )
             
-            if confidence < self.min_confidence_threshold:
+            # Lower confidence threshold when using fallback entry (no CHoCH/BOS)
+            min_confidence = self.min_confidence_threshold * 0.8 if not entry_analysis.get('choch_detected') else self.min_confidence_threshold
+            if confidence < min_confidence:
+                logger.debug(f"Confidence too low for {symbol.symbol}: {confidence:.2f} < {min_confidence:.2f}")
                 return None
             
             return {
@@ -1173,28 +1217,40 @@ class EnhancedSignalGenerationService:
             trend_strength = trend_4h.get('strength', 0)
             confidence += trend_strength * 0.2
             
-            # CHoCH + BOS confirmation
+            # CHoCH + BOS confirmation (bonus if detected, but not required)
             if entry_analysis.get('choch_detected') and entry_analysis.get('bos_detected'):
                 confidence += 0.2
+            elif entry_analysis.get('choch_detected') or entry_analysis.get('bos_detected'):
+                # Partial bonus if only one detected
+                confidence += 0.1
             
-            # Entry at key level
+            # Entry at key level (bonus if at key level)
             if entry_analysis.get('entry_at_key_level'):
                 confidence += 0.1
+            else:
+                # Still give some confidence even without key level (fallback mode)
+                confidence += 0.05
             
             # Confirmations bonus
             confirmations = entry_analysis.get('confirmations', 0)
-            confidence += (confirmations / 4) * 0.1
+            if confirmations > 0:
+                confidence += (min(confirmations, 4) / 4) * 0.1
+            else:
+                # Minimum confirmation bonus for fallback entries
+                confidence += 0.05
             
             # Risk/reward bonus
             if risk_reward_ratio >= 2.0:
                 confidence += 0.1
             elif risk_reward_ratio >= 1.5:
                 confidence += 0.05
+            elif risk_reward_ratio >= 1.2:
+                confidence += 0.02  # Small bonus for decent R/R
             
-            return min(0.95, confidence)
+            return min(0.95, max(0.6, confidence))  # Ensure minimum 0.6 confidence
             
         except:
-            return 0.6
+            return 0.65  # Higher fallback confidence
     
     def _analyze_daily_trend_for_strategy(self, symbol: Symbol) -> Dict:
         """Analyze daily trend using YOUR STRATEGY (1D timeframe)"""
