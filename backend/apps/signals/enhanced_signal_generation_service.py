@@ -285,6 +285,9 @@ class EnhancedSignalGenerationService:
                 logger.debug(f"Confidence too low for {symbol.symbol}: {confidence:.2f} < {min_confidence:.2f}")
                 return None
             
+            # Calculate technical score for the signal
+            technical_score = self._calculate_technical_score_with_strategy(symbol, 'BUY')
+            
             return {
                 'symbol': symbol,
                 'signal_type': 'BUY',
@@ -298,6 +301,7 @@ class EnhancedSignalGenerationService:
                 'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
                 'strategy_confirmations': entry_analysis.get('confirmations', 0),
                 'quality_score': confidence,  # Add quality_score for scoring
+                'technical_score': technical_score,  # Add technical_score for saving
                 'strategy_details': {
                     'trend_4h': trend_4h.get('direction'),
                     'trend_strength': trend_4h.get('strength', 0),
@@ -403,6 +407,9 @@ class EnhancedSignalGenerationService:
                 logger.debug(f"Confidence too low for {symbol.symbol}: {confidence:.2f} < {min_confidence:.2f}")
                 return None
             
+            # Calculate technical score for the signal
+            technical_score = self._calculate_technical_score_with_strategy(symbol, 'SELL')
+            
             return {
                 'symbol': symbol,
                 'signal_type': 'SELL',
@@ -416,6 +423,7 @@ class EnhancedSignalGenerationService:
                 'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
                 'strategy_confirmations': entry_analysis.get('confirmations', 0),
                 'quality_score': confidence,  # Add quality_score for scoring
+                'technical_score': technical_score,  # Add technical_score for saving
                 'strategy_details': {
                     'trend_4h': trend_4h.get('direction'),
                     'trend_strength': trend_4h.get('strength', 0),
