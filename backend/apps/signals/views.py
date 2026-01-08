@@ -44,12 +44,41 @@ class SignalAPIView(View):
         is_valid = request.GET.get('is_valid', 'true').lower() == 'true'
         limit = int(request.GET.get('limit', 50))
         
-        # Create cache key based on parameters
-        cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}"
+        # Create cache key based on parameters AND current hour (for main page)
+        # This ensures cache is refreshed every hour
+        current_hour = timezone.now().replace(minute=0, second=0, microsecond=0).strftime('%Y%m%d%H')
+        if not symbol and not signal_type and limit >= 50:
+            # Main signals page - include hour in cache key
+            cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}_{current_hour}"
+        else:
+            # Filtered view - don't include hour (allow cross-hour filtering)
+            cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}"
         cached_data = cache.get(cache_key)
         
-        # Always try to return cached data first if available (even if stale)
-        if cached_data:
+        # For main signals page, don't use stale cache - always get fresh data for current hour
+        if cached_data and (not symbol and not signal_type and limit >= 50):
+            # Check if cached data is from current hour
+            cached_signals = cached_data.get('signals', [])
+            if cached_signals:
+                # Check the first signal's created_at timestamp
+                first_signal_time = cached_signals[0].get('created_at', '')
+                if first_signal_time:
+                    from datetime import datetime
+                    try:
+                        signal_time = datetime.fromisoformat(first_signal_time.replace('Z', '+00:00'))
+                        current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
+                        # If cached signal is from current hour, use cache; otherwise, refresh
+                        if signal_time >= current_hour_start:
+                            logger.info(f"Returning cached data for key: {cache_key} (current hour)")
+                            return JsonResponse(cached_data)
+                        else:
+                            logger.info(f"Cached data is from previous hour, refreshing for key: {cache_key}")
+                            cache.delete(cache_key)  # Clear stale cache
+                    except:
+                        pass  # If parsing fails, continue to fetch fresh data
+        
+        # Always try to return cached data first if available (even if stale) - for filtered views only
+        if cached_data and (symbol or signal_type or limit < 50):
             logger.info(f"Returning cached data for key: {cache_key}")
             # Try to get fresh data in background, but return cached immediately
             try:
@@ -164,8 +193,9 @@ class SignalAPIView(View):
                     'cached_at': timezone.now().isoformat()
                 }
                 
-                # Cache the response for 5 minutes
-                cache.set(cache_key, response_data, 300)
+                # Cache the response - shorter cache for main page (1 minute), longer for filtered views (5 minutes)
+                cache_timeout = 60 if (not symbol and not signal_type and limit >= 50) else 300
+                cache.set(cache_key, response_data, cache_timeout)
                 
                 return JsonResponse(response_data)
                 
