@@ -42,10 +42,10 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         # Content Security Policy
         csp_policy = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "img-src 'self' data: https:; "
-            "font-src 'self'data:https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "connect-src 'self' wss:; "
             "frame-ancestors 'none';"
         )
