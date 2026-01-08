@@ -3046,19 +3046,10 @@
                                 <i class="fas fa-signal me-1"></i>Signals
                             </a>
                         </li>
-                        <li class="nav-item dropdown" id="analytics-dropdown-container">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" aria-expanded="false" id="nav-analytics">
-                                <i class="fas fa-chart-bar me-1"></i>Analytics
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'analytics:backtesting' %}" id="nav-backtesting">
+                                <i class="fas fa-history me-1"></i>Backtesting
                             </a>
-                            <ul class="dropdown-menu" id="analytics-dropdown-menu">
-                                <li><a class="dropdown-item" href="{% url 'analytics:backtesting' %}" data-analytics-link="backtesting">
-                                    <i class="fas fa-history me-2"></i>Backtesting
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'analytics:backtesting' %}" data-analytics-link="ml">
-                                    <i class="fas fa-robot me-2"></i>AI/ML Models
-                                </a></li>
-                            </ul>
                         </li>
 
                         <!-- Settings moved to user dropdown to avoid duplication -->
@@ -3272,7 +3263,7 @@
                 '/signals/': 'nav-signals',
                 // Settings is now in user dropdown, no separate nav item
                 '/subscription/': 'nav-subscription',
-                '/analytics/': 'nav-analytics',
+                '/analytics/': 'nav-backtesting',
                 '/trading/': 'nav-dashboard',
                 '/data/': 'nav-dashboard',
                 '/sentiment/': 'nav-dashboard'
@@ -3296,8 +3287,8 @@
         function initializeDropdowns() {
             console.log('Initializing unified dropdowns (no Bootstrap conflicts)...');
             
-            // Get all dropdown toggles EXCEPT analytics and user dropdowns (we handle them separately)
-            const dropdownElementList = document.querySelectorAll('.dropdown-toggle:not(#nav-analytics):not(#navbarDropdown)');
+            // Get all dropdown toggles EXCEPT user dropdown (we handle it separately)
+            const dropdownElementList = document.querySelectorAll('.dropdown-toggle:not(#navbarDropdown)');
             dropdownElementList.forEach((dropdownToggle) => {
                 try {
                     // Destroy existing dropdown if any
@@ -3514,11 +3505,6 @@
         // Also initialize when window loads (in case DOMContentLoaded already fired)
         window.addEventListener('load', function() {
             console.log('Window loaded, checking dropdowns...');
-            const analyticsToggle = document.getElementById('nav-analytics');
-            if (analyticsToggle && !analyticsToggle.hasAttribute('data-analytics-initialized')) {
-                setupAnalyticsDropdown();
-                analyticsToggle.setAttribute('data-analytics-initialized', 'true');
-            }
             
             const userToggle = document.getElementById('navbarDropdown');
             if (userToggle && !userToggle.hasAttribute('data-user-initialized')) {
