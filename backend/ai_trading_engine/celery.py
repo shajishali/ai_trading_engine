@@ -78,11 +78,6 @@ app.conf.update(
               'schedule': crontab(minute=49),  # Every hour at :49 minutes (18:49, 19:49, 20:49, etc.)
               'options': {'queue': 'signals', 'priority': 8},  # Explicitly route to signals queue
           },
-          'generate-enhanced-signals': {
-              'task': 'apps.signals.tasks.generate_enhanced_signals_task',
-              'schedule': crontab(minute=0),  # Every hour at minute 0 (12:00, 13:00, 14:00, etc.)
-              'options': {'queue': 'signals', 'priority': 9},  # High priority
-          },
         # DISABLED: Sentiment analysis tasks (disabled per user request)
         # 'update-sentiment-analysis': {
         #     'task': 'apps.sentiment.tasks.aggregate_sentiment_scores',
