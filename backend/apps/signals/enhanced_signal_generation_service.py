@@ -3,6 +3,7 @@ Enhanced Signal Generation Service
 Generates logical trading signals with proper entry, exit, stop loss, and take profit levels
 """
 
+
 import logging
 import numpy as np
 from datetime import datetime, timedelta
@@ -28,8 +29,8 @@ class EnhancedSignalGenerationService:
         self.base_service = SignalGenerationService()
         self.min_confidence_threshold = 0.6  # Higher confidence for better signals
         self.max_signals_per_symbol = 2  # Maximum 2 signals per symbol
-        self.best_signals_count = 10  # Top 10 signals every 2 hours
-        self.signal_refresh_hours = 2  # Refresh signals every 2 hours
+        self.best_signals_count = 10  # Top 10 signals every hour
+        self.signal_refresh_hours = 1  # Refresh signals every hour (for hourly generation)
         
         # ===== YOUR PERSONAL STRATEGY PARAMETERS (HIGHEST PRIORITY) =====
         # YOUR EXACT STRATEGY WORKFLOW:
@@ -78,14 +79,17 @@ class EnhancedSignalGenerationService:
         self.take_profit_percentage = 0.15  # 15% take profit
     
     def generate_best_signals_for_all_coins(self) -> Dict[str, any]:
-        """Generate the best 10 signals from all 200+ coins every 2 hours"""
+        """Generate the best 10 signals from all 200+ coins every hour"""
         logger.info("Starting comprehensive signal generation for all coins")
         
-        # Get symbols that don't have active signals (duplicate prevention)
+        # Get current hour start time for filtering
+        current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
+        
+        # Get symbols that already have signals in the current hour (duplicate prevention)
         symbols_with_active_signals = set(
             TradingSignal.objects.filter(
                 is_valid=True,
-                created_at__gte=timezone.now() - timedelta(hours=self.signal_refresh_hours)
+                created_at__gte=current_hour_start
             ).values_list('symbol__symbol', flat=True)
         )
         
@@ -148,27 +152,51 @@ class EnhancedSignalGenerationService:
         if current_price <= 0:
             return signals
         
-        # Generate different types of signals
-        signal_types = [
+        # Generate different types of signals - try both BUY and SELL to ensure diversity
+        # First try BUY signals
+        buy_signal_types = [
             ('BUY', self._generate_buy_signal),
+            ('STRONG_BUY', self._generate_strong_buy_signal)
+        ]
+        
+        # Then try SELL signals
+        sell_signal_types = [
             ('SELL', self._generate_sell_signal),
-            ('STRONG_BUY', self._generate_strong_buy_signal),
             ('STRONG_SELL', self._generate_strong_sell_signal)
         ]
         
-        for signal_type_name, signal_generator in signal_types:
+        # Try to get at least one of each type if possible
+        buy_signals_found = 0
+        sell_signals_found = 0
+        
+        # First pass: Try BUY signals
+        for signal_type_name, signal_generator in buy_signal_types:
+            if len(signals) >= self.max_signals_per_symbol:
+                break
             try:
                 signal_data = signal_generator(symbol, current_price, live_prices)
                 if signal_data and self._validate_signal(signal_data):
                     signals.append(signal_data)
-                    
-                # Limit signals per symbol
-                if len(signals) >= self.max_signals_per_symbol:
-                    break
-                    
+                    buy_signals_found += 1
             except Exception as e:
                 logger.error(f"Error generating {signal_type_name} signal for {symbol.symbol}: {e}")
                 continue
+        
+        # Second pass: Try SELL signals (even if we already have max_signals_per_symbol, try to get at least one SELL)
+        for signal_type_name, signal_generator in sell_signal_types:
+            # If we have no SELL signals yet, try to get at least one
+            if sell_signals_found == 0 or len(signals) < self.max_signals_per_symbol * 2:
+                try:
+                    signal_data = signal_generator(symbol, current_price, live_prices)
+                    if signal_data and self._validate_signal(signal_data):
+                        signals.append(signal_data)
+                        sell_signals_found += 1
+                        # If we have both types, we can stop
+                        if buy_signals_found > 0 and sell_signals_found > 0 and len(signals) >= self.max_signals_per_symbol:
+                            break
+                except Exception as e:
+                    logger.error(f"Error generating {signal_type_name} signal for {symbol.symbol}: {e}")
+                    continue
         
         return signals
     
@@ -244,6 +272,7 @@ class EnhancedSignalGenerationService:
                 'entry_point_type': entry_analysis.get('entry_type', 'KEY_LEVEL'),
                 'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
                 'strategy_confirmations': entry_analysis.get('confirmations', 0),
+                'quality_score': confidence,  # Add quality_score for scoring
                 'strategy_details': {
                     'trend_4h': trend_4h.get('direction'),
                     'trend_strength': trend_4h.get('strength', 0),
@@ -336,6 +365,7 @@ class EnhancedSignalGenerationService:
                 'entry_point_type': entry_analysis.get('entry_type', 'KEY_LEVEL'),
                 'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
                 'strategy_confirmations': entry_analysis.get('confirmations', 0),
+                'quality_score': confidence,  # Add quality_score for scoring
                 'strategy_details': {
                     'trend_4h': trend_4h.get('direction'),
                     'trend_strength': trend_4h.get('strength', 0),
@@ -407,6 +437,7 @@ class EnhancedSignalGenerationService:
             'entry_point_type': entry_point_type,
             'strength': 'STRONG',
             'technical_score': technical_score,
+            'quality_score': confidence,  # Add quality_score for scoring
             'strategy_confirmations': entry_confirmation.get('confirmations', 0),
             'strategy_details': {
                 'daily_trend': daily_trend.get('direction'),
@@ -473,6 +504,7 @@ class EnhancedSignalGenerationService:
             'entry_point_type': entry_point_type,
             'strength': 'STRONG',
             'technical_score': technical_score,
+            'quality_score': confidence,  # Add quality_score for scoring
             'strategy_confirmations': entry_confirmation.get('confirmations', 0),
             'strategy_details': {
                 'daily_trend': daily_trend.get('direction'),
@@ -1691,7 +1723,7 @@ class EnhancedSignalGenerationService:
             return False
     
     def _select_best_signals(self, all_signals: List[Dict]) -> List[Dict]:
-        """Select the best 10 signals - PRIORITIZING YOUR PERSONAL STRATEGY"""
+        """Select the best 10 signals from ALL signal types (BUY and SELL) - PRIORITIZING YOUR PERSONAL STRATEGY"""
         if not all_signals:
             return []
         
@@ -1699,7 +1731,9 @@ class EnhancedSignalGenerationService:
         def signal_score(signal):
             # YOUR STRATEGY BONUS (50% weight) - Signals using your strategy get massive boost
             strategy_details = signal.get('strategy_details', {})
-            is_personal_strategy = strategy_details.get('strategy') == 'PERSONAL_STRATEGY'
+            strategy_name = strategy_details.get('strategy', '')
+            # Recognize both PERSONAL_STRATEGY and PERSONAL_STRATEGY_MULTI_TIMEFRAME
+            is_personal_strategy = strategy_name in ['PERSONAL_STRATEGY', 'PERSONAL_STRATEGY_MULTI_TIMEFRAME']
             strategy_bonus = 0.5 if is_personal_strategy else 0.0
             
             # Strategy confirmations bonus (10% weight)
@@ -1725,16 +1759,54 @@ class EnhancedSignalGenerationService:
         
         sorted_signals = sorted(all_signals, key=signal_score, reverse=True)
         
-        # Select top signals, ensuring diversity
+        # Select top signals, ensuring diversity in BOTH symbols AND signal types
         best_signals = []
         used_symbols = set()
+        buy_count = 0
+        sell_count = 0
+        
+        # Target: at least 3-4 of each type if possible, but prioritize quality
+        max_per_type = max(5, self.best_signals_count // 2)  # At least half can be one type
         
         for signal in sorted_signals:
             symbol_name = signal['symbol'].symbol if hasattr(signal['symbol'], 'symbol') else str(signal['symbol'])
-            if symbol_name not in used_symbols and len(best_signals) < self.best_signals_count:
-                best_signals.append(signal)
-                used_symbols.add(symbol_name)
+            signal_type = signal.get('signal_type', '')
+            is_buy = signal_type in ['BUY', 'STRONG_BUY']
+            is_sell = signal_type in ['SELL', 'STRONG_SELL']
+            
+            # Skip if symbol already used
+            if symbol_name in used_symbols:
+                continue
+            
+            # Ensure diversity in signal types
+            if is_buy and buy_count >= max_per_type:
+                continue
+            if is_sell and sell_count >= max_per_type:
+                continue
+            
+            # Add signal
+            best_signals.append(signal)
+            used_symbols.add(symbol_name)
+            if is_buy:
+                buy_count += 1
+            elif is_sell:
+                sell_count += 1
+            
+            # Stop when we have enough signals
+            if len(best_signals) >= self.best_signals_count:
+                break
         
+        # If we don't have enough signals, fill remaining slots without type restrictions
+        if len(best_signals) < self.best_signals_count:
+            for signal in sorted_signals:
+                if len(best_signals) >= self.best_signals_count:
+                    break
+                symbol_name = signal['symbol'].symbol if hasattr(signal['symbol'], 'symbol') else str(signal['symbol'])
+                if symbol_name not in used_symbols:
+                    best_signals.append(signal)
+                    used_symbols.add(symbol_name)
+        
+        logger.info(f"Selected {len(best_signals)} best signals: {buy_count} BUY, {sell_count} SELL")
         return best_signals
     
     def _get_news_score_for_signal_dict(self, signal: Dict) -> float:
@@ -1800,10 +1872,13 @@ class EnhancedSignalGenerationService:
     def _archive_old_signals(self):
         """Archive old signals to history and remove duplicates"""
         try:
-            # Mark old signals as executed/archived
+            # Get current hour start - archive signals from previous hours
+            current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
+            
+            # Mark old signals as executed/archived (signals from previous hours)
             old_signals = TradingSignal.objects.filter(
                 is_valid=True,
-                created_at__lt=timezone.now() - timedelta(hours=self.signal_refresh_hours)
+                created_at__lt=current_hour_start
             )
             
             archived_count = 0
@@ -1814,21 +1889,24 @@ class EnhancedSignalGenerationService:
                 signal.save()
                 archived_count += 1
             
-            logger.info(f"Archived {archived_count} old signals")
+            logger.info(f"Archived {archived_count} old signals from previous hours")
             
-            # Remove duplicate active signals (keep only the latest for each symbol)
+            # Remove duplicate active signals (keep only the latest for each symbol in current hour)
             self._remove_duplicate_active_signals()
             
         except Exception as e:
             logger.error(f"Error archiving old signals: {e}")
     
     def _remove_duplicate_active_signals(self):
-        """Remove duplicate active signals, keeping only the latest for each symbol"""
+        """Remove duplicate active signals, keeping only the latest for each symbol in current hour"""
         try:
-            # Get all active signals grouped by symbol
+            # Get current hour start time
+            current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
+            
+            # Get all active signals from current hour grouped by symbol
             active_signals = TradingSignal.objects.filter(
                 is_valid=True,
-                created_at__gte=timezone.now() - timedelta(hours=self.signal_refresh_hours)
+                created_at__gte=current_hour_start
             ).order_by('symbol', '-created_at')
             
             # Track symbols we've seen and remove duplicates

@@ -152,6 +152,20 @@ app.conf.update(
             'priority': 5,
         },
         
+        # NEW: Archive all generated signals to history (every hour)
+        'archive-signals-to-history-hourly': {
+            'task': 'apps.signals.enhanced_tasks.archive_signals_to_history_hourly_task',
+            'schedule': crontab(minute=0),  # Every hour at minute 0
+            'priority': 6,
+        },
+        
+        # NEW: Generate enhanced signals hourly (at the start of each hour)
+        'generate-enhanced-signals-hourly': {
+            'task': 'apps.signals.enhanced_tasks.generate_enhanced_signals_hourly_task',
+            'schedule': crontab(minute=0),  # Every hour at minute 0
+            'priority': 9,
+        },
+        
         # NEW: Technical indicators quality validation (every 4 hours)
         'validate-technical-indicators-quality': {
             'task': 'apps.signals.data_quality_validation_tasks.validate_technical_indicators_quality',

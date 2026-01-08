@@ -128,6 +128,20 @@ CELERY_BEAT_SCHEDULE = {
         'options': {'queue': 'data', 'priority': 5}
     },
     
+    # Archive all generated signals to history (every hour)
+    'archive-signals-to-history-hourly': {
+        'task': 'apps.signals.enhanced_tasks.archive_signals_to_history_hourly_task',
+        'schedule': 3600,  # 1 hour
+        'options': {'queue': 'signals', 'priority': 6}
+    },
+    
+    # Generate enhanced signals hourly (at the start of each hour)
+    'generate-enhanced-signals-hourly': {
+        'task': 'apps.signals.enhanced_tasks.generate_enhanced_signals_hourly_task',
+        'schedule': 3600,  # 1 hour
+        'options': {'queue': 'signals', 'priority': 9}
+    },
+    
     # Daily backup (2:30 AM UTC)
     'historical-incremental-daily-backup': {
         'task': 'apps.data.tasks.update_historical_data_daily_task',
@@ -148,6 +162,7 @@ CELERY_TASK_ROUTES = {
     'apps.signals.database_signal_tasks.*': {'queue': 'database_signals'},
     'apps.signals.data_quality_validation_tasks.*': {'queue': 'data_quality'},
     'apps.signals.tasks.*': {'queue': 'signals'},
+    'apps.signals.enhanced_tasks.*': {'queue': 'signals'},
     'apps.data.tasks.*': {'queue': 'data'},
     'apps.trading.tasks.*': {'queue': 'trading'},
     'apps.sentiment.tasks.*': {'queue': 'sentiment'},

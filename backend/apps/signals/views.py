@@ -79,12 +79,19 @@ class SignalAPIView(View):
                 
                 queryset = queryset.filter(is_valid=is_valid)
                 
-                # For main signals page (no filters), show top 10 best signals from last hour
+                # For main signals page (no filters), show top 10 best signals from CURRENT HOUR only
                 # For filtered/history views, show by creation date
                 if not symbol and not signal_type and limit >= 50:
-                    # Main signals page - get signals from last hour only
-                    one_hour_ago = timezone.now() - timedelta(hours=1)
-                    queryset = queryset.filter(created_at__gte=one_hour_ago)
+                    # Main signals page - get best 10 signals from CURRENT HOUR only
+                    # This ensures signals shown are generated in the same hour they're viewed
+                    current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
+                    current_hour_end = current_hour_start + timedelta(hours=1)
+                    
+                    # Filter signals created in the current hour
+                    queryset = queryset.filter(
+                        created_at__gte=current_hour_start,
+                        created_at__lt=current_hour_end
+                    )
                     
                     # Get top 10 best signals from this hour by combined score
                     signals = list(queryset.order_by(
