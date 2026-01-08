@@ -198,6 +198,8 @@ class SignalAPIView(View):
                 
                 # Cache the response - shorter cache for main page (1 minute), longer for filtered views (5 minutes)
                 cache_timeout = 60 if (not symbol and not signal_type and limit >= 50) else 300
+                # Clear any old cache entries for the same key pattern first
+                cache.delete(cache_key)
                 cache.set(cache_key, response_data, cache_timeout)
                 
                 return JsonResponse(response_data)
@@ -245,11 +247,15 @@ class SignalAPIView(View):
                 queryset = queryset.filter(signal_type__name=signal_type)
             queryset = queryset.filter(is_valid=is_valid)
             
-            # For main signals page (no filters), show top 10 best signals from last hour
+            # For main signals page (no filters), show top 10 best signals from CURRENT HOUR only
             if not symbol and not signal_type and limit >= 50:
-                # Main signals page - get signals from last hour only
-                one_hour_ago = timezone.now() - timedelta(hours=1)
-                queryset = queryset.filter(created_at__gte=one_hour_ago)
+                # Main signals page - get signals from current hour only (not last hour)
+                current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
+                current_hour_end = current_hour_start + timedelta(hours=1)
+                queryset = queryset.filter(
+                    created_at__gte=current_hour_start,
+                    created_at__lt=current_hour_end
+                )
                 
                 # Get top 10 best signals from this hour by combined score
                 signals = list(queryset.order_by(
@@ -294,6 +300,8 @@ class SignalAPIView(View):
                 'count': len(signal_data),
                 'cached_at': timezone.now().isoformat()
             }
+            # Clear old cache before setting new one
+            cache.delete(cache_key)
             cache.set(cache_key, response_data, 300)
         except Exception as e:
             logger.debug(f"Background cache refresh failed: {e}")
