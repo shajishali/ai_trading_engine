@@ -79,10 +79,14 @@ class SignalAPIView(View):
                 
                 queryset = queryset.filter(is_valid=is_valid)
                 
-                # For main signals page (no filters), show top 10 best signals by quality
+                # For main signals page (no filters), show top 10 best signals from last hour
                 # For filtered/history views, show by creation date
                 if not symbol and not signal_type and limit >= 50:
-                    # Main signals page - get top 10 best signals by combined score
+                    # Main signals page - get signals from last hour only
+                    one_hour_ago = timezone.now() - timedelta(hours=1)
+                    queryset = queryset.filter(created_at__gte=one_hour_ago)
+                    
+                    # Get top 10 best signals from this hour by combined score
                     signals = list(queryset.order_by(
                         '-quality_score', 
                         '-confidence_score', 
@@ -201,9 +205,13 @@ class SignalAPIView(View):
                 queryset = queryset.filter(signal_type__name=signal_type)
             queryset = queryset.filter(is_valid=is_valid)
             
-            # For main signals page (no filters), show top 10 best signals by quality
+            # For main signals page (no filters), show top 10 best signals from last hour
             if not symbol and not signal_type and limit >= 50:
-                # Main signals page - get top 10 best signals by combined score
+                # Main signals page - get signals from last hour only
+                one_hour_ago = timezone.now() - timedelta(hours=1)
+                queryset = queryset.filter(created_at__gte=one_hour_ago)
+                
+                # Get top 10 best signals from this hour by combined score
                 signals = list(queryset.order_by(
                     '-quality_score', 
                     '-confidence_score', 
