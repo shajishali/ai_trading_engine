@@ -41,20 +41,6 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-center">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">News Sentiment</h5>
-                </div>
-                <div class="card-body">
-                    <div class="display-4 text-warning mb-2" id="news-sentiment">82</div>
-                    <div class="progress mb-3">
-                        <div class="progress-bar bg-warning" role="progressbar" style="width: 82%"></div>
-                    </div>
-                    <p class="text-muted">Very Positive</p>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Sentiment Timeline Chart -->
@@ -200,18 +186,6 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="card-title mb-0">News Sentiment</h6>
-                </div>
-                <div class="card-body text-center">
-                    <div class="display-6 text-warning mb-2">82</div>
-                    <p class="text-warning fw-bold">Very Positive</p>
-                    <small class="text-muted">Major news outlets bullish</small>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -237,13 +211,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 backgroundColor: 'rgba(23, 162, 184, 0.1)',
                 tension: 0.4,
                 fill: false
-            }, {
-                label: 'News Sentiment',
-                data: [70, 75, 78, 82, 85, 88, 82],
-                borderColor: '#ffc107',
-                backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                tension: 0.4,
-                fill: false
             }]
         },
         options: {
@@ -262,13 +229,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const sourceChart = new Chart(sourceCtx, {
         type: 'doughnut',
         data: {
-            labels: ['Twitter', 'Reddit', 'News', 'Forums', 'Telegram'],
+            labels: ['Twitter', 'Reddit', 'Forums', 'Telegram'],
             datasets: [{
-                data: [30, 25, 20, 15, 10],
+                data: [30, 25, 20, 15],
                 backgroundColor: [
                     '#1da1f2',
                     '#ff4500',
-                    '#28a745',
                     '#6f42c1',
                     '#0088cc'
                 ]
