@@ -144,6 +144,208 @@
         color: white;
     }
     
+    /* ============================================
+       MOBILE RESPONSIVE STYLES FOR BACKTESTING PAGE
+       ============================================ */
+    
+    /* Mobile First - Small Screens (< 576px) */
+    @media (max-width: 576px) {
+        /* Form columns stack on mobile */
+        .col-md-2,
+        .col-md-3,
+        .col-md-4,
+        .col-md-6 {
+            width: 100% !important;
+            margin-bottom: 1rem;
+        }
+        
+        /* Configuration card */
+        .card-body {
+            padding: 1rem !important;
+        }
+        
+        /* Form inputs */
+        .form-control,
+        .form-select {
+            font-size: 0.9rem;
+            padding: 0.5rem 0.75rem;
+        }
+        
+        .form-label {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-text {
+            font-size: 0.8rem;
+        }
+        
+        /* Alert boxes */
+        .alert {
+            padding: 0.75rem !important;
+            font-size: 0.85rem;
+        }
+        
+        .alert h6 {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .alert ul {
+            padding-left: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .alert li {
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        /* Button group - stack on mobile */
+        .btn-group-custom {
+            flex-direction: column;
+            gap: 0.5rem !important;
+        }
+        
+        .btn-group-custom .btn {
+            width: 100%;
+            min-width: auto;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        /* Signal cards */
+        .signal-card {
+            margin-bottom: 1rem;
+        }
+        
+        .signal-detail {
+            font-size: 0.85rem;
+        }
+        
+        /* Summary cards */
+        .card.bg-light {
+            margin-bottom: 1rem;
+        }
+        
+        /* Tables */
+        .table-responsive {
+            font-size: 0.8rem;
+        }
+        
+        .table {
+            font-size: 0.75rem;
+        }
+        
+        .table th,
+        .table td {
+            padding: 0.5rem 0.3rem !important;
+        }
+        
+        /* Badges */
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.5rem;
+        }
+        
+        /* Charts */
+        canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+        
+        /* Page header */
+        h1 {
+            font-size: 1.5rem !important;
+        }
+        
+        .text-muted {
+            font-size: 0.9rem;
+        }
+        
+        /* Card headers */
+        .card-header {
+            padding: 0.75rem 1rem !important;
+        }
+        
+        .card-header h5 {
+            font-size: 1rem !important;
+        }
+        
+        /* Loading spinner */
+        .loading-spinner {
+            text-align: center;
+            padding: 1rem;
+        }
+        
+        /* Results section */
+        #resultsSection .card {
+            margin-bottom: 1rem;
+        }
+        
+        /* Signal summary cards */
+        #signalSummary .col-md-3 {
+            margin-bottom: 1rem;
+        }
+        
+        /* Historical data availability */
+        .alert-info .row {
+            margin: 0;
+        }
+        
+        .alert-info .col-md-6 {
+            margin-bottom: 1rem;
+        }
+    }
+    
+    /* Tablet - Medium Screens (577px - 768px) */
+    @media (min-width: 577px) and (max-width: 768px) {
+        .col-md-2,
+        .col-md-3 {
+            width: 50%;
+        }
+        
+        .col-md-4 {
+            width: 50%;
+        }
+        
+        .col-md-6 {
+            width: 100%;
+        }
+        
+        .btn-group-custom {
+            flex-wrap: wrap;
+        }
+        
+        .btn-group-custom .btn {
+            min-width: 180px;
+            flex: 1 1 auto;
+        }
+        
+        .card-body {
+            padding: 1.25rem !important;
+        }
+    }
+    
+    /* Large Mobile / Small Tablet (769px - 992px) */
+    @media (min-width: 769px) and (max-width: 992px) {
+        .col-md-2 {
+            width: 25%;
+        }
+        
+        .col-md-3 {
+            width: 33.333%;
+        }
+        
+        .col-md-4 {
+            width: 50%;
+        }
+        
+        .btn-group-custom .btn {
+            min-width: 160px;
+        }
+    }
+    
     /* Clickable row styles */
     .clickable-row:hover {
         background-color: #f8f9fa !important;
