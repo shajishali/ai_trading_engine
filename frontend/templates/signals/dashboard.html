@@ -1226,6 +1226,7 @@ let currentSignalId = null;
 let testMode = true; // Enable test mode by default
 let signalsChart = null; // Chart instance
 let signalsAutoRefreshInterval = null; // Auto-refresh interval for signals
+window.signalsRetryInProgress = false; // Track if retry is in progress
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
@@ -1485,17 +1486,83 @@ function loadSignals(showNotificationOnNew = false) {
                 updateSignalsChart(signalsData); // Update chart after data is loaded
             } else {
                 console.error('Error loading signals:', data.error);
-                // Don't show error notification on initial load if no signals exist
-                if (previousCount > 0 || signalsData.length > 0) {
-                    showNotification('Error loading signals: ' + (data.error || 'Unknown error'), 'danger');
+                
+                // Handle database connection errors with retry
+                if (data.error && data.error.includes('Database temporarily unavailable')) {
+                    // Show user-friendly message
+                    const errorMsg = 'Database connection issue. Retrying automatically...';
+                    showNotification(errorMsg, 'warning');
+                    
+                    // Auto-retry after 3 seconds (only if not already retrying)
+                    if (!window.signalsRetryInProgress) {
+                        window.signalsRetryInProgress = true;
+                        setTimeout(() => {
+                            window.signalsRetryInProgress = false;
+                            console.log('Auto-retrying signal load...');
+                            loadSignals();
+                        }, 3000);
+                    }
+                } else {
+                    // Show error for other issues
+                    if (previousCount > 0 || signalsData.length > 0) {
+                        showNotification('Error loading signals: ' + (data.error || 'Unknown error'), 'danger');
+                    }
+                }
+                
+                // Show empty state with helpful message
+                const tbody = document.getElementById('signals-tbody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="empty-state">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                <h5>Unable to Load Signals</h5>
+                                <p>${data.error || 'Database connection issue. Please refresh the page or try again in a moment.'}</p>
+                                <button class="btn btn-primary btn-sm mt-2" onclick="loadSignals()">
+                                    <i class="fas fa-sync-alt me-2"></i>Retry
+                                </button>
+                            </td>
+                        </tr>
+                    `;
                 }
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            // Don't show error notification on initial load
-            if (previousCount > 0 || signalsData.length > 0) {
-                showNotification('Error loading signals', 'danger');
+            
+            // Handle network/HTTP errors
+            if (error.message && error.message.includes('503')) {
+                showNotification('Service temporarily unavailable. Retrying...', 'warning');
+                // Auto-retry after 3 seconds
+                if (!window.signalsRetryInProgress) {
+                    window.signalsRetryInProgress = true;
+                    setTimeout(() => {
+                        window.signalsRetryInProgress = false;
+                        loadSignals();
+                    }, 3000);
+                }
+            } else {
+                // Show error for other issues
+                if (previousCount > 0 || signalsData.length > 0) {
+                    showNotification('Error loading signals: ' + error.message, 'danger');
+                }
+            }
+            
+            // Show empty state
+            const tbody = document.getElementById('signals-tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="empty-state">
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                            <h5>Connection Error</h5>
+                            <p>Unable to connect to the server. Please check your internet connection and try again.</p>
+                            <button class="btn btn-primary btn-sm mt-2" onclick="loadSignals()">
+                                <i class="fas fa-sync-alt me-2"></i>Retry
+                            </button>
+                        </td>
+                    </tr>
+                `;
             }
         });
 }

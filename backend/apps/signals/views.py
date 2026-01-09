@@ -93,9 +93,25 @@ class SignalAPIView(View):
                         if stale_cache:
                             logger.info("Returning stale cached data due to connection failure")
                             return JsonResponse(stale_cache)
-                        # Log the actual error for debugging
-                        logger.error(f"Database connection failed after {max_retries} attempts: {error_msg}", exc_info=True)
-                        raise
+                        # Log the actual error for debugging with full details
+                        logger.error(
+                            f"Database connection failed after {max_retries} attempts: {error_msg}",
+                            exc_info=True,
+                            extra={
+                                'error_type': type(conn_error).__name__,
+                                'error_message': error_msg,
+                                'attempt': attempt + 1,
+                                'max_retries': max_retries
+                            }
+                        )
+                        # Return error response instead of raising
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Database temporarily unavailable. Please try again in a moment.',
+                            'signals': [],
+                            'count': 0,
+                            'error_code': 'DB_CONNECTION_FAILED'
+                        }, status=503)
                 
                 # Build optimized query with select_related and prefetch_related
                 # Use iterator() to avoid loading all into memory and reduce lock time
