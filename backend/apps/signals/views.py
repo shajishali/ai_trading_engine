@@ -65,6 +65,25 @@ class SignalAPIView(View):
         
         for attempt in range(max_retries):
             try:
+                # Ensure database connection is alive before querying
+                from django.db import connection
+                try:
+                    connection.ensure_connection()
+                except Exception as conn_error:
+                    logger.warning(f"Database connection check failed, closing and retrying: {conn_error}")
+                    connection.close()
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                        continue
+                    else:
+                        # Return cached data if available
+                        stale_cache = cache.get(cache_key)
+                        if stale_cache:
+                            logger.info("Returning stale cached data due to connection failure")
+                            return JsonResponse(stale_cache)
+                        raise
+                
                 # Build optimized query with select_related and prefetch_related
                 # Use iterator() to avoid loading all into memory and reduce lock time
                 queryset = TradingSignal.objects.select_related(
@@ -150,18 +169,36 @@ class SignalAPIView(View):
                 return JsonResponse(response_data)
                 
             except OperationalError as e:
-                if "database is locked" in str(e).lower() and attempt < max_retries - 1:
-                    logger.warning(f"Database locked, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                error_str = str(e).lower()
+                is_lock_error = "database is locked" in error_str or "lock" in error_str
+                is_connection_error = any(keyword in error_str for keyword in [
+                    "connection", "timeout", "unavailable", "lost connection",
+                    "can't connect", "connection refused", "too many connections"
+                ])
+                
+                # Close the connection to force a reconnect on next query
+                from django.db import connection
+                try:
+                    connection.close()
+                    logger.info("Closed database connection to force reconnect")
+                except:
+                    pass
+                
+                if (is_lock_error or is_connection_error) and attempt < max_retries - 1:
+                    logger.warning(
+                        f"Database error ({'lock' if is_lock_error else 'connection'}), "
+                        f"retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries}): {e}"
+                    )
                     time.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
                     continue
                 else:
                     # If all retries failed, return cached data or empty response
-                    logger.error(f"Database lock error after {max_retries} attempts: {e}")
+                    logger.error(f"Database error after {max_retries} attempts: {e}")
                     # Try to get any cached data, even if it's old
                     stale_cache = cache.get(cache_key)
                     if stale_cache:
-                        logger.info("Returning stale cached data due to database lock")
+                        logger.info("Returning stale cached data due to database error")
                         return JsonResponse(stale_cache)
                     # Return empty response with error message
                     return JsonResponse({
@@ -171,16 +208,40 @@ class SignalAPIView(View):
                         'count': 0
                     }, status=503)
             except Exception as e:
-                logger.error(f"Error getting signals: {e}")
+                error_str = str(e).lower()
+                is_db_error = any(keyword in error_str for keyword in [
+                    "database", "connection", "mysql", "operational", "timeout"
+                ])
+                
+                # Close connection if it's a database error
+                if is_db_error:
+                    from django.db import connection
+                    try:
+                        connection.close()
+                        logger.info("Closed database connection due to error")
+                    except:
+                        pass
+                
+                logger.error(f"Error getting signals: {e}", exc_info=True)
                 # Try to return cached data even if there's an error
                 stale_cache = cache.get(cache_key)
                 if stale_cache:
                     logger.info("Returning stale cached data due to error")
                     return JsonResponse(stale_cache)
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=500)
+                
+                # Return appropriate error message
+                if is_db_error:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Database temporarily unavailable. Please try again in a moment.',
+                        'signals': [],
+                        'count': 0
+                    }, status=503)
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'error': str(e)
+                    }, status=500)
     
     def _refresh_cache_async(self, cache_key, symbol, signal_type, is_valid, limit):
         """Refresh cache asynchronously without blocking"""

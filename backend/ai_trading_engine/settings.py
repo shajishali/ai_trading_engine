@@ -178,8 +178,11 @@ DATABASES = {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             'isolation_level': 'read committed',
+            'connect_timeout': 10,  # Connection timeout in seconds
+            'read_timeout': 30,  # Read timeout in seconds
+            'write_timeout': 30,  # Write timeout in seconds
         },
-        'CONN_MAX_AGE': 600,  # 10 minutes connection pooling
+        'CONN_MAX_AGE': 300,  # 5 minutes connection pooling (reduced from 10 to avoid stale connections)
         'ATOMIC_REQUESTS': True,
         'AUTOCOMMIT': True,
     }
