@@ -3899,10 +3899,47 @@
     
     <!-- CSRF Token Setup -->
     <script>
-        // Get CSRF token from meta tag
+        // Get CSRF token from meta tag or cookie
         function getCSRFToken() {
-            return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            // Try meta tag first
+            const metaToken = document.querySelector('meta[name="csrf-token"]');
+            if (metaToken) {
+                return metaToken.getAttribute('content');
+            }
+            
+            // Fallback: get from cookie (for mobile browsers)
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
         }
+        
+        // Ensure CSRF token is in all forms (especially for mobile)
+        document.addEventListener('DOMContentLoaded', function() {
+            const csrfToken = getCSRFToken();
+            if (csrfToken) {
+                // Add CSRF token to all forms that don't have it
+                const forms = document.querySelectorAll('form');
+                forms.forEach(function(form) {
+                    if (!form.querySelector('input[name="csrfmiddlewaretoken"]')) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrfmiddlewaretoken';
+                        csrfInput.value = csrfToken;
+                        form.appendChild(csrfInput);
+                    }
+                });
+            }
+        });
         
         // Setup CSRF token for all fetch requests
         if (typeof fetch !== 'undefined') {
@@ -3916,6 +3953,17 @@
                 }
                 return originalFetch(url, options);
             };
+        }
+        
+        // Setup CSRF token for jQuery AJAX (if jQuery is loaded)
+        if (typeof jQuery !== 'undefined') {
+            jQuery.ajaxSetup({
+                beforeSend: function(xhr, settings) {
+                    if (!(/^http:.*/.test(settings.url) || /^https:.*/.test(settings.url)) && !settings.crossDomain) {
+                        xhr.setRequestHeader("X-CSRFToken", getCSRFToken());
+                    }
+                }
+            });
         }
     </script>
     

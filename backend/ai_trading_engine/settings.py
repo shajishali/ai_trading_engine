@@ -41,12 +41,15 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-v%kz(i_y%6y1v7^l9i2i9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)  # Temporarily enabled for debugging
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver,cryptai.it.com,*.cryptai.it.com').split(',')
 # Ensure localhost is always included for local development
 if 'localhost' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('localhost')
 if '127.0.0.1' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('127.0.0.1')
+# Ensure production domain is included
+if 'cryptai.it.com' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('cryptai.it.com')
 
 
 # Application definition
@@ -230,6 +233,20 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_AGE = 31449600  # 1 year
+CSRF_COOKIE_SAMESITE = 'Lax'  # Allow CSRF cookies to work on mobile browsers
+CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
+
+# CSRF Trusted Origins - Add your domain here
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:8000,http://127.0.0.1:8000,https://cryptai.it.com,http://cryptai.it.com'
+).split(',')
+
+# Ensure localhost is always included
+if 'http://localhost:8000' not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append('http://localhost:8000')
+if 'http://127.0.0.1:8000' not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append('http://127.0.0.1:8000')
 
 # Rate limiting for API protection
 REST_FRAMEWORK = {
