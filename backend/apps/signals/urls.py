@@ -20,6 +20,8 @@ urlpatterns = [
     path('api/generate/', views.generate_signals_manual, name='generate_signals'),
     path('api/reset-testing/', views.reset_signals_for_testing, name='reset_signals_testing'),
     path('api/sync-prices/', views.sync_signal_prices, name='sync_signal_prices'),
+    path('api/daily-best-signals/', views.DailyBestSignalsView.as_view(), name='daily_best_signals'),
+    path('api/available-dates/', views.AvailableDatesView.as_view(), name='available_dates'),
     
     # Backtesting API endpoints
     path('api/backtests/', backtesting_api.BacktestAPIView.as_view(), name='backtest_api'),

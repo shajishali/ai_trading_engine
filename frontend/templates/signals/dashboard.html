@@ -856,6 +856,43 @@
             width: 100%;
         }
     }
+    
+    /* Best Signal Row Highlighting */
+    .best-signal-row {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+        border-left: 4px solid #ffc107 !important;
+    }
+    
+    .best-signal-row:hover {
+        background-color: rgba(255, 193, 7, 0.2) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+    }
+    
+    .best-rank-badge {
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+    }
+    
+    /* Available Dates List */
+    #available-dates-list .btn {
+        font-size: 0.8rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+    
+    #available-dates-list .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(13, 110, 253, 0.3);
+    }
+    
+    #available-dates-container {
+        padding-top: 10px;
+        border-top: 1px solid #e9ecef;
+    }
 </style>
 {% endblock %}
 
@@ -1069,7 +1106,7 @@
                     <!-- Filter Controls -->
                     <div class="filter-controls mb-4">
                         <div class="row align-items-end">
-                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+                            <div class="col-md-2 col-sm-6 mb-3 mb-md-0">
                                 <label for="symbol-filter" class="form-label">
                                     <i class="fas fa-filter me-1"></i>Symbol Filter
                                 </label>
@@ -1077,7 +1114,7 @@
                                     <option value="">All Symbols</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+                            <div class="col-md-2 col-sm-6 mb-3 mb-md-0">
                                 <label for="timeframe-filter" class="form-label">
                                     <i class="fas fa-clock me-1"></i>Timeframe Filter
                                 </label>
@@ -1091,10 +1128,16 @@
                                     <option value="1D">1 Day</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 col-sm-12">
+                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+                                <label for="date-picker" class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i>View Best Signals By Date
+                                </label>
+                                <input type="date" class="form-select" id="date-picker" onchange="loadBestSignalsByDate()">
+                            </div>
+                            <div class="col-md-5 col-sm-12">
                                 <div class="d-flex gap-2 flex-wrap">
                                     <button type="button" class="btn btn-primary" id="best-signals-btn" onclick="showBestSignals()">
-                                        <i class="fas fa-star me-2"></i>Best Signals
+                                        <i class="fas fa-star me-2"></i>Best Signals (Today)
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">
                                         <i class="fas fa-redo me-2"></i>Reset Filters
@@ -1102,6 +1145,18 @@
                                     <button type="button" class="btn btn-outline-primary" onclick="loadSignals()">
                                         <i class="fas fa-sync-alt me-2"></i>Refresh
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <div id="available-dates-container" class="d-flex flex-wrap gap-2 align-items-center">
+                                    <small class="text-muted me-2">
+                                        <i class="fas fa-info-circle me-1"></i>Quick access to dates with best signals:
+                                    </small>
+                                    <div id="available-dates-list" class="d-flex flex-wrap gap-2">
+                                        <!-- Available dates will be loaded here -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1556,6 +1611,11 @@ function displaySignals(signals) {
     
     // Update chart after displaying signals
     updateSignalsChart(signals);
+    
+    // Highlight best signals if any
+    setTimeout(() => {
+        highlightBestSignals();
+    }, 100);
 }
 
 // Get signal type badge class
@@ -2484,22 +2544,172 @@ function resetFilters() {
     // Reset filter dropdowns
     const symbolFilterEl = document.getElementById('symbol-filter');
     const timeframeFilterEl = document.getElementById('timeframe-filter');
+    const datePicker = document.getElementById('date-picker');
+    
     if (symbolFilterEl) symbolFilterEl.value = '';
     if (timeframeFilterEl) timeframeFilterEl.value = '';
+    if (datePicker) {
+        const today = new Date().toISOString().split('T')[0];
+        datePicker.value = today;
+    }
     
     // Reset best signals button
     const bestSignalsBtn = document.getElementById('best-signals-btn');
     if (bestSignalsBtn) {
         bestSignalsBtn.classList.remove('active');
-        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals';
+        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals (Today)';
     }
     
-    // Display all signals
-    displaySignals(signalsData);
-    updateSignalCount(signalsData.length);
-    updateSignalsChart(signalsData);
+    // Reload all signals
+    loadSignals();
     
     showNotification('Filters reset. Showing all signals.', 'info');
+}
+
+// Load best signals by selected date
+function loadBestSignalsByDate() {
+    const datePicker = document.getElementById('date-picker');
+    if (!datePicker || !datePicker.value) {
+        showNotification('Please select a date', 'warning');
+        return;
+    }
+    
+    const selectedDate = datePicker.value;
+    
+    // Show loading state
+    showNotification(`Loading best signals for ${selectedDate}...`, 'info');
+    
+    // Fetch best signals for the selected date
+    fetch(`/signals/api/daily-best-signals/?date=${selectedDate}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                if (data.signals && data.signals.length > 0) {
+                    // Convert API response to match signalsData format
+                    const formattedSignals = data.signals.map(signal => ({
+                        ...signal,
+                        // Ensure all required fields are present
+                        current_price: signal.entry_price || null,
+                        price_change_24h: null,
+                        entry_point_details: signal.entry_point_details || {},
+                    }));
+                    
+                    // Update signalsData temporarily for display
+                    const originalSignalsData = signalsData;
+                    signalsData = formattedSignals;
+                    
+                    // Display the best signals
+                    displaySignals(formattedSignals);
+                    updateSignalCount(formattedSignals.length);
+                    updateSignalsChart(formattedSignals);
+                    
+                    // Highlight best signals in the table
+                    highlightBestSignals();
+                    
+                    // Update button states
+                    const bestSignalsBtn = document.getElementById('best-signals-btn');
+                    if (bestSignalsBtn) {
+                        bestSignalsBtn.classList.add('active');
+                        bestSignalsBtn.innerHTML = `<i class="fas fa-star me-2"></i>Best Signals (${selectedDate})`;
+                    }
+                    
+                    // Clear other filters
+                    const symbolFilterEl = document.getElementById('symbol-filter');
+                    const timeframeFilterEl = document.getElementById('timeframe-filter');
+                    if (symbolFilterEl) symbolFilterEl.value = '';
+                    if (timeframeFilterEl) timeframeFilterEl.value = '';
+                    
+                    showNotification(
+                        `Showing ${formattedSignals.length} best signals for ${selectedDate}!`, 
+                        'success'
+                    );
+                } else {
+                    showNotification(
+                        `No best signals found for ${selectedDate}. The daily best signals may not have been saved yet.`, 
+                        'warning'
+                    );
+                }
+            } else {
+                showNotification('Error loading best signals: ' + (data.error || 'Unknown error'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading best signals by date:', error);
+            showNotification('Error loading best signals. Please try again.', 'danger');
+        });
+}
+
+// Load available dates with best signals
+function loadAvailableDates() {
+    fetch('/signals/api/available-dates/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.dates && data.dates.length > 0) {
+                const datesList = document.getElementById('available-dates-list');
+                if (datesList) {
+                    datesList.innerHTML = ''; // Clear existing
+                    
+                    // Show only last 10 dates for quick access
+                    const recentDates = data.dates.slice(0, 10);
+                    
+                    recentDates.forEach(dateItem => {
+                        const dateBtn = document.createElement('button');
+                        dateBtn.type = 'button';
+                        dateBtn.className = 'btn btn-sm btn-outline-primary';
+                        dateBtn.textContent = dateItem.date;
+                        dateBtn.title = `${dateItem.count} best signals`;
+                        dateBtn.onclick = function() {
+                            const datePicker = document.getElementById('date-picker');
+                            if (datePicker) {
+                                datePicker.value = dateItem.date;
+                                loadBestSignalsByDate();
+                            }
+                        };
+                        datesList.appendChild(dateBtn);
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading available dates:', error);
+            // Silently fail - this is optional functionality
+        });
+}
+
+// Highlight best signals in the table
+function highlightBestSignals() {
+    // Add highlight class to best signals rows
+    const tableRows = document.querySelectorAll('#signals-table tbody tr');
+    tableRows.forEach(row => {
+        const signalId = row.getAttribute('data-signal-id');
+        if (signalId) {
+            const signal = signalsData.find(s => s.id == signalId);
+            if (signal && signal.is_best_of_day) {
+                row.classList.add('best-signal-row');
+                // Add rank badge if available
+                if (signal.best_of_day_rank) {
+                    const firstCell = row.querySelector('td:first-child');
+                    if (firstCell && !firstCell.querySelector('.best-rank-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-warning text-dark ms-2 best-rank-badge';
+                        badge.textContent = `#${signal.best_of_day_rank}`;
+                        badge.title = `Ranked #${signal.best_of_day_rank} best signal of the day`;
+                        firstCell.appendChild(badge);
+                    }
+                }
+            }
+        }
+    });
 }
 
 // Filter signals by symbol and timeframe
@@ -2511,7 +2721,13 @@ function filterSignals() {
     const bestSignalsBtn = document.getElementById('best-signals-btn');
     if (bestSignalsBtn && bestSignalsBtn.classList.contains('active')) {
         bestSignalsBtn.classList.remove('active');
-        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals';
+        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals (Today)';
+    }
+    
+    // Clear date picker if filters are used
+    const datePicker = document.getElementById('date-picker');
+    if (datePicker) {
+        datePicker.value = '';
     }
     
     const symbolFilter = symbolFilterEl ? symbolFilterEl.value : '';
@@ -2541,6 +2757,9 @@ function filterSignals() {
     
     // Update chart with filtered data
     updateSignalsChart(filteredSignals);
+    
+    // Re-highlight best signals
+    highlightBestSignals();
 }
 
 // Note: Event listeners are now set up in the main DOMContentLoaded event listener above

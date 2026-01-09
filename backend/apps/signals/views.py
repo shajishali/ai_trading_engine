@@ -131,7 +131,10 @@ class SignalAPIView(View):
                         'entry_point_details': signal.entry_point_details,
                         'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
                         'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
-                        'entry_confidence': signal.entry_confidence
+                        'entry_confidence': signal.entry_confidence,
+                        'is_best_of_day': signal.is_best_of_day,
+                        'best_of_day_date': signal.best_of_day_date.isoformat() if signal.best_of_day_date else None,
+                        'best_of_day_rank': signal.best_of_day_rank
                     })
                 
                 response_data = {
@@ -605,6 +608,115 @@ class SignalAlertView(View):
             
         except Exception as e:
             logger.error(f"Error marking alerts as read: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(login_required, name='dispatch')
+class DailyBestSignalsView(View):
+    """API view for daily best signals by date"""
+    
+    def get(self, request):
+        """Get best signals for a specific date"""
+        try:
+            from datetime import datetime
+            from django.utils import timezone
+            
+            # Get date parameter (YYYY-MM-DD format)
+            date_str = request.GET.get('date')
+            if date_str:
+                try:
+                    target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Invalid date format. Use YYYY-MM-DD'
+                    }, status=400)
+            else:
+                target_date = timezone.now().date()
+            
+            # Get best signals for the date
+            best_signals = TradingSignal.objects.filter(
+                is_best_of_day=True,
+                best_of_day_date=target_date,
+                is_valid=True
+            ).select_related(
+                'symbol', 'signal_type'
+            ).order_by('best_of_day_rank')
+            
+            # Serialize signals
+            signal_data = []
+            for signal in best_signals:
+                signal_data.append({
+                    'id': signal.id,
+                    'symbol': signal.symbol.symbol,
+                    'signal_type': signal.signal_type.name,
+                    'strength': signal.strength,
+                    'confidence_score': signal.confidence_score,
+                    'confidence_level': signal.confidence_level,
+                    'entry_price': float(signal.entry_price) if signal.entry_price else None,
+                    'target_price': float(signal.target_price) if signal.target_price else None,
+                    'stop_loss': float(signal.stop_loss) if signal.stop_loss else None,
+                    'risk_reward_ratio': signal.risk_reward_ratio,
+                    'quality_score': signal.quality_score,
+                    'timeframe': signal.timeframe,
+                    'entry_point_type': signal.entry_point_type,
+                    'best_of_day_rank': signal.best_of_day_rank,
+                    'created_at': signal.created_at.isoformat(),
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'date': target_date.isoformat(),
+                'signals': signal_data,
+                'count': len(signal_data)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting daily best signals: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(login_required, name='dispatch')
+class AvailableDatesView(View):
+    """API view to get available dates with best signals"""
+    
+    def get(self, request):
+        """Get list of dates that have best signals"""
+        try:
+            from django.db.models import Count
+            
+            # Get distinct dates that have best signals
+            dates = TradingSignal.objects.filter(
+                is_best_of_day=True
+            ).values('best_of_day_date').annotate(
+                signal_count=Count('id')
+            ).order_by('-best_of_day_date')
+            
+            date_list = [
+                {
+                    'date': item['best_of_day_date'].isoformat() if item['best_of_day_date'] else None,
+                    'count': item['signal_count']
+                }
+                for item in dates
+                if item['best_of_day_date']
+            ]
+            
+            return JsonResponse({
+                'success': True,
+                'dates': date_list,
+                'count': len(date_list)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting available dates: {e}")
             return JsonResponse({
                 'success': False,
                 'error': str(e)

@@ -1,9 +1,10 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import List, Dict
 from celery import shared_task
 from django.utils import timezone
 from django.db.models import Q
+from django.core.management import call_command
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalAlert, SignalPerformance,
@@ -495,6 +496,44 @@ def signal_health_check():
             'recent_signals': recent_signals,
             'unread_alerts': unread_alerts,
             'expired_signals': expired_signals
+        }
+
+
+@shared_task
+def save_daily_best_signals_task(target_date_str=None, limit=20):
+    """
+    Save daily best signals for a specific date (defaults to yesterday)
+    This task runs at the end of each day to save the best signals
+    """
+    try:
+        if target_date_str:
+            target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        else:
+            # Default to yesterday (end of day task)
+            target_date = (timezone.now() - timedelta(days=1)).date()
+        
+        logger.info(f"Starting to save daily best signals for {target_date}...")
+        
+        # Call the management command
+        call_command(
+            'save_daily_best_signals',
+            date=target_date.isoformat(),
+            limit=limit
+        )
+        
+        logger.info(f"Successfully saved daily best signals for {target_date}")
+        
+        return {
+            'success': True,
+            'date': target_date.isoformat(),
+            'limit': limit
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving daily best signals: {e}", exc_info=True)
+        return {
+            'success': False,
+            'error': str(e)
         }
         
         logger.info(f"Signal health check completed - Score: {health_score}, Status: {health_status}")

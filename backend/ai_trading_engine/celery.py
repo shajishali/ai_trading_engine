@@ -151,6 +151,12 @@ app.conf.update(
             'schedule': crontab(minute=0),  # Every hour at minute 0
             'options': {'queue': 'data', 'priority': 5},  # Explicitly route to data queue
         },
+        # Save daily best signals at end of day (11:55 PM UTC)
+        'save-daily-best-signals': {
+            'task': 'apps.signals.tasks.save_daily_best_signals_task',
+            'schedule': crontab(hour=23, minute=55),  # Daily at 11:55 PM UTC
+            'options': {'queue': 'signals', 'priority': 6},
+        },
         # DISABLED: Monthly cleanup to preserve all historical data from 2020
         # 'historical-cleanup-monthly': {
         #     'task': 'apps.data.tasks.cleanup_old_data_task',

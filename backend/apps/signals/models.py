@@ -194,6 +194,22 @@ class TradingSignal(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     notes = models.TextField(blank=True)
     
+    # Daily Best Signals Tracking
+    is_best_of_day = models.BooleanField(
+        default=False,
+        help_text="Marked as one of the best signals of the day"
+    )
+    best_of_day_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when this signal was marked as best of day"
+    )
+    best_of_day_rank = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Rank of this signal among best signals of the day (1 = best)"
+    )
+    
     class Meta:
         verbose_name = 'Trading Signal'
         verbose_name_plural = 'Trading Signals'
@@ -201,6 +217,7 @@ class TradingSignal(models.Model):
             models.Index(fields=['symbol', 'created_at']),
             models.Index(fields=['signal_type', 'confidence_score']),
             models.Index(fields=['is_valid', 'expires_at']),
+            models.Index(fields=['is_best_of_day', 'best_of_day_date']),
         ]
     
     def __str__(self):
