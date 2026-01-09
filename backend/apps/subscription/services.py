@@ -480,10 +480,30 @@ class EmailVerificationService:
         Returns:
             str: Full verification URL
         """
-        domain = self.site.domain
+        # Priority: 1. SITE_DOMAIN setting, 2. Site model domain, 3. ALLOWED_HOSTS first entry
+        domain = getattr(settings, 'SITE_DOMAIN', None)
+        
+        if not domain:
+            domain = self.site.domain
         
         # Ensure domain doesn't contain protocol (security)
         domain = domain.replace('http://', '').replace('https://', '').split('/')[0]
+        
+        # If domain is an IP address, try to get domain name from settings
+        import re
+        ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+        if ip_pattern.match(domain):
+            # Domain is an IP, try to get domain name from settings
+            domain_override = getattr(settings, 'EMAIL_DOMAIN', None)
+            if domain_override:
+                domain = domain_override
+            else:
+                # Try to get from ALLOWED_HOSTS (prefer domain over IP)
+                allowed_hosts = getattr(settings, 'ALLOWED_HOSTS', [])
+                for host in allowed_hosts:
+                    if not ip_pattern.match(host) and '.' in host and not host.startswith('*'):
+                        domain = host
+                        break
         
         # Check if we should force HTTPS (production setting)
         force_https = getattr(settings, 'FORCE_HTTPS_IN_EMAILS', None)
@@ -508,10 +528,13 @@ class EmailVerificationService:
         # Determine protocol:
         # - Use HTTPS if explicitly forced (and not using HTTP in production)
         # - Use HTTP for localhost or if USE_HTTP_IN_PRODUCTION is True
-        if force_https and not getattr(settings, 'USE_HTTP_IN_PRODUCTION', False):
+        # - Use HTTPS for production domains (not localhost/IP)
+        if is_localhost or getattr(settings, 'USE_HTTP_IN_PRODUCTION', False):
+            protocol = 'http'
+        elif force_https or (not is_localhost and not ip_pattern.match(domain)):
+            # Use HTTPS for production domains (non-IP, non-localhost)
             protocol = 'https'
         else:
-            # Use HTTP for localhost or when HTTP is preferred in production
             protocol = 'http'
         
         return f"{protocol}://{domain}/subscription/verify-email/{token}/"

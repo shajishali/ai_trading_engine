@@ -512,6 +512,14 @@ LOGGING = {
 # Site configuration for django-allauth
 SITE_ID = 1
 
+# Site Domain Configuration for Email Links
+# This overrides the Site model domain for email verification links
+SITE_DOMAIN = config('SITE_DOMAIN', default=None)  # e.g., 'cryptai.it.com'
+EMAIL_DOMAIN = config('EMAIL_DOMAIN', default=None)  # Fallback domain for emails
+
+# Force HTTPS in email links (set to True in production with SSL)
+FORCE_HTTPS_IN_EMAILS = config('FORCE_HTTPS_IN_EMAILS', default=True, cast=bool)
+
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
