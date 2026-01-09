@@ -80,19 +80,22 @@
         
         .btn-primary {
             background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
-            border: none;
-            border-radius: 5px;
+            border: 2px solid var(--primary-gradient-end);
+            border-radius: 8px;
             padding: 10px 20px;
             font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(2, 43, 87, 0.4);
+            letter-spacing: 0.3px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(2, 43, 87, 0.3);
             color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
         }
         
         .btn-primary:hover {
             background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start));
+            border-color: var(--primary-gradient-start);
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(2, 43, 87, 0.5);
+            box-shadow: 0 6px 18px rgba(2, 43, 87, 0.4);
             color: white;
         }
         
@@ -102,12 +105,15 @@
         }
         
         .btn-outline-primary {
-            border: 2px solid var(--primary-gradient-end);
+            border: 2.5px solid var(--primary-gradient-end);
             color: var(--primary-gradient-end);
-            background: transparent;
+            background: rgba(13, 110, 253, 0.05);
             padding: 10px 20px;
             font-weight: 600;
-            transition: all 0.3s ease;
+            letter-spacing: 0.3px;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
         }
         
         .btn-outline-primary:hover {
@@ -231,16 +237,116 @@
                 font-size: 1rem !important;
             }
             
-            /* Buttons */
+            /* Buttons - Custom Mobile Styling */
             .btn-lg {
-                padding: 10px 16px !important;
-                font-size: 0.9rem !important;
+                padding: 14px 20px !important;
+                font-size: 1rem !important;
+                font-weight: 600 !important;
+                letter-spacing: 0.5px !important;
+                border-radius: 12px !important;
+                border-width: 2px !important;
+                text-transform: none !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             
             .btn {
-                padding: 8px 14px !important;
-                font-size: 0.85rem !important;
+                padding: 12px 18px !important;
+                font-size: 0.95rem !important;
+                font-weight: 600 !important;
+                letter-spacing: 0.3px !important;
+                border-radius: 10px !important;
+                border-width: 2px !important;
                 white-space: nowrap;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            
+            /* Primary Button - Mobile Custom Style */
+            .btn-primary {
+                border: 2px solid #0d6efd !important;
+                background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
+                box-shadow: 0 4px 14px rgba(13, 110, 253, 0.4) !important;
+            }
+            
+            .btn-primary:hover,
+            .btn-primary:active {
+                border: 2px solid #0056b3 !important;
+                background: linear-gradient(135deg, #0056b3 0%, #004085 100%) !important;
+                box-shadow: 0 6px 20px rgba(13, 110, 253, 0.5) !important;
+                transform: translateY(-2px) !important;
+            }
+            
+            /* Outline Primary Button - Mobile Custom Style */
+            .btn-outline-primary {
+                border: 2.5px solid #0d6efd !important;
+                background: rgba(13, 110, 253, 0.05) !important;
+                color: #0d6efd !important;
+                font-weight: 600 !important;
+            }
+            
+            .btn-outline-primary:hover,
+            .btn-outline-primary:active {
+                border: 2.5px solid #0d6efd !important;
+                background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
+                color: white !important;
+                box-shadow: 0 4px 14px rgba(13, 110, 253, 0.4) !important;
+                transform: translateY(-2px) !important;
+            }
+            
+            /* Success Button - Mobile Custom Style */
+            .btn-success {
+                border: 2px solid #28a745 !important;
+                background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+                box-shadow: 0 4px 14px rgba(40, 167, 69, 0.4) !important;
+            }
+            
+            .btn-success:hover,
+            .btn-success:active {
+                border: 2px solid #1e7e34 !important;
+                box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5) !important;
+                transform: translateY(-2px) !important;
+            }
+            
+            /* Outline Secondary Button - Mobile Custom Style */
+            .btn-outline-secondary {
+                border: 2.5px solid #6c757d !important;
+                background: rgba(108, 117, 125, 0.05) !important;
+                color: #6c757d !important;
+                font-weight: 600 !important;
+            }
+            
+            .btn-outline-secondary:hover,
+            .btn-outline-secondary:active {
+                border: 2.5px solid #6c757d !important;
+                background: linear-gradient(135deg, #6c757d 0%, #545b62 100%) !important;
+                color: white !important;
+                box-shadow: 0 4px 14px rgba(108, 117, 125, 0.4) !important;
+                transform: translateY(-2px) !important;
+            }
+            
+            /* Light Button - Mobile Custom Style */
+            .btn-light {
+                border: 2px solid #f8f9fa !important;
+                background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+                color: #212529 !important;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1) !important;
+            }
+            
+            .btn-light:hover,
+            .btn-light:active {
+                border: 2px solid #dee2e6 !important;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+                transform: translateY(-2px) !important;
+            }
+            
+            /* Button Icons - Mobile Spacing */
+            .btn i {
+                margin-right: 8px !important;
+                font-size: 1.1em !important;
             }
             
             /* Cards */
