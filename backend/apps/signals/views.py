@@ -66,13 +66,24 @@ class SignalAPIView(View):
         for attempt in range(max_retries):
             try:
                 # Ensure database connection is alive before querying
-                from django.db import connection
+                from django.db import connection, connections
                 try:
-                    connection.ensure_connection()
+                    # Test connection with a simple query
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT 1")
+                        cursor.fetchone()
                 except Exception as conn_error:
-                    logger.warning(f"Database connection check failed, closing and retrying: {conn_error}")
-                    connection.close()
+                    error_msg = str(conn_error)
+                    logger.error(f"Database connection test failed (attempt {attempt + 1}/{max_retries}): {error_msg}")
+                    
+                    # Close all database connections
+                    try:
+                        connections.close_all()
+                    except:
+                        pass
+                    
                     if attempt < max_retries - 1:
+                        logger.info(f"Retrying database connection in {retry_delay}s...")
                         time.sleep(retry_delay)
                         retry_delay *= 2
                         continue
@@ -82,6 +93,8 @@ class SignalAPIView(View):
                         if stale_cache:
                             logger.info("Returning stale cached data due to connection failure")
                             return JsonResponse(stale_cache)
+                        # Log the actual error for debugging
+                        logger.error(f"Database connection failed after {max_retries} attempts: {error_msg}", exc_info=True)
                         raise
                 
                 # Build optimized query with select_related and prefetch_related
