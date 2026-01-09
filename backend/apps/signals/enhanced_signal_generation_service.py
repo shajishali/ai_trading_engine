@@ -29,8 +29,8 @@ class EnhancedSignalGenerationService:
         self.base_service = SignalGenerationService()
         self.min_confidence_threshold = 0.6  # Higher confidence for better signals
         self.max_signals_per_symbol = 2  # Maximum 2 signals per symbol
-        self.best_signals_count = 10  # Top 10 signals every hour
-        self.signal_refresh_hours = 1  # Refresh signals every hour (for hourly generation)
+        self.best_signals_count = 10  # Top 10 signals every 2 hours
+        self.signal_refresh_hours = 2  # Refresh signals every 2 hours
         
         # ===== YOUR PERSONAL STRATEGY PARAMETERS (HIGHEST PRIORITY) =====
         # YOUR EXACT STRATEGY WORKFLOW:
@@ -79,17 +79,14 @@ class EnhancedSignalGenerationService:
         self.take_profit_percentage = 0.15  # 15% take profit
     
     def generate_best_signals_for_all_coins(self) -> Dict[str, any]:
-        """Generate the best 10 signals from all 200+ coins every hour"""
+        """Generate the best 10 signals from all 200+ coins every 2 hours"""
         logger.info("Starting comprehensive signal generation for all coins")
         
-        # Get current hour start time for filtering
-        current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
-        
-        # Get symbols that already have signals in the current hour (duplicate prevention)
+        # Get symbols that don't have active signals (duplicate prevention)
         symbols_with_active_signals = set(
             TradingSignal.objects.filter(
                 is_valid=True,
-                created_at__gte=current_hour_start
+                created_at__gte=timezone.now() - timedelta(hours=self.signal_refresh_hours)
             ).values_list('symbol__symbol', flat=True)
         )
         
@@ -152,51 +149,27 @@ class EnhancedSignalGenerationService:
         if current_price <= 0:
             return signals
         
-        # Generate different types of signals - try both BUY and SELL to ensure diversity
-        # First try BUY signals
-        buy_signal_types = [
+        # Generate different types of signals
+        signal_types = [
             ('BUY', self._generate_buy_signal),
-            ('STRONG_BUY', self._generate_strong_buy_signal)
-        ]
-        
-        # Then try SELL signals
-        sell_signal_types = [
             ('SELL', self._generate_sell_signal),
+            ('STRONG_BUY', self._generate_strong_buy_signal),
             ('STRONG_SELL', self._generate_strong_sell_signal)
         ]
         
-        # Try to get at least one of each type if possible
-        buy_signals_found = 0
-        sell_signals_found = 0
-        
-        # First pass: Try BUY signals
-        for signal_type_name, signal_generator in buy_signal_types:
-            if len(signals) >= self.max_signals_per_symbol:
-                break
+        for signal_type_name, signal_generator in signal_types:
             try:
                 signal_data = signal_generator(symbol, current_price, live_prices)
                 if signal_data and self._validate_signal(signal_data):
                     signals.append(signal_data)
-                    buy_signals_found += 1
+                    
+                # Limit signals per symbol
+                if len(signals) >= self.max_signals_per_symbol:
+                    break
+                    
             except Exception as e:
                 logger.error(f"Error generating {signal_type_name} signal for {symbol.symbol}: {e}")
                 continue
-        
-        # Second pass: Try SELL signals (even if we already have max_signals_per_symbol, try to get at least one SELL)
-        for signal_type_name, signal_generator in sell_signal_types:
-            # If we have no SELL signals yet, try to get at least one
-            if sell_signals_found == 0 or len(signals) < self.max_signals_per_symbol * 2:
-                try:
-                    signal_data = signal_generator(symbol, current_price, live_prices)
-                    if signal_data and self._validate_signal(signal_data):
-                        signals.append(signal_data)
-                        sell_signals_found += 1
-                        # If we have both types, we can stop
-                        if buy_signals_found > 0 and sell_signals_found > 0 and len(signals) >= self.max_signals_per_symbol:
-                            break
-                except Exception as e:
-                    logger.error(f"Error generating {signal_type_name} signal for {symbol.symbol}: {e}")
-                    continue
         
         return signals
     
@@ -209,58 +182,36 @@ class EnhancedSignalGenerationService:
         4. SL/TP: Set to next key levels (support/resistance)
         """
         try:
-            # Step 1: Identify support and resistance on 1D or 4H timeframe (fallback to 1H)
+            # Step 1: Identify support and resistance on 1D or 4H timeframe
             support_resistance = self._identify_support_resistance_levels(symbol, self.higher_timeframes)
-            # Allow signals even if support/resistance not perfect (will use fallback percentages)
-            if not support_resistance.get('support_levels') and not support_resistance.get('resistance_levels'):
-                logger.debug(f"No clear support/resistance levels for {symbol.symbol}, will use fallback")
-                # Create empty levels - will use fallback percentages in SL/TP calculation
-                support_resistance = {'support_levels': [], 'resistance_levels': []}
+            if not support_resistance.get('support_levels') or not support_resistance.get('resistance_levels'):
+                logger.debug(f"No clear support/resistance levels for {symbol.symbol}")
+                return None
             
-            # Step 2: Analyze 4H trend (must be bullish for BUY, but allow NEUTRAL with strong confirmations)
+            # Step 2: Analyze 4H trend (must be bullish for BUY)
             trend_4h = self._analyze_trend_4h(symbol)
-            trend_direction = trend_4h.get('direction')
-            if trend_direction not in ['BULLISH', 'NEUTRAL']:
-                logger.debug(f"4H trend not bullish/neutral for {symbol.symbol}: {trend_direction}")
+            if trend_4h.get('direction') != 'BULLISH':
+                logger.debug(f"4H trend not bullish for {symbol.symbol}: {trend_4h.get('direction')}")
                 return None
             
             # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
-            # If workflow fails, use simpler entry logic with fallback
             entry_analysis = self._analyze_entry_workflow(symbol, 'BUY', current_price, support_resistance)
             if not entry_analysis.get('entry_confirmed'):
-                # Fallback: Use simpler entry logic if CHoCH/BOS not detected
-                logger.debug(f"Entry workflow not confirmed for {symbol.symbol}, using fallback entry logic")
-                entry_analysis = {
-                    'entry_confirmed': True,
-                    'choch_detected': False,
-                    'bos_detected': False,
-                    'entry_price': float(current_price),
-                    'entry_timeframe': '1H',
-                    'entry_type': 'CURRENT_PRICE',
-                    'entry_at_key_level': False,
-                    'confirmations': 1  # Minimal confirmation
-                }
+                return None
             
-            # Get entry price at key level (or use current price as fallback)
-            entry_price = Decimal(str(entry_analysis.get('entry_price', float(current_price))))
+            # Get entry price at key level
+            entry_price = entry_analysis.get('entry_price')
+            if entry_price is None:
+                return None
             
-            # Step 4: Set SL/TP at next key levels (use fallback if key levels not found)
+            # Step 4: Set SL/TP at next key levels
             sl_tp_levels = self._calculate_sl_tp_from_key_levels(
                 entry_price, 'BUY', support_resistance, entry_analysis
             )
             
-            # If key levels not valid, use fallback percentages
             if not sl_tp_levels.get('valid'):
-                logger.debug(f"No valid key levels for SL/TP for {symbol.symbol}, using fallback percentages")
-                stop_loss_price = entry_price * Decimal(str(1 - self.fallback_stop_loss_percentage))
-                take_profit_price = entry_price * Decimal(str(1 + self.fallback_take_profit_percentage))
-                sl_tp_levels = {
-                    'valid': True,
-                    'stop_loss': stop_loss_price,
-                    'take_profit': take_profit_price,
-                    'sl_at_key_level': False,
-                    'tp_at_key_level': False
-                }
+                logger.debug(f"Invalid SL/TP levels for {symbol.symbol}")
+                return None
             
             stop_loss_price = sl_tp_levels.get('stop_loss')
             take_profit_price = sl_tp_levels.get('take_profit')
@@ -279,14 +230,8 @@ class EnhancedSignalGenerationService:
                 trend_4h, entry_analysis, support_resistance, risk_reward_ratio
             )
             
-            # Lower confidence threshold when using fallback entry (no CHoCH/BOS)
-            min_confidence = self.min_confidence_threshold * 0.8 if not entry_analysis.get('choch_detected') else self.min_confidence_threshold
-            if confidence < min_confidence:
-                logger.debug(f"Confidence too low for {symbol.symbol}: {confidence:.2f} < {min_confidence:.2f}")
+            if confidence < self.min_confidence_threshold:
                 return None
-            
-            # Calculate technical score for the signal
-            technical_score = self._calculate_technical_score_with_strategy(symbol, 'BUY')
             
             return {
                 'symbol': symbol,
@@ -300,8 +245,6 @@ class EnhancedSignalGenerationService:
                 'entry_point_type': entry_analysis.get('entry_type', 'KEY_LEVEL'),
                 'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
                 'strategy_confirmations': entry_analysis.get('confirmations', 0),
-                'quality_score': confidence,  # Add quality_score for scoring
-                'technical_score': technical_score,  # Add technical_score for saving
                 'strategy_details': {
                     'trend_4h': trend_4h.get('direction'),
                     'trend_strength': trend_4h.get('strength', 0),
@@ -331,58 +274,36 @@ class EnhancedSignalGenerationService:
         4. SL/TP: Set to next key levels (support/resistance)
         """
         try:
-            # Step 1: Identify support and resistance on 1D or 4H timeframe (fallback to 1H)
+            # Step 1: Identify support and resistance on 1D or 4H timeframe
             support_resistance = self._identify_support_resistance_levels(symbol, self.higher_timeframes)
-            # Allow signals even if support/resistance not perfect (will use fallback percentages)
-            if not support_resistance.get('support_levels') and not support_resistance.get('resistance_levels'):
-                logger.debug(f"No clear support/resistance levels for {symbol.symbol}, will use fallback")
-                # Create empty levels - will use fallback percentages in SL/TP calculation
-                support_resistance = {'support_levels': [], 'resistance_levels': []}
+            if not support_resistance.get('support_levels') or not support_resistance.get('resistance_levels'):
+                logger.debug(f"No clear support/resistance levels for {symbol.symbol}")
+                return None
             
-            # Step 2: Analyze 4H trend (must be bearish for SELL, but allow NEUTRAL with strong confirmations)
+            # Step 2: Analyze 4H trend (must be bearish for SELL)
             trend_4h = self._analyze_trend_4h(symbol)
-            trend_direction = trend_4h.get('direction')
-            if trend_direction not in ['BEARISH', 'NEUTRAL']:
-                logger.debug(f"4H trend not bearish/neutral for {symbol.symbol}: {trend_direction}")
+            if trend_4h.get('direction') != 'BEARISH':
+                logger.debug(f"4H trend not bearish for {symbol.symbol}: {trend_4h.get('direction')}")
                 return None
             
             # Step 3: Analyze 1H/15M for CHoCH → BOS → Entry at key point
-            # If workflow fails, use simpler entry logic with fallback
             entry_analysis = self._analyze_entry_workflow(symbol, 'SELL', current_price, support_resistance)
             if not entry_analysis.get('entry_confirmed'):
-                # Fallback: Use simpler entry logic if CHoCH/BOS not detected
-                logger.debug(f"Entry workflow not confirmed for {symbol.symbol}, using fallback entry logic")
-                entry_analysis = {
-                    'entry_confirmed': True,
-                    'choch_detected': False,
-                    'bos_detected': False,
-                    'entry_price': float(current_price),
-                    'entry_timeframe': '1H',
-                    'entry_type': 'CURRENT_PRICE',
-                    'entry_at_key_level': False,
-                    'confirmations': 1  # Minimal confirmation
-                }
+                return None
             
-            # Get entry price at key level (or use current price as fallback)
-            entry_price = Decimal(str(entry_analysis.get('entry_price', float(current_price))))
+            # Get entry price at key level
+            entry_price = entry_analysis.get('entry_price')
+            if entry_price is None:
+                return None
             
-            # Step 4: Set SL/TP at next key levels (use fallback if key levels not found)
+            # Step 4: Set SL/TP at next key levels
             sl_tp_levels = self._calculate_sl_tp_from_key_levels(
                 entry_price, 'SELL', support_resistance, entry_analysis
             )
             
-            # If key levels not valid, use fallback percentages
             if not sl_tp_levels.get('valid'):
-                logger.debug(f"No valid key levels for SL/TP for {symbol.symbol}, using fallback percentages")
-                stop_loss_price = entry_price * Decimal(str(1 + self.fallback_stop_loss_percentage))
-                take_profit_price = entry_price * Decimal(str(1 - self.fallback_take_profit_percentage))
-                sl_tp_levels = {
-                    'valid': True,
-                    'stop_loss': stop_loss_price,
-                    'take_profit': take_profit_price,
-                    'sl_at_key_level': False,
-                    'tp_at_key_level': False
-                }
+                logger.debug(f"Invalid SL/TP levels for {symbol.symbol}")
+                return None
             
             stop_loss_price = sl_tp_levels.get('stop_loss')
             take_profit_price = sl_tp_levels.get('take_profit')
@@ -401,14 +322,8 @@ class EnhancedSignalGenerationService:
                 trend_4h, entry_analysis, support_resistance, risk_reward_ratio
             )
             
-            # Lower confidence threshold when using fallback entry (no CHoCH/BOS)
-            min_confidence = self.min_confidence_threshold * 0.8 if not entry_analysis.get('choch_detected') else self.min_confidence_threshold
-            if confidence < min_confidence:
-                logger.debug(f"Confidence too low for {symbol.symbol}: {confidence:.2f} < {min_confidence:.2f}")
+            if confidence < self.min_confidence_threshold:
                 return None
-            
-            # Calculate technical score for the signal
-            technical_score = self._calculate_technical_score_with_strategy(symbol, 'SELL')
             
             return {
                 'symbol': symbol,
@@ -422,8 +337,6 @@ class EnhancedSignalGenerationService:
                 'entry_point_type': entry_analysis.get('entry_type', 'KEY_LEVEL'),
                 'strength': 'STRONG' if confidence > 0.75 else 'MODERATE',
                 'strategy_confirmations': entry_analysis.get('confirmations', 0),
-                'quality_score': confidence,  # Add quality_score for scoring
-                'technical_score': technical_score,  # Add technical_score for saving
                 'strategy_details': {
                     'trend_4h': trend_4h.get('direction'),
                     'trend_strength': trend_4h.get('strength', 0),
@@ -495,7 +408,6 @@ class EnhancedSignalGenerationService:
             'entry_point_type': entry_point_type,
             'strength': 'STRONG',
             'technical_score': technical_score,
-            'quality_score': confidence,  # Add quality_score for scoring
             'strategy_confirmations': entry_confirmation.get('confirmations', 0),
             'strategy_details': {
                 'daily_trend': daily_trend.get('direction'),
@@ -562,7 +474,6 @@ class EnhancedSignalGenerationService:
             'entry_point_type': entry_point_type,
             'strength': 'STRONG',
             'technical_score': technical_score,
-            'quality_score': confidence,  # Add quality_score for scoring
             'strategy_confirmations': entry_confirmation.get('confirmations', 0),
             'strategy_details': {
                 'daily_trend': daily_trend.get('direction'),
@@ -671,12 +582,11 @@ class EnhancedSignalGenerationService:
             return None, 'ERROR'
 
     def _identify_support_resistance_levels(self, symbol: Symbol, timeframes: List[str]) -> Dict:
-        """Step 1: Identify support and resistance levels on 1D or 4H timeframe (fallback to 1H if not available)"""
+        """Step 1: Identify support and resistance levels on 1D or 4H timeframe"""
         try:
             all_support_levels = []
             all_resistance_levels = []
             
-            # Try requested timeframes first
             for timeframe in timeframes:
                 # Get market data for timeframe
                 market_data = self._get_timeframe_market_data(symbol, timeframe)
@@ -703,27 +613,6 @@ class EnhancedSignalGenerationService:
                 all_resistance_levels.extend([r['price'] for r in resistance_levels])
                 all_support_levels.extend([s['price'] for s in support_levels])
             
-            # If no levels found, try 1H as fallback
-            if not all_support_levels and not all_resistance_levels:
-                logger.debug(f"No support/resistance found on {timeframes}, trying 1H fallback for {symbol.symbol}")
-                market_data_1h = self._get_timeframe_market_data(symbol, '1H')
-                if market_data_1h and len(market_data_1h) >= self.support_resistance_lookback:
-                    highs = [float(d['high']) for d in market_data_1h]
-                    lows = [float(d['low']) for d in market_data_1h]
-                    closes = [float(d['close']) for d in market_data_1h]
-                    
-                    swing_highs = self._find_swing_highs(highs, closes)
-                    swing_lows = self._find_swing_lows(lows, closes)
-                    
-                    resistance_levels = self._cluster_levels(swing_highs, self.level_tolerance)
-                    support_levels = self._cluster_levels(swing_lows, self.level_tolerance)
-                    
-                    resistance_levels = [r for r in resistance_levels if r['touches'] >= self.min_touches_for_level]
-                    support_levels = [s for s in support_levels if s['touches'] >= self.min_touches_for_level]
-                    
-                    all_resistance_levels.extend([r['price'] for r in resistance_levels])
-                    all_support_levels.extend([s['price'] for s in support_levels])
-            
             # Remove duplicates and sort
             all_resistance_levels = sorted(set(all_resistance_levels), reverse=True)
             all_support_levels = sorted(set(all_support_levels))
@@ -731,7 +620,7 @@ class EnhancedSignalGenerationService:
             return {
                 'support_levels': all_support_levels,
                 'resistance_levels': all_resistance_levels,
-                'timeframes_analyzed': timeframes + (['1H'] if not all_support_levels and not all_resistance_levels else [])
+                'timeframes_analyzed': timeframes
             }
             
         except Exception as e:
@@ -739,15 +628,11 @@ class EnhancedSignalGenerationService:
             return {'support_levels': [], 'resistance_levels': []}
     
     def _analyze_trend_4h(self, symbol: Symbol) -> Dict:
-        """Step 2: Analyze 4H timeframe to determine trend direction (fallback to 1H if 4H not available)"""
+        """Step 2: Analyze 4H timeframe to determine trend direction"""
         try:
             market_data = self._get_timeframe_market_data(symbol, '4H')
-            # Fallback to 1H if 4H data not available
             if not market_data or len(market_data) < 20:
-                logger.debug(f"No 4H data for {symbol.symbol}, using 1H fallback")
-                market_data = self._get_timeframe_market_data(symbol, '1H')
-                if not market_data or len(market_data) < 20:
-                    return {'direction': 'NEUTRAL', 'strength': 0.0}
+                return {'direction': 'NEUTRAL', 'strength': 0.0}
             
             prices = [float(d['close']) for d in market_data]
             highs = [float(d['high']) for d in market_data]
@@ -1225,40 +1110,28 @@ class EnhancedSignalGenerationService:
             trend_strength = trend_4h.get('strength', 0)
             confidence += trend_strength * 0.2
             
-            # CHoCH + BOS confirmation (bonus if detected, but not required)
+            # CHoCH + BOS confirmation
             if entry_analysis.get('choch_detected') and entry_analysis.get('bos_detected'):
                 confidence += 0.2
-            elif entry_analysis.get('choch_detected') or entry_analysis.get('bos_detected'):
-                # Partial bonus if only one detected
-                confidence += 0.1
             
-            # Entry at key level (bonus if at key level)
+            # Entry at key level
             if entry_analysis.get('entry_at_key_level'):
                 confidence += 0.1
-            else:
-                # Still give some confidence even without key level (fallback mode)
-                confidence += 0.05
             
             # Confirmations bonus
             confirmations = entry_analysis.get('confirmations', 0)
-            if confirmations > 0:
-                confidence += (min(confirmations, 4) / 4) * 0.1
-            else:
-                # Minimum confirmation bonus for fallback entries
-                confidence += 0.05
+            confidence += (confirmations / 4) * 0.1
             
             # Risk/reward bonus
             if risk_reward_ratio >= 2.0:
                 confidence += 0.1
             elif risk_reward_ratio >= 1.5:
                 confidence += 0.05
-            elif risk_reward_ratio >= 1.2:
-                confidence += 0.02  # Small bonus for decent R/R
             
-            return min(0.95, max(0.6, confidence))  # Ensure minimum 0.6 confidence
+            return min(0.95, confidence)
             
         except:
-            return 0.65  # Higher fallback confidence
+            return 0.6
     
     def _analyze_daily_trend_for_strategy(self, symbol: Symbol) -> Dict:
         """Analyze daily trend using YOUR STRATEGY (1D timeframe)"""
@@ -1819,7 +1692,7 @@ class EnhancedSignalGenerationService:
             return False
     
     def _select_best_signals(self, all_signals: List[Dict]) -> List[Dict]:
-        """Select the best 10 signals from ALL signal types (BUY and SELL) - PRIORITIZING YOUR PERSONAL STRATEGY"""
+        """Select the best 10 signals - PRIORITIZING YOUR PERSONAL STRATEGY"""
         if not all_signals:
             return []
         
@@ -1827,9 +1700,7 @@ class EnhancedSignalGenerationService:
         def signal_score(signal):
             # YOUR STRATEGY BONUS (50% weight) - Signals using your strategy get massive boost
             strategy_details = signal.get('strategy_details', {})
-            strategy_name = strategy_details.get('strategy', '')
-            # Recognize both PERSONAL_STRATEGY and PERSONAL_STRATEGY_MULTI_TIMEFRAME
-            is_personal_strategy = strategy_name in ['PERSONAL_STRATEGY', 'PERSONAL_STRATEGY_MULTI_TIMEFRAME']
+            is_personal_strategy = strategy_details.get('strategy') == 'PERSONAL_STRATEGY'
             strategy_bonus = 0.5 if is_personal_strategy else 0.0
             
             # Strategy confirmations bonus (10% weight)
@@ -1855,54 +1726,16 @@ class EnhancedSignalGenerationService:
         
         sorted_signals = sorted(all_signals, key=signal_score, reverse=True)
         
-        # Select top signals, ensuring diversity in BOTH symbols AND signal types
+        # Select top signals, ensuring diversity
         best_signals = []
         used_symbols = set()
-        buy_count = 0
-        sell_count = 0
-        
-        # Target: at least 3-4 of each type if possible, but prioritize quality
-        max_per_type = max(5, self.best_signals_count // 2)  # At least half can be one type
         
         for signal in sorted_signals:
             symbol_name = signal['symbol'].symbol if hasattr(signal['symbol'], 'symbol') else str(signal['symbol'])
-            signal_type = signal.get('signal_type', '')
-            is_buy = signal_type in ['BUY', 'STRONG_BUY']
-            is_sell = signal_type in ['SELL', 'STRONG_SELL']
-            
-            # Skip if symbol already used
-            if symbol_name in used_symbols:
-                continue
-            
-            # Ensure diversity in signal types
-            if is_buy and buy_count >= max_per_type:
-                continue
-            if is_sell and sell_count >= max_per_type:
-                continue
-            
-            # Add signal
-            best_signals.append(signal)
-            used_symbols.add(symbol_name)
-            if is_buy:
-                buy_count += 1
-            elif is_sell:
-                sell_count += 1
-            
-            # Stop when we have enough signals
-            if len(best_signals) >= self.best_signals_count:
-                break
+            if symbol_name not in used_symbols and len(best_signals) < self.best_signals_count:
+                best_signals.append(signal)
+                used_symbols.add(symbol_name)
         
-        # If we don't have enough signals, fill remaining slots without type restrictions
-        if len(best_signals) < self.best_signals_count:
-            for signal in sorted_signals:
-                if len(best_signals) >= self.best_signals_count:
-                    break
-                symbol_name = signal['symbol'].symbol if hasattr(signal['symbol'], 'symbol') else str(signal['symbol'])
-                if symbol_name not in used_symbols:
-                    best_signals.append(signal)
-                    used_symbols.add(symbol_name)
-        
-        logger.info(f"Selected {len(best_signals)} best signals: {buy_count} BUY, {sell_count} SELL")
         return best_signals
     
     def _get_news_score_for_signal_dict(self, signal: Dict) -> float:
@@ -1968,13 +1801,10 @@ class EnhancedSignalGenerationService:
     def _archive_old_signals(self):
         """Archive old signals to history and remove duplicates"""
         try:
-            # Get current hour start - archive signals from previous hours
-            current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
-            
-            # Mark old signals as executed/archived (signals from previous hours)
+            # Mark old signals as executed/archived
             old_signals = TradingSignal.objects.filter(
                 is_valid=True,
-                created_at__lt=current_hour_start
+                created_at__lt=timezone.now() - timedelta(hours=self.signal_refresh_hours)
             )
             
             archived_count = 0
@@ -1985,24 +1815,21 @@ class EnhancedSignalGenerationService:
                 signal.save()
                 archived_count += 1
             
-            logger.info(f"Archived {archived_count} old signals from previous hours")
+            logger.info(f"Archived {archived_count} old signals")
             
-            # Remove duplicate active signals (keep only the latest for each symbol in current hour)
+            # Remove duplicate active signals (keep only the latest for each symbol)
             self._remove_duplicate_active_signals()
             
         except Exception as e:
             logger.error(f"Error archiving old signals: {e}")
     
     def _remove_duplicate_active_signals(self):
-        """Remove duplicate active signals, keeping only the latest for each symbol in current hour"""
+        """Remove duplicate active signals, keeping only the latest for each symbol"""
         try:
-            # Get current hour start time
-            current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
-            
-            # Get all active signals from current hour grouped by symbol
+            # Get all active signals grouped by symbol
             active_signals = TradingSignal.objects.filter(
                 is_valid=True,
-                created_at__gte=current_hour_start
+                created_at__gte=timezone.now() - timedelta(hours=self.signal_refresh_hours)
             ).order_by('symbol', '-created_at')
             
             # Track symbols we've seen and remove duplicates

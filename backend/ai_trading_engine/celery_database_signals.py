@@ -75,19 +75,19 @@ app.conf.update(
             'priority': 3,
         },
         
-        # NEW: Database-driven signal generation (every 30 minutes)
-        'generate-database-signals': {
-            'task': 'apps.signals.database_signal_tasks.generate_database_signals_task',
-            'schedule': crontab(minute='*/30'),  # Every 30 minutes
-            'priority': 9,
-        },
+        # DISABLED: Database-driven signal generation (run via run_signal_generation.py script instead)
+        # 'generate-database-signals': {
+        #     'task': 'apps.signals.database_signal_tasks.generate_database_signals_task',
+        #     'schedule': crontab(minute='*/30'),  # Every 30 minutes
+        #     'priority': 9,
+        # },
         
-        # NEW: Hybrid signal generation (every 15 minutes with fallback)
-        'generate-hybrid-signals': {
-            'task': 'apps.signals.database_signal_tasks.generate_hybrid_signals_task',
-            'schedule': crontab(minute='*/15'),  # Every 15 minutes
-            'priority': 8,
-        },
+        # DISABLED: Hybrid signal generation (run via run_signal_generation.py script instead)
+        # 'generate-hybrid-signals': {
+        #     'task': 'apps.signals.database_signal_tasks.generate_hybrid_signals_task',
+        #     'schedule': crontab(minute='*/15'),  # Every 15 minutes
+        #     'priority': 8,
+        # },
         
         # NEW: Data quality validation (every 15 minutes)
         'validate-database-quality': {
@@ -150,20 +150,6 @@ app.conf.update(
             'task': 'apps.signals.database_signal_tasks.update_database_signal_statistics',
             'schedule': crontab(minute=0),  # Every hour at minute 0
             'priority': 5,
-        },
-        
-        # NEW: Archive all generated signals to history (every hour)
-        'archive-signals-to-history-hourly': {
-            'task': 'apps.signals.enhanced_tasks.archive_signals_to_history_hourly_task',
-            'schedule': crontab(minute=0),  # Every hour at minute 0
-            'priority': 6,
-        },
-        
-        # NEW: Generate enhanced signals hourly (at the start of each hour)
-        'generate-enhanced-signals-hourly': {
-            'task': 'apps.signals.enhanced_tasks.generate_enhanced_signals_hourly_task',
-            'schedule': crontab(minute=0),  # Every hour at minute 0
-            'priority': 9,
         },
         
         # NEW: Technical indicators quality validation (every 4 hours)
