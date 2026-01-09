@@ -815,18 +815,90 @@ function generateSignals() {
                 symbol: symbol
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            // Check if response is ok
+            if (!response.ok) {
+                // Try to parse error response
+                return response.json().then(data => {
+                    throw { ...data, status: response.status };
+                }).catch(() => {
+                    throw { 
+                        error: `Server error (${response.status})`, 
+                        error_type: 'http_error',
+                        status: response.status 
+                    };
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                showNotification(`Successfully generated ${data.signals_generated} signals for ${data.symbol}!`, 'success');
+                const message = data.message || `Successfully generated ${data.signals_generated} signals for ${data.symbol}!`;
+                showNotification(message, 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showNotification('Error generating signals: ' + (data.error || 'Unknown error'), 'danger');
+                // Handle different error types with specific messages
+                let errorMessage = data.error || 'Unknown error occurred';
+                const errorType = data.error_type || 'unknown_error';
+                
+                // Provide user-friendly error messages based on error type
+                switch(errorType) {
+                    case 'database_connection_error':
+                    case 'database_error':
+                        errorMessage = 'Database connection issue. Please wait a moment and try again.';
+                        break;
+                    case 'symbol_not_found':
+                        errorMessage = `Symbol "${symbol}" not found. Please check the symbol name.`;
+                        break;
+                    case 'symbol_inactive':
+                        errorMessage = `Symbol "${symbol}" is currently inactive.`;
+                        break;
+                    case 'data_unavailable':
+                        errorMessage = `Insufficient market data for "${symbol}". Data may need to be updated first.`;
+                        break;
+                    case 'timeout_error':
+                        errorMessage = 'Signal generation timed out. Please try again.';
+                        break;
+                    case 'invalid_json':
+                        errorMessage = 'Invalid request format. Please refresh the page and try again.';
+                        break;
+                    default:
+                        // Use the error message from server if available
+                        if (data.details) {
+                            errorMessage = `${errorMessage}. ${data.details}`;
+                        }
+                }
+                
+                console.error('Signal generation error:', {
+                    error: data.error,
+                    error_type: errorType,
+                    details: data.details,
+                    status: data.status
+                });
+                
+                showNotification(errorMessage, 'danger');
             }
         })
         .catch(error => {
             console.error('Error generating signals:', error);
-            showNotification('Error generating signals. Please try again.', 'danger');
+            
+            // Handle network errors
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                showNotification('Network error. Please check your connection and try again.', 'danger');
+            } else if (error.status === 503) {
+                showNotification('Service temporarily unavailable. Please try again in a moment.', 'warning');
+            } else if (error.status === 504) {
+                showNotification('Request timed out. Please try again.', 'warning');
+            } else if (error.error) {
+                // Error object from server
+                let errorMessage = error.error || 'An error occurred';
+                if (error.details) {
+                    errorMessage += '. ' + error.details;
+                }
+                showNotification(errorMessage, 'danger');
+            } else {
+                showNotification('Error generating signals. Please try again or contact support if the issue persists.', 'danger');
+            }
         });
     }
 }

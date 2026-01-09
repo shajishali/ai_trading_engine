@@ -1401,9 +1401,21 @@ def execute_signal(request, signal_id):
 @require_http_methods(["POST"])
 @login_required
 def generate_signals_manual(request):
-    """Manually trigger signal generation"""
+    """Manually trigger signal generation with improved error handling for deployment"""
+    import time
+    from django.db import connection, OperationalError, DatabaseError
+    
     try:
-        data = json.loads(request.body)
+        # Parse request data
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in request body: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON in request body'
+            }, status=400)
+        
         symbol_name = data.get('symbol')
         
         if not symbol_name:
@@ -1412,42 +1424,191 @@ def generate_signals_manual(request):
                 'error': 'Symbol is required'
             }, status=400)
         
-        # Get symbol
-        try:
-            symbol = Symbol.objects.get(symbol__iexact=symbol_name)
-        except Symbol.DoesNotExist:
+        # Test database connection with retry logic
+        max_db_retries = 3
+        retry_delay = 0.5
+        db_connected = False
+        
+        for attempt in range(max_db_retries):
+            try:
+                # Test connection with a simple query
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    cursor.fetchone()
+                db_connected = True
+                break
+            except (OperationalError, DatabaseError) as db_error:
+                error_msg = str(db_error).lower()
+                logger.warning(f"Database connection test failed (attempt {attempt + 1}/{max_db_retries}): {db_error}")
+                
+                # Close all connections to force reconnect
+                try:
+                    from django.db import connections
+                    connections.close_all()
+                except:
+                    pass
+                
+                if attempt < max_db_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logger.error(f"Database connection failed after {max_db_retries} attempts: {db_error}")
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Database connection failed. Please try again in a moment.',
+                        'error_type': 'database_connection_error'
+                    }, status=503)
+        
+        if not db_connected:
             return JsonResponse({
                 'success': False,
-                'error': f'Symbol {symbol_name} not found'
-            }, status=404)
+                'error': 'Unable to connect to database',
+                'error_type': 'database_connection_error'
+            }, status=503)
         
-        # Generate signals
-        signal_service = SignalGenerationService()
-        signals = signal_service.generate_signals_for_symbol(symbol)
+        # Get symbol with retry logic
+        symbol = None
+        for attempt in range(max_db_retries):
+            try:
+                symbol = Symbol.objects.get(symbol__iexact=symbol_name)
+                break
+            except Symbol.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Symbol {symbol_name} not found in database',
+                    'error_type': 'symbol_not_found'
+                }, status=404)
+            except (OperationalError, DatabaseError) as db_error:
+                logger.warning(f"Error fetching symbol (attempt {attempt + 1}/{max_db_retries}): {db_error}")
+                if attempt < max_db_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logger.error(f"Failed to fetch symbol after {max_db_retries} attempts: {db_error}")
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Database error while fetching symbol. Please try again.',
+                        'error_type': 'database_error'
+                    }, status=503)
+        
+        if not symbol:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to retrieve symbol',
+                'error_type': 'symbol_retrieval_error'
+            }, status=500)
+        
+        # Check if symbol is active
+        if not symbol.is_active:
+            logger.warning(f"Attempted to generate signals for inactive symbol: {symbol_name}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Symbol {symbol_name} is not active',
+                'error_type': 'symbol_inactive'
+            }, status=400)
+        
+        # Generate signals with error handling
+        try:
+            logger.info(f"Starting signal generation for {symbol_name} (user: {request.user.username})")
+            signal_service = SignalGenerationService()
+            signals = signal_service.generate_signals_for_symbol(symbol)
+            logger.info(f"Successfully generated {len(signals)} signals for {symbol_name}")
+        except Exception as gen_error:
+            error_msg = str(gen_error)
+            error_type = type(gen_error).__name__
+            logger.error(
+                f"Error generating signals for {symbol_name}: {error_msg}",
+                exc_info=True,
+                extra={
+                    'symbol': symbol_name,
+                    'user': request.user.username,
+                    'error_type': error_type,
+                    'error_message': error_msg
+                }
+            )
+            
+            # Provide more specific error messages
+            if 'database' in error_msg.lower() or 'connection' in error_msg.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Database error during signal generation. Please try again.',
+                    'error_type': 'database_error',
+                    'details': 'The signal generation process encountered a database issue.'
+                }, status=503)
+            elif 'timeout' in error_msg.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Signal generation timed out. The operation took too long.',
+                    'error_type': 'timeout_error',
+                    'details': 'Please try again or contact support if the issue persists.'
+                }, status=504)
+            elif 'market data' in error_msg.lower() or 'no data' in error_msg.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Insufficient market data for {symbol_name}. Please ensure data is available.',
+                    'error_type': 'data_unavailable',
+                    'details': 'Market data may need to be updated before generating signals.'
+                }, status=400)
+            else:
+                # Generic error with sanitized message for security
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Error generating signals: {error_msg[:200]}',  # Limit error message length
+                    'error_type': error_type,
+                    'details': 'An unexpected error occurred during signal generation.'
+                }, status=500)
         
         # Invalidate related caches to ensure data consistency
-        cache_keys_to_delete = [
-            "signal_statistics",
-            f"signals_api_{symbol.symbol}_None_true_50",
-            f"signals_api_None_None_true_50"
-        ]
+        try:
+            cache_keys_to_delete = [
+                "signal_statistics",
+                f"signals_api_{symbol.symbol}_None_true_50",
+                f"signals_api_None_None_true_50"
+            ]
+            
+            for cache_key in cache_keys_to_delete:
+                try:
+                    cache.delete(cache_key)
+                    logger.debug(f"Invalidated cache key: {cache_key}")
+                except Exception as cache_error:
+                    logger.warning(f"Failed to invalidate cache key {cache_key}: {cache_error}")
+        except Exception as cache_error:
+            logger.warning(f"Error invalidating caches: {cache_error}")
+            # Don't fail the request if cache invalidation fails
         
-        for cache_key in cache_keys_to_delete:
-            cache.delete(cache_key)
-            logger.info(f"Invalidated cache key: {cache_key}")
-        
+        # Return success response
         return JsonResponse({
             'success': True,
             'symbol': symbol.symbol,
             'signals_generated': len(signals),
-            'signals': [signal.id for signal in signals]
+            'signals': [signal.id for signal in signals] if signals else [],
+            'message': f'Successfully generated {len(signals)} signal(s) for {symbol.symbol}'
         })
         
-    except Exception as e:
-        logger.error(f"Error generating signals manually: {e}")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error in generate_signals_manual: {e}")
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'Invalid request format',
+            'error_type': 'invalid_json'
+        }, status=400)
+    except Exception as e:
+        error_msg = str(e)
+        error_type = type(e).__name__
+        logger.error(
+            f"Unexpected error in generate_signals_manual: {error_msg}",
+            exc_info=True,
+            extra={
+                'error_type': error_type,
+                'error_message': error_msg,
+                'user': request.user.username if hasattr(request, 'user') else 'unknown'
+            }
+        )
+        return JsonResponse({
+            'success': False,
+            'error': 'An unexpected error occurred. Please try again or contact support.',
+            'error_type': 'unexpected_error',
+            'details': error_msg[:200] if settings.DEBUG else 'Internal server error'
         }, status=500)
 
 
