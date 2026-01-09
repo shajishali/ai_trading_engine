@@ -767,6 +767,95 @@
             margin-bottom: 0.4rem;
         }
     }
+    
+    /* Best Signals Button Active State */
+    #best-signals-btn.active {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%) !important;
+        border: 2px solid #ff9800 !important;
+        color: white !important;
+        box-shadow: 0 4px 14px rgba(255, 193, 7, 0.5) !important;
+        font-weight: 600 !important;
+    }
+    
+    #best-signals-btn.active:hover {
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important;
+        box-shadow: 0 6px 20px rgba(255, 152, 0, 0.6) !important;
+        transform: translateY(-2px);
+    }
+    
+    /* Filter Controls Styling */
+    .filter-controls {
+        background: rgba(248, 249, 250, 0.9);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e9ecef;
+    }
+    
+    .filter-controls .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .filter-controls .form-select {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px 14px;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+    
+    .filter-controls .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        outline: none;
+    }
+    
+    /* Best Signals Button Styling */
+    #best-signals-btn {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    #best-signals-btn:not(.active) {
+        background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+        border: 2px solid #0d6efd;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+    }
+    
+    #best-signals-btn:not(.active):hover {
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+        box-shadow: 0 6px 18px rgba(13, 110, 253, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    /* Mobile Responsive Filter Controls */
+    @media (max-width: 768px) {
+        .filter-controls {
+            padding: 15px;
+        }
+        
+        .filter-controls .form-select,
+        .filter-controls .btn {
+            font-size: 0.85rem;
+            padding: 8px 12px;
+        }
+        
+        .filter-controls .d-flex {
+            flex-direction: column;
+            gap: 10px !important;
+        }
+        
+        .filter-controls .d-flex .btn {
+            width: 100%;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -972,6 +1061,47 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filter Controls -->
+                    <div class="filter-controls mb-4">
+                        <div class="row align-items-end">
+                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+                                <label for="symbol-filter" class="form-label">
+                                    <i class="fas fa-filter me-1"></i>Symbol Filter
+                                </label>
+                                <select class="form-select" id="symbol-filter">
+                                    <option value="">All Symbols</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+                                <label for="timeframe-filter" class="form-label">
+                                    <i class="fas fa-clock me-1"></i>Timeframe Filter
+                                </label>
+                                <select class="form-select" id="timeframe-filter">
+                                    <option value="">All Timeframes</option>
+                                    <option value="1M">1 Minute</option>
+                                    <option value="5M">5 Minutes</option>
+                                    <option value="15M">15 Minutes</option>
+                                    <option value="1H">1 Hour</option>
+                                    <option value="4H">4 Hours</option>
+                                    <option value="1D">1 Day</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 col-sm-12">
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-primary" id="best-signals-btn" onclick="showBestSignals()">
+                                        <i class="fas fa-star me-2"></i>Best Signals
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">
+                                        <i class="fas fa-redo me-2"></i>Reset Filters
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="loadSignals()">
+                                        <i class="fas fa-sync-alt me-2"></i>Refresh
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2246,10 +2376,143 @@ function toggleTestMode() {
     statusSpan.textContent = testMode ? 'ON' : 'OFF';
 }
 
+// Show best signals of the day (with toggle functionality)
+function showBestSignals() {
+    try {
+        const bestSignalsBtn = document.getElementById('best-signals-btn');
+        const isActive = bestSignalsBtn && bestSignalsBtn.classList.contains('active');
+        
+        // If already active, toggle off and show all signals
+        if (isActive) {
+            resetFilters();
+            return;
+        }
+        
+        // Get today's date (start of day in UTC)
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        const todayStart = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        
+        // Filter signals created today
+        const todaySignals = signalsData.filter(signal => {
+            if (!signal.created_at) return false;
+            
+            // Parse the created_at date (it can be in various formats)
+            const signalDate = new Date(signal.created_at);
+            signalDate.setUTCHours(0, 0, 0, 0);
+            const signalDateStr = signalDate.toISOString().split('T')[0];
+            
+            return signalDateStr === todayStart;
+        });
+        
+        if (todaySignals.length === 0) {
+            showNotification('No signals found for today. Showing best signals of all time instead.', 'info');
+            // Fallback: show all signals sorted by combined score (best signals overall)
+            const sortedSignals = [...signalsData].sort((a, b) => {
+                // Calculate combined score: confidence (50%) + quality (30%) + risk/reward (20%)
+                const scoreA = (a.confidence_score || 0) * 0.5 + 
+                              (a.quality_score || 0) * 0.3 + 
+                              (a.risk_reward_ratio || 0) * 0.2;
+                const scoreB = (b.confidence_score || 0) * 0.5 + 
+                              (b.quality_score || 0) * 0.3 + 
+                              (b.risk_reward_ratio || 0) * 0.2;
+                return scoreB - scoreA;
+            });
+            
+            const topBestSignals = sortedSignals.slice(0, 20); // Top 20 best signals
+            
+            displaySignals(topBestSignals);
+            updateSignalCount(topBestSignals.length);
+            updateSignalsChart(topBestSignals);
+            
+            // Update button state
+            if (bestSignalsBtn) {
+                bestSignalsBtn.classList.add('active');
+                bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals (All Time)';
+            }
+            return;
+        }
+        
+        // Sort by combined score: confidence (50%) + quality (30%) + risk/reward (20%)
+        const bestSignals = todaySignals.sort((a, b) => {
+            // Calculate combined score for each signal
+            const scoreA = (a.confidence_score || 0) * 0.5 + 
+                          (a.quality_score || 0) * 0.3 + 
+                          (a.risk_reward_ratio || 0) * 0.2;
+            const scoreB = (b.confidence_score || 0) * 0.5 + 
+                          (b.quality_score || 0) * 0.3 + 
+                          (b.risk_reward_ratio || 0) * 0.2;
+            
+            return scoreB - scoreA; // Sort descending (best first)
+        });
+        
+        // Show top 20 best signals of today
+        const topBestSignals = bestSignals.slice(0, 20);
+        
+        // Display filtered signals
+        displaySignals(topBestSignals);
+        
+        // Update count
+        updateSignalCount(topBestSignals.length);
+        
+        // Update chart with filtered data
+        updateSignalsChart(topBestSignals);
+        
+        // Show notification
+        showNotification(`Showing ${topBestSignals.length} best signals of today! Sorted by highest confidence, quality, and risk/reward ratio.`, 'success');
+        
+        // Update button state
+        if (bestSignalsBtn) {
+            bestSignalsBtn.classList.add('active');
+            bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals (Today)';
+        }
+        
+        // Clear other filters
+        const symbolFilterEl = document.getElementById('symbol-filter');
+        const timeframeFilterEl = document.getElementById('timeframe-filter');
+        if (symbolFilterEl) symbolFilterEl.value = '';
+        if (timeframeFilterEl) timeframeFilterEl.value = '';
+        
+    } catch (error) {
+        console.error('Error showing best signals:', error);
+        showNotification('Error loading best signals. Please try again.', 'danger');
+    }
+}
+
+// Reset all filters
+function resetFilters() {
+    // Reset filter dropdowns
+    const symbolFilterEl = document.getElementById('symbol-filter');
+    const timeframeFilterEl = document.getElementById('timeframe-filter');
+    if (symbolFilterEl) symbolFilterEl.value = '';
+    if (timeframeFilterEl) timeframeFilterEl.value = '';
+    
+    // Reset best signals button
+    const bestSignalsBtn = document.getElementById('best-signals-btn');
+    if (bestSignalsBtn) {
+        bestSignalsBtn.classList.remove('active');
+        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals';
+    }
+    
+    // Display all signals
+    displaySignals(signalsData);
+    updateSignalCount(signalsData.length);
+    updateSignalsChart(signalsData);
+    
+    showNotification('Filters reset. Showing all signals.', 'info');
+}
+
 // Filter signals by symbol and timeframe
 function filterSignals() {
     const symbolFilterEl = document.getElementById('symbol-filter');
     const timeframeFilterEl = document.getElementById('timeframe-filter');
+    
+    // If best signals button is active, deactivate it
+    const bestSignalsBtn = document.getElementById('best-signals-btn');
+    if (bestSignalsBtn && bestSignalsBtn.classList.contains('active')) {
+        bestSignalsBtn.classList.remove('active');
+        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals';
+    }
     
     const symbolFilter = symbolFilterEl ? symbolFilterEl.value : '';
     const timeframeFilter = timeframeFilterEl ? timeframeFilterEl.value : '';
