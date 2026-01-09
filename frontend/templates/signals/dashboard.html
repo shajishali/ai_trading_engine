@@ -266,7 +266,45 @@
         border-left: 4px solid #6c757d;
     }
     
-    /* Responsive table */
+    /* Responsive table - Enhanced Mobile Support */
+    @media (max-width: 576px) {
+        .table-responsive {
+            font-size: 0.75rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        #signals-table {
+            min-width: 800px; /* Force horizontal scroll on very small screens */
+        }
+        
+        #signals-table thead th {
+            padding: 10px 6px !important;
+            font-size: 0.7rem;
+        }
+        
+        #signals-table tbody td {
+            padding: 10px 6px !important;
+            font-size: 0.75rem;
+        }
+        
+        .badge {
+            padding: 4px 8px;
+            font-size: 0.65rem;
+        }
+        
+        /* Stack filter controls on mobile */
+        .filter-controls {
+            flex-direction: column;
+        }
+        
+        .filter-controls .form-control,
+        .filter-controls .btn {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    }
+    
     @media (max-width: 768px) {
         .table-responsive {
             font-size: 0.9rem;
