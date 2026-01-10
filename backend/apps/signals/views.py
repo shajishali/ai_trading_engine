@@ -139,11 +139,19 @@ class SignalAPIView(View):
                     if valid_count == 0:
                         # No valid signals, show recent ones (last 48 hours) regardless of validity/execution status
                         logger.info("No valid signals found, showing recent signals from last 48 hours (including invalid/executed)")
+                        # Reset queryset to base query (without is_valid filter) for fallback
+                        queryset = TradingSignal.objects.select_related('symbol', 'signal_type')
+                        if symbol:
+                            queryset = queryset.filter(symbol__symbol__iexact=symbol)
+                        if signal_type:
+                            queryset = queryset.filter(signal_type__name=signal_type)
+                        # Apply time filter for recent signals
                         queryset = queryset.filter(
                             created_at__gte=timezone.now() - timedelta(hours=48)
                         ).order_by('-created_at')
                     else:
-                        queryset = valid_signals.filter(is_valid=True)
+                        # Use valid signals queryset directly
+                        queryset = valid_signals
                 else:
                     queryset = queryset.filter(is_valid=is_valid)
                 
@@ -1811,6 +1819,21 @@ def signals_diagnostic(request):
     """Diagnostic endpoint to check signals database status"""
     try:
         from django.db import connection
+        from datetime import timedelta
+        
+        # Test database connection first
+        db_status = 'connected'
+        db_error_detail = None
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            # Test actual query execution
+            test_query = TradingSignal.objects.count()
+        except Exception as db_error:
+            db_status = 'error'
+            db_error_detail = str(db_error)
+            logger.error(f"Database connection error: {db_error}", exc_info=True)
         
         # Get database statistics
         total_signals = TradingSignal.objects.count()
@@ -1818,10 +1841,13 @@ def signals_diagnostic(request):
         invalid_signals = TradingSignal.objects.filter(is_valid=False).count()
         executed_signals = TradingSignal.objects.filter(is_executed=True).count()
         
-        # Get recent signals
-        recent_signals = TradingSignal.objects.order_by('-created_at')[:5]
+        # Get recent signals (last 48 hours) - same query as API fallback
+        recent_48h_signals = TradingSignal.objects.filter(
+            created_at__gte=timezone.now() - timedelta(hours=48)
+        ).order_by('-created_at')[:10]
+        
         recent_signal_data = []
-        for signal in recent_signals:
+        for signal in recent_48h_signals:
             recent_signal_data.append({
                 'id': signal.id,
                 'symbol': signal.symbol.symbol if signal.symbol else None,
@@ -1830,6 +1856,24 @@ def signals_diagnostic(request):
                 'is_executed': signal.is_executed,
                 'created_at': signal.created_at.isoformat() if signal.created_at else None
             })
+        
+        # Test the EXACT query that API uses when no valid signals found
+        queryset = TradingSignal.objects.select_related('symbol', 'signal_type')
+        valid_count = queryset.filter(is_valid=True).count()
+        
+        api_query_result = []
+        if valid_count == 0:
+            # This is the fallback query used in API
+            api_queryset = queryset.filter(
+                created_at__gte=timezone.now() - timedelta(hours=48)
+            ).order_by('-created_at')[:50]
+            api_query_result = list(api_queryset.values(
+                'id', 'is_valid', 'is_executed', 'created_at',
+                'symbol__symbol', 'signal_type__name'
+            )[:10])  # Show first 10
+            api_query_count = api_queryset.count()
+        else:
+            api_query_count = valid_count
         
         # Check cache status
         cache_key = "signals_api_None_None_true_50"
@@ -1840,26 +1884,25 @@ def signals_diagnostic(request):
             'cached_at': cached_data.get('cached_at') if cached_data else None
         }
         
-        # Test database connection
-        db_status = 'connected'
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                cursor.fetchone()
-        except Exception as db_error:
-            db_status = f'error: {str(db_error)}'
-        
         diagnostic_data = {
             'success': True,
             'database': {
                 'status': db_status,
+                'error_detail': db_error_detail,
                 'total_signals': total_signals,
                 'valid_signals': valid_signals,
                 'invalid_signals': invalid_signals,
                 'executed_signals': executed_signals,
+                'recent_48h_count': recent_48h_signals.count(),
+            },
+            'api_query_test': {
+                'valid_count': valid_count,
+                'api_would_use_fallback': valid_count == 0,
+                'api_query_result_count': api_query_count,
+                'api_query_sample': api_query_result[:5],  # First 5 results
             },
             'cache': cache_status,
-            'recent_signals': recent_signal_data,
+            'recent_signals_sample': recent_signal_data,
             'timestamp': timezone.now().isoformat()
         }
         
@@ -1869,5 +1912,6 @@ def signals_diagnostic(request):
         logger.error(f"Error in signals diagnostic: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'error_type': type(e).__name__
         }, status=500)
