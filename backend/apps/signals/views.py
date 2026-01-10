@@ -48,9 +48,10 @@ class SignalAPIView(View):
         cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}"
         cached_data = cache.get(cache_key)
         
-        # Always try to return cached data first if available (even if stale)
-        if cached_data:
-            logger.info(f"Returning cached data for key: {cache_key}")
+        # Only return cached data if it's not empty (empty cache might be stale)
+        # Always check database if cache is empty or if we need fresh data
+        if cached_data and cached_data.get('count', 0) > 0:
+            logger.info(f"Returning cached data for key: {cache_key} with {cached_data.get('count', 0)} signals")
             # Try to get fresh data in background, but return cached immediately
             try:
                 # Attempt to refresh cache in background (non-blocking)
@@ -58,6 +59,10 @@ class SignalAPIView(View):
             except:
                 pass  # Ignore errors in background refresh
             return JsonResponse(cached_data)
+        elif cached_data and cached_data.get('count', 0) == 0:
+            # Cache has empty result - clear it and check database
+            logger.warning(f"Cache has empty result for key: {cache_key}, clearing cache and checking database")
+            cache.delete(cache_key)
         
         # If no cache, try to get fresh data with retry logic
         max_retries = 3
@@ -128,6 +133,16 @@ class SignalAPIView(View):
                 queryset = queryset.filter(is_valid=is_valid)
                 signals = list(queryset.order_by('-created_at')[:limit])
                 
+                # Log query results for debugging
+                logger.info(f"Query executed: symbol={symbol}, signal_type={signal_type}, is_valid={is_valid}, limit={limit}")
+                logger.info(f"Found {len(signals)} signals in database")
+                if len(signals) == 0:
+                    # Check total signals in database for debugging
+                    total_all = TradingSignal.objects.count()
+                    total_valid = TradingSignal.objects.filter(is_valid=True).count()
+                    total_invalid = TradingSignal.objects.filter(is_valid=False).count()
+                    logger.warning(f"No signals found with filters. Total signals in DB: all={total_all}, valid={total_valid}, invalid={total_invalid}")
+                
                 # Get synchronized prices for all symbols
                 from apps.signals.price_sync_service import price_sync_service
                 
@@ -192,8 +207,11 @@ class SignalAPIView(View):
                     'cached_at': timezone.now().isoformat()
                 }
                 
-                # Cache the response for 5 minutes
-                cache.set(cache_key, response_data, 300)
+                # Cache the response for 5 minutes, but only if we have signals
+                # Don't cache empty results for too long (only 60 seconds) to allow quick recovery
+                cache_timeout = 300 if len(signal_data) > 0 else 60
+                cache.set(cache_key, response_data, cache_timeout)
+                logger.info(f"Cached response with {len(signal_data)} signals for {cache_timeout} seconds")
                 
                 return JsonResponse(response_data)
                 
@@ -1706,6 +1724,124 @@ def sync_signal_prices(request):
         
     except Exception as e:
         logger.error(f"Error synchronizing signal prices: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@login_required
+def clear_signals_cache(request):
+    """Clear signals cache - useful when signals are not loading"""
+    try:
+        
+        # Clear all signal-related cache keys
+        cache_keys_to_clear = [
+            "signal_statistics",
+            "signals_api_None_None_true_50",
+            "signals_api_None_None_True_50",
+        ]
+        
+        # Try to find and clear all signals_api_* keys (if possible)
+        # Note: Django cache doesn't support key pattern matching easily,
+        # so we clear known patterns
+        cleared_count = 0
+        for key in cache_keys_to_clear:
+            if cache.get(key):
+                cache.delete(key)
+                cleared_count += 1
+                logger.info(f"Cleared cache key: {key}")
+        
+        # Also try to clear with None values for symbol/signal_type
+        for symbol_val in [None, 'None']:
+            for signal_type_val in [None, 'None']:
+                for is_valid_val in [True, 'True', 'true']:
+                    for limit_val in [50, '50']:
+                        cache_key = f"signals_api_{symbol_val}_{signal_type_val}_{is_valid_val}_{limit_val}"
+                        if cache.get(cache_key):
+                            cache.delete(cache_key)
+                            cleared_count += 1
+                            logger.info(f"Cleared cache key: {cache_key}")
+        
+        logger.info(f"Cleared {cleared_count} cache keys")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Cleared {cleared_count} cache key(s)',
+            'cleared_count': cleared_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error clearing signals cache: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+@login_required
+def signals_diagnostic(request):
+    """Diagnostic endpoint to check signals database status"""
+    try:
+        from django.db import connection
+        
+        # Get database statistics
+        total_signals = TradingSignal.objects.count()
+        valid_signals = TradingSignal.objects.filter(is_valid=True).count()
+        invalid_signals = TradingSignal.objects.filter(is_valid=False).count()
+        executed_signals = TradingSignal.objects.filter(is_executed=True).count()
+        
+        # Get recent signals
+        recent_signals = TradingSignal.objects.order_by('-created_at')[:5]
+        recent_signal_data = []
+        for signal in recent_signals:
+            recent_signal_data.append({
+                'id': signal.id,
+                'symbol': signal.symbol.symbol if signal.symbol else None,
+                'signal_type': signal.signal_type.name if signal.signal_type else None,
+                'is_valid': signal.is_valid,
+                'is_executed': signal.is_executed,
+                'created_at': signal.created_at.isoformat() if signal.created_at else None
+            })
+        
+        # Check cache status
+        cache_key = "signals_api_None_None_true_50"
+        cached_data = cache.get(cache_key)
+        cache_status = {
+            'exists': cached_data is not None,
+            'count': cached_data.get('count', 0) if cached_data else 0,
+            'cached_at': cached_data.get('cached_at') if cached_data else None
+        }
+        
+        # Test database connection
+        db_status = 'connected'
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        except Exception as db_error:
+            db_status = f'error: {str(db_error)}'
+        
+        diagnostic_data = {
+            'success': True,
+            'database': {
+                'status': db_status,
+                'total_signals': total_signals,
+                'valid_signals': valid_signals,
+                'invalid_signals': invalid_signals,
+                'executed_signals': executed_signals,
+            },
+            'cache': cache_status,
+            'recent_signals': recent_signal_data,
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        return JsonResponse(diagnostic_data)
+        
+    except Exception as e:
+        logger.error(f"Error in signals diagnostic: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
             'error': str(e)

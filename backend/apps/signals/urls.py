@@ -22,6 +22,8 @@ urlpatterns = [
     path('api/sync-prices/', views.sync_signal_prices, name='sync_signal_prices'),
     path('api/daily-best-signals/', views.DailyBestSignalsView.as_view(), name='daily_best_signals'),
     path('api/available-dates/', views.AvailableDatesView.as_view(), name='available_dates'),
+    path('api/clear-cache/', views.clear_signals_cache, name='clear_signals_cache'),
+    path('api/diagnostic/', views.signals_diagnostic, name='signals_diagnostic'),
     
     # Backtesting API endpoints
     path('api/backtests/', backtesting_api.BacktestAPIView.as_view(), name='backtest_api'),
