@@ -102,8 +102,16 @@ class SignalGenerationService:
             confidence = final_rec.get('confidence', 0.0)
             
             if action != 'WAIT' and confidence >= self.min_confidence_threshold:
-                # Create signal based on multi-timeframe confluence
-                signal_type = SignalType.BUY if action == 'BUY' else SignalType.SELL
+                # Get or create signal type based on multi-timeframe confluence
+                signal_type_name = 'BUY' if action == 'BUY' else 'SELL'
+                signal_type, created = SignalType.objects.get_or_create(
+                    name=signal_type_name,
+                    defaults={
+                        'description': f'{signal_type_name} signal from multi-timeframe analysis',
+                        'color': '#28a745' if signal_type_name == 'BUY' else '#dc3545',
+                        'is_active': True
+                    }
+                )
                 
                 signal = TradingSignal(
                     symbol=symbol,
