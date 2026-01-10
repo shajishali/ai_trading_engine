@@ -1080,7 +1080,6 @@ class SignalGenerationService:
                 entry_point_details=entry_point_details,
                 entry_zone_low=entry_zone_low,
                 entry_zone_high=entry_zone_high,
-                is_best_of_day=False,
                 entry_confidence=entry_confidence
             )
             
