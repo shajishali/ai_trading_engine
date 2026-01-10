@@ -116,7 +116,8 @@ class SignalGenerationService:
                     strategy='MULTI_TIMEFRAME_CONFLUENCE',
                     reasoning=final_rec.get('reason', 'Multi-timeframe confluence analysis'),
                     expiry_time=timezone.now() + timedelta(hours=self.signal_expiry_hours),
-                    created_at=timezone.now()
+                    created_at=timezone.now(),
+                    is_best_of_day=False
                 )
                 
                 signals.append(signal)
@@ -359,6 +360,7 @@ class SignalGenerationService:
                 technical_score=spot_signal.technical_score,
                 sentiment_score=spot_signal.sentiment_score,
                 is_hybrid=True,
+                is_best_of_day=False,
                 metadata={
                     'spot_signal_id': spot_signal.id,
                     'investment_horizon': spot_signal.investment_horizon,
@@ -1068,6 +1070,7 @@ class SignalGenerationService:
                 sentiment_score=sentiment_score,
                 news_score=news_score,
                 volume_score=volume_score,
+                is_best_of_day=False,
                 pattern_score=pattern_score,
                 economic_score=economic_score,
                 sector_score=sector_score,
@@ -1077,6 +1080,7 @@ class SignalGenerationService:
                 entry_point_details=entry_point_details,
                 entry_zone_low=entry_zone_low,
                 entry_zone_high=entry_zone_high,
+                is_best_of_day=False,
                 entry_confidence=entry_confidence
             )
             
@@ -3753,6 +3757,7 @@ class HistoricalSignalService:
                         expires_at=signal_time + timezone.timedelta(hours=24),
                         created_at=signal_time,
                         is_hybrid=getattr(base_signal, 'is_hybrid', False),
+                        is_best_of_day=False,
                         metadata=getattr(base_signal, 'metadata', {})
                     )
                     
