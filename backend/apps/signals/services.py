@@ -116,15 +116,14 @@ class SignalGenerationService:
                 signal = TradingSignal(
                     symbol=symbol,
                     signal_type=signal_type,
-                    confidence=confidence,
+                    confidence_score=confidence,
                     entry_price=current_price,
                     stop_loss=final_rec.get('stop_loss', current_price * 0.95),
                     target_price=final_rec.get('target', current_price * 1.05),
                     timeframe='MULTI',
-                    strategy='MULTI_TIMEFRAME_CONFLUENCE',
-                    reasoning=final_rec.get('reason', 'Multi-timeframe confluence analysis'),
-                    expiry_time=timezone.now() + timedelta(hours=self.signal_expiry_hours),
-                    created_at=timezone.now(),
+                    notes=final_rec.get('reason', 'Multi-timeframe confluence analysis'),
+                    expires_at=timezone.now() + timedelta(hours=self.signal_expiry_hours),
+                    metadata={'strategy': 'MULTI_TIMEFRAME_CONFLUENCE'},
                     is_best_of_day=False
                 )
                 

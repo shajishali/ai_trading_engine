@@ -497,6 +497,14 @@ def signal_health_check():
             'unread_alerts': unread_alerts,
             'expired_signals': expired_signals
         }
+        
+        logger.info(f"Signal health check completed - Score: {health_score}, Status: {health_status}")
+        
+        return health_metrics
+        
+    except Exception as e:
+        logger.error(f"Error during signal health check: {e}")
+        return {'error': str(e)}
 
 
 @shared_task
@@ -535,11 +543,3 @@ def save_daily_best_signals_task(target_date_str=None, limit=20):
             'success': False,
             'error': str(e)
         }
-        
-        logger.info(f"Signal health check completed - Score: {health_score}, Status: {health_status}")
-        
-        return health_metrics
-        
-    except Exception as e:
-        logger.error(f"Error during signal health check: {e}")
-        return {'error': str(e)}
