@@ -79,7 +79,15 @@ class SignalGenerationService:
                 logger.warning(f"No market data available for {symbol.symbol}")
                 return signals
             
-            current_price = float(market_data.close_price)
+            # Handle both dict and object (dict is returned from _get_latest_market_data)
+            if isinstance(market_data, dict):
+                current_price = float(market_data.get('close_price', 0))
+            else:
+                current_price = float(market_data.close_price)
+            
+            if not current_price or current_price <= 0:
+                logger.warning(f"Invalid price for {symbol.symbol}: {current_price}")
+                return signals
             
             # Get multi-timeframe analysis
             multi_analysis = self.timeframe_service.get_multi_timeframe_analysis(symbol, current_price)
