@@ -130,7 +130,23 @@ class SignalAPIView(View):
                 if signal_type:
                     queryset = queryset.filter(signal_type__name=signal_type)
                 
-                queryset = queryset.filter(is_valid=is_valid)
+                # If no valid signals found and we're looking for valid ones, 
+                # show recent signals (within last 48 hours) even if invalid/executed
+                if is_valid:
+                    valid_signals = queryset.filter(is_valid=True)
+                    valid_count = valid_signals.count()
+                    
+                    if valid_count == 0:
+                        # No valid signals, show recent ones (last 48 hours) regardless of validity/execution status
+                        logger.info("No valid signals found, showing recent signals from last 48 hours (including invalid/executed)")
+                        queryset = queryset.filter(
+                            created_at__gte=timezone.now() - timedelta(hours=48)
+                        ).order_by('-created_at')
+                    else:
+                        queryset = valid_signals.filter(is_valid=True)
+                else:
+                    queryset = queryset.filter(is_valid=is_valid)
+                
                 signals = list(queryset.order_by('-created_at')[:limit])
                 
                 # Log query results for debugging
@@ -747,13 +763,22 @@ class DailyBestSignalsView(View):
                 target_date = timezone.now().date()
             
             # Get best signals for the date
+            # Show best signals even if invalid/executed (historical view)
             best_signals = TradingSignal.objects.filter(
                 is_best_of_day=True,
-                best_of_day_date=target_date,
-                is_valid=True
+                best_of_day_date=target_date
             ).select_related(
                 'symbol', 'signal_type'
             ).order_by('best_of_day_rank')
+            
+            # If no signals for this date, show most recent best signals
+            if best_signals.count() == 0:
+                logger.info(f"No best signals found for {target_date}, showing most recent best signals")
+                best_signals = TradingSignal.objects.filter(
+                    is_best_of_day=True
+                ).select_related(
+                    'symbol', 'signal_type'
+                ).order_by('-best_of_day_date', 'best_of_day_rank')[:10]
             
             # Serialize signals
             signal_data = []
