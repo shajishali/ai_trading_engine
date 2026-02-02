@@ -795,25 +795,35 @@ class DailyBestSignalsView(View):
             
             # Get best signals for the date
             # Show best signals even if invalid/executed (historical view)
-            best_signals = TradingSignal.objects.filter(
+            best_signals_queryset = TradingSignal.objects.filter(
                 is_best_of_day=True,
                 best_of_day_date=target_date
             ).select_related(
                 'symbol', 'signal_type'
-            ).order_by('best_of_day_rank')
+            ).order_by('best_of_day_rank', '-created_at')
             
             # If no signals for this date, show most recent best signals
-            if best_signals.count() == 0:
+            if best_signals_queryset.count() == 0:
                 logger.info(f"No best signals found for {target_date}, showing most recent best signals")
-                best_signals = TradingSignal.objects.filter(
+                best_signals_queryset = TradingSignal.objects.filter(
                     is_best_of_day=True
                 ).select_related(
                     'symbol', 'signal_type'
-                ).order_by('-best_of_day_date', 'best_of_day_rank')[:10]
+                ).order_by('-best_of_day_date', 'best_of_day_rank', '-created_at')[:10]
+            
+            # CRITICAL: Remove duplicates - keep only one signal per symbol+type combination
+            # This ensures no duplicate signals appear even if they exist in database
+            seen_combinations = set()
+            unique_signals = []
+            for signal in best_signals_queryset:
+                combo_key = (signal.symbol.id, signal.signal_type.id)
+                if combo_key not in seen_combinations:
+                    seen_combinations.add(combo_key)
+                    unique_signals.append(signal)
             
             # Serialize signals
             signal_data = []
-            for signal in best_signals:
+            for signal in unique_signals:
                 signal_data.append({
                     'id': signal.id,
                     'symbol': signal.symbol.symbol,
