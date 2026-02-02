@@ -145,18 +145,9 @@ class SignalAPIView(View):
                     valid_count = valid_signals.count()
                     
                     if valid_count == 0:
-                        # No valid signals, show recent ones (last 48 hours) regardless of validity/execution status
-                        logger.info("No valid signals found, showing recent signals from last 48 hours (including invalid/executed)")
-                        # Reset queryset to base query (without is_valid filter) for fallback
-                        queryset = TradingSignal.objects.select_related('symbol', 'signal_type')
-                        if symbol:
-                            queryset = queryset.filter(symbol__symbol__iexact=symbol)
-                        if signal_type:
-                            queryset = queryset.filter(signal_type__name=signal_type)
-                        # Apply time filter for recent signals
-                        queryset = queryset.filter(
-                            created_at__gte=timezone.now() - timedelta(hours=48)
-                        ).order_by('-created_at')
+                        # No valid signals - return empty result instead of showing invalid/old signals
+                        logger.info("No valid signals found, returning empty result")
+                        queryset = TradingSignal.objects.none()  # Return empty queryset
                     else:
                         # Use valid signals queryset directly
                         queryset = valid_signals
