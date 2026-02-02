@@ -330,7 +330,15 @@ class SignalAPIView(View):
                 queryset = queryset.filter(symbol__symbol__iexact=symbol)
             if signal_type:
                 queryset = queryset.filter(signal_type__name=signal_type)
-            queryset = queryset.filter(is_valid=is_valid)
+            # IMPORTANT: keep the background refresh consistent with the main GET logic.
+            # Otherwise it can re-cache expired/old signals and make the UI "go back" to old rows.
+            if is_valid:
+                queryset = queryset.filter(is_valid=True).filter(
+                    Q(expires_at__gte=timezone.now()) |
+                    Q(expires_at__isnull=True, created_at__gte=timezone.now() - timedelta(hours=48))
+                )
+            else:
+                queryset = queryset.filter(is_valid=is_valid)
             signals = list(queryset.order_by('-created_at')[:limit])
             
             # Serialize and cache (same logic as main get method)
