@@ -5,6 +5,7 @@ from celery import shared_task
 from django.utils import timezone
 from django.db.models import Q
 from django.core.management import call_command
+from django.core.cache import cache
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalAlert, SignalPerformance,
@@ -59,6 +60,35 @@ def generate_signals_for_all_symbols():
                 logger.error(f"Error saving signal: {e}")
         
         logger.info(f"Selected and saved top {saved_count} best signals")
+
+        # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
+        # Otherwise, the signals page may continue showing an older cached list for up to 5 minutes,
+        # even though new signals were generated (seen as DB id mismatches).
+        try:
+            cache_keys_to_clear = [
+                "signal_statistics",
+                "signals_api_None_None_true_50",
+                "signals_api_None_None_True_50",
+            ]
+            cleared = 0
+            for key in cache_keys_to_clear:
+                if cache.get(key) is not None:
+                    cache.delete(key)
+                    cleared += 1
+
+            # Also clear a few common variants (mirrors clear-cache endpoint logic)
+            for symbol_val in [None, 'None']:
+                for signal_type_val in [None, 'None']:
+                    for is_valid_val in [True, 'True', 'true']:
+                        for limit_val in [50, '50']:
+                            cache_key = f"signals_api_{symbol_val}_{signal_type_val}_{is_valid_val}_{limit_val}"
+                            if cache.get(cache_key) is not None:
+                                cache.delete(cache_key)
+                                cleared += 1
+
+            logger.info(f"Invalidated {cleared} signal cache key(s) after generation")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate signals cache after generation: {e}")
         
         return {
             'total_signals': total_signals,
