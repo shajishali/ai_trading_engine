@@ -1059,6 +1059,21 @@ class SignalGenerationService:
                 (sector_score + 1.0) / 2.0 * 0.05
             )
             
+            # IMPORTANT: Before creating a new signal, invalidate any existing valid signals
+            # for the same symbol + signal_type to prevent duplicates
+            existing_signals = TradingSignal.objects.filter(
+                symbol=symbol,
+                signal_type=signal_type,
+                is_valid=True,
+                is_executed=False  # Don't invalidate executed signals
+            )
+            
+            if existing_signals.exists():
+                count = existing_signals.count()
+                logger.info(f"Found {count} existing valid signal(s) for {symbol.symbol} + {signal_type.name}. Invalidating before creating new one.")
+                # Invalidate existing signals
+                existing_signals.update(is_valid=False)
+                logger.info(f"Invalidated {count} existing signal(s) for {symbol.symbol} + {signal_type.name}")
 
             # Create signal
             signal = TradingSignal.objects.create(
