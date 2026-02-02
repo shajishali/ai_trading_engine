@@ -1061,22 +1061,26 @@ class SignalGenerationService:
             
             # CRITICAL: Use database transaction with locking to prevent race conditions
             # This ensures only ONE signal per symbol+type can be created at a time
-            # ALSO: Check if this symbol already has a signal TODAY (one signal per coin per day rule)
+            # ALSO: Don't create a new signal if the symbol already has an ACTIVE signal.
             from django.db import transaction
             
-            today = timezone.now().date()
+            now = timezone.now()
+            legacy_cutoff = now - timedelta(hours=48)
             
             with transaction.atomic():
-                # Check if symbol already has ANY signal today (regardless of type)
-                symbol_has_signal_today = TradingSignal.objects.filter(
+                # Check if symbol already has an ACTIVE signal (regardless of type)
+                symbol_has_active_signal = TradingSignal.objects.filter(
                     symbol=symbol,
-                    created_at__date=today,
-                    is_valid=True
+                    is_valid=True,
+                    is_executed=False,
+                ).filter(
+                    Q(expires_at__gte=now) |
+                    Q(expires_at__isnull=True, created_at__gte=legacy_cutoff)
                 ).exists()
-                
-                if symbol_has_signal_today:
-                    logger.info(f"Skipping {symbol.symbol} - already has a signal today (one signal per coin per day rule)")
-                    return None  # Don't create signal for this symbol today
+
+                if symbol_has_active_signal:
+                    logger.info(f"Skipping {symbol.symbol} - already has an active signal")
+                    return None  # Don't create a new signal while one is active
                 
                 # Lock all existing signals for this symbol+type to prevent concurrent creation
                 existing_signals = TradingSignal.objects.select_for_update().filter(

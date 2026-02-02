@@ -37,6 +37,22 @@ def _cleanup_non_binance_futures_signals(valid_base_assets: Set[str]) -> Dict:
         return {"signals_deleted": 0, "error": str(e)}
 
 
+def _active_signal_symbol_ids() -> List[int]:
+    """
+    Return symbol IDs that currently have an active signal.
+    Must match the "active" definition used by the API (views.py):
+    - is_valid=True and (expires_at >= now OR (expires_at is null AND created_at within last 48h))
+    """
+    now = timezone.now()
+    legacy_cutoff = now - timedelta(hours=48)
+    return list(
+        TradingSignal.objects.filter(is_valid=True, is_executed=False).filter(
+            Q(expires_at__gte=now) |
+            Q(expires_at__isnull=True, created_at__gte=legacy_cutoff)
+        ).values_list("symbol_id", flat=True).distinct()
+    )
+
+
 @shared_task
 def generate_signals_for_all_symbols():
     """
@@ -80,11 +96,13 @@ def generate_signals_for_all_symbols():
         if cleanup_stats.get("signals_deleted"):
             logger.warning(f"Deleted {cleanup_stats['signals_deleted']} signal(s) for non-Binance-futures symbols")
     
-    # Get symbols that DON'T have signals today
-    symbols_with_signals_today = TradingSignal.objects.filter(
-        created_at__date=today,
-        is_valid=True
-    ).values_list('symbol_id', flat=True).distinct()
+    # Get symbols that already have an ACTIVE signal (so we don't regenerate them).
+    # This fixes the "same coin keeps showing each hour" issue.
+    symbols_with_active_signals = set()
+    try:
+        symbols_with_active_signals = set(_active_signal_symbol_ids())
+    except Exception as e:
+        logger.warning(f"Could not compute active-signal symbol ids: {e}")
     
     # Get active symbols excluding those that already have signals today
     active_symbols_qs = Symbol.objects.filter(
@@ -95,9 +113,15 @@ def generate_signals_for_all_symbols():
     if valid_base_assets:
         active_symbols_qs = active_symbols_qs.filter(symbol__in=valid_base_assets)
 
-    active_symbols = active_symbols_qs.exclude(id__in=symbols_with_signals_today).order_by('?')  # Random order for variety
+    if symbols_with_active_signals:
+        active_symbols_qs = active_symbols_qs.exclude(id__in=symbols_with_active_signals)
+
+    active_symbols = active_symbols_qs.order_by('?')  # Random order for variety
     
-    logger.info(f"Found {active_symbols.count()} symbols without signals today (excluding {len(symbols_with_signals_today)} that already have signals)")
+    logger.info(
+        f"Found {active_symbols.count()} eligible symbols without ACTIVE signals "
+        f"(excluding {len(symbols_with_active_signals)} that already have active signals)"
+    )
     
     total_signals = 0
     generated_signals = []
