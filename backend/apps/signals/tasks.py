@@ -45,6 +45,42 @@ def generate_signals_for_all_symbols():
     
     logger.info(f"Signal generation completed. Total signals: {total_signals}")
     
+    # CRITICAL: Clean up any duplicates that might have been created due to race conditions
+    # This ensures only the latest signal per symbol+type remains valid
+    try:
+        from django.db.models import Count, Max
+        from django.db import transaction
+        
+        with transaction.atomic():
+            # Find all symbol+type combinations with multiple valid signals
+            duplicates = TradingSignal.objects.values('symbol', 'signal_type').annotate(
+                count=Count('id')
+            ).filter(count__gt=1, is_valid=True, is_executed=False)
+            
+            cleaned_count = 0
+            for dup in duplicates:
+                symbol_id = dup['symbol']
+                signal_type_id = dup['signal_type']
+                
+                # Get all valid signals, keep only the latest
+                all_signals = TradingSignal.objects.filter(
+                    symbol_id=symbol_id,
+                    signal_type_id=signal_type_id,
+                    is_valid=True,
+                    is_executed=False
+                ).order_by('-created_at', '-id')
+                
+                if all_signals.count() > 1:
+                    latest = all_signals.first()
+                    others = all_signals.exclude(id=latest.id)
+                    count = others.update(is_valid=False)
+                    cleaned_count += count
+            
+            if cleaned_count > 0:
+                logger.warning(f"Cleaned up {cleaned_count} duplicate signals after generation")
+    except Exception as e:
+        logger.error(f"Error cleaning up duplicates: {e}")
+    
     # Select top 10 best signals
     if generated_signals:
         from apps.signals.unified_signal_task import _select_top_10_signals

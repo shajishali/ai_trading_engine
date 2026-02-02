@@ -297,39 +297,41 @@ class DatabaseSignalService:
             confidence_score = signal_data.get('confidence', 0.5)
             confidence_level = self._calculate_confidence_level(confidence_score)
             
-            # IMPORTANT: Before creating a new signal, invalidate any existing valid signals
-            # for the same symbol + signal_type to prevent duplicates
-            existing_signals = TradingSignal.objects.filter(
-                symbol=symbol,
-                signal_type=signal_type,
-                is_valid=True,
-                is_executed=False  # Don't invalidate executed signals
-            )
+            # CRITICAL: Use database transaction with locking to prevent race conditions
+            from django.db import transaction
             
-            if existing_signals.exists():
+            with transaction.atomic():
+                # Lock all existing signals for this symbol+type to prevent concurrent creation
+                existing_signals = TradingSignal.objects.select_for_update().filter(
+                    symbol=symbol,
+                    signal_type=signal_type,
+                    is_executed=False  # Don't invalidate executed signals
+                )
+                
+                # Invalidate ALL existing signals (valid or recently created) for this combination
                 count = existing_signals.count()
-                logger.info(f"Found {count} existing valid signal(s) for {symbol.symbol} + {signal_type.name}. Invalidating before creating new one.")
-                # Invalidate existing signals
-                existing_signals.update(is_valid=False)
-                logger.info(f"Invalidated {count} existing signal(s) for {symbol.symbol} + {signal_type.name}")
-            
-            # Create trading signal
-            trading_signal = TradingSignal.objects.create(
-                symbol=symbol,
-                signal_type=signal_type,
-                strength=strength_value,
-                confidence_score=confidence_score,
-                confidence_level=confidence_level,
-                entry_price=Decimal(str(signal_data.get('entry_price', 0))),
-                target_price=Decimal(str(signal_data.get('target_price', 0))),
-                stop_loss=Decimal(str(signal_data.get('stop_loss', 0))),
-                risk_reward_ratio=signal_data.get('risk_reward_ratio', 0),
-                timeframe=signal_data.get('timeframe', '1H'),
-                investment_horizon=signal_data.get('investment_horizon', 'SHORT'),
-                is_valid=True,
-                data_source='database',
-                strategy_used=strategy_name
-            )
+                if count > 0:
+                    invalidated = existing_signals.update(is_valid=False)
+                    logger.info(f"Invalidated {invalidated} existing signal(s) for {symbol.symbol} + {signal_type.name} before creating new one")
+                
+                # Create trading signal within the same transaction
+                trading_signal = TradingSignal.objects.create(
+                    symbol=symbol,
+                    signal_type=signal_type,
+                    strength=strength_value,
+                    confidence_score=confidence_score,
+                    confidence_level=confidence_level,
+                    entry_price=Decimal(str(signal_data.get('entry_price', 0))),
+                    target_price=Decimal(str(signal_data.get('target_price', 0))),
+                    stop_loss=Decimal(str(signal_data.get('stop_loss', 0))),
+                    risk_reward_ratio=signal_data.get('risk_reward_ratio', 0),
+                    timeframe=signal_data.get('timeframe', '1H'),
+                    investment_horizon=signal_data.get('investment_horizon', 'SHORT'),
+                    is_valid=True,
+                    data_source='database',
+                    strategy_used=strategy_name
+                )
+                # Transaction commits here
             
             logger.info(f"Created {signal_type.name} signal for {symbol.symbol} using {strategy_name}")
             return trading_signal

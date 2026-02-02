@@ -1059,52 +1059,56 @@ class SignalGenerationService:
                 (sector_score + 1.0) / 2.0 * 0.05
             )
             
-            # IMPORTANT: Before creating a new signal, invalidate any existing valid signals
-            # for the same symbol + signal_type to prevent duplicates
-            existing_signals = TradingSignal.objects.filter(
-                symbol=symbol,
-                signal_type=signal_type,
-                is_valid=True,
-                is_executed=False  # Don't invalidate executed signals
-            )
+            # CRITICAL: Use database transaction with locking to prevent race conditions
+            # This ensures only ONE signal per symbol+type can be created at a time
+            from django.db import transaction
             
-            if existing_signals.exists():
+            with transaction.atomic():
+                # Lock all existing signals for this symbol+type to prevent concurrent creation
+                existing_signals = TradingSignal.objects.select_for_update().filter(
+                    symbol=symbol,
+                    signal_type=signal_type,
+                    is_executed=False  # Don't invalidate executed signals
+                )
+                
+                # Invalidate ALL existing signals (valid or recently created) for this combination
+                # This prevents duplicates even if created in the same second
                 count = existing_signals.count()
-                logger.info(f"Found {count} existing valid signal(s) for {symbol.symbol} + {signal_type.name}. Invalidating before creating new one.")
-                # Invalidate existing signals
-                existing_signals.update(is_valid=False)
-                logger.info(f"Invalidated {count} existing signal(s) for {symbol.symbol} + {signal_type.name}")
-
-            # Create signal
-            signal = TradingSignal.objects.create(
-                symbol=symbol,
-                signal_type=signal_type,
-                strength=strength,
-                confidence_score=confidence_score,
-                confidence_level=confidence_level,
-                entry_price=entry_price,
-                target_price=target_price,
-                stop_loss=stop_loss,
-                risk_reward_ratio=risk_reward_ratio,
-                quality_score=quality_score,
-                expires_at=timezone.now() + timedelta(hours=self.signal_expiry_hours),
-                technical_score=technical_score,
-                sentiment_score=sentiment_score,
-                news_score=news_score,
-                volume_score=volume_score,
-                is_best_of_day=False,
-                pattern_score=pattern_score,
-                economic_score=economic_score,
-                sector_score=sector_score,
-                # New timeframe and entry point fields
-                timeframe=optimal_timeframe,
-                entry_point_type=entry_point_type,
-                entry_point_details=entry_point_details,
-                entry_zone_low=entry_zone_low,
-                entry_zone_high=entry_zone_high,
-                entry_confidence=entry_confidence
-            )
-            
+                if count > 0:
+                    # Invalidate all existing signals for this symbol+type
+                    invalidated = existing_signals.update(is_valid=False)
+                    logger.info(f"Invalidated {invalidated} existing signal(s) for {symbol.symbol} + {signal_type.name} before creating new one")
+                
+                # Create signal within the same transaction
+                signal = TradingSignal.objects.create(
+                    symbol=symbol,
+                    signal_type=signal_type,
+                    strength=strength,
+                    confidence_score=confidence_score,
+                    confidence_level=confidence_level,
+                    entry_price=entry_price,
+                    target_price=target_price,
+                    stop_loss=stop_loss,
+                    risk_reward_ratio=risk_reward_ratio,
+                    quality_score=quality_score,
+                    expires_at=timezone.now() + timedelta(hours=self.signal_expiry_hours),
+                    technical_score=technical_score,
+                    sentiment_score=sentiment_score,
+                    news_score=news_score,
+                    volume_score=volume_score,
+                    is_best_of_day=False,
+                    pattern_score=pattern_score,
+                    economic_score=economic_score,
+                    sector_score=sector_score,
+                    # New timeframe and entry point fields
+                    timeframe=optimal_timeframe,
+                    entry_point_type=entry_point_type,
+                    entry_point_details=entry_point_details,
+                    entry_zone_low=entry_zone_low,
+                    entry_zone_high=entry_zone_high,
+                    entry_confidence=entry_confidence
+                )
+                # Transaction commits here, ensuring signal is created after invalidation
 
             # Store price metadata for tracking
             self._store_price_metadata(signal, {
