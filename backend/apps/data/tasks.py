@@ -628,5 +628,20 @@ def fetch_and_store_coins_task(max_coins=None):
         return {'status': 'error', 'error': str(e)}
 
 
+@shared_task
+def sync_binance_futures_symbols_task(deactivate_non_futures: bool = True, force_refresh: bool = False):
+    """
+    Sync DB symbols so ONLY Binance USDT perpetual futures base-assets are active crypto symbols.
+
+    This is the source of truth for which coins are eligible for signal generation.
+    """
+    from apps.trading.binance_futures_service import sync_binance_futures_symbols
+
+    return sync_binance_futures_symbols(
+        deactivate_non_futures=deactivate_non_futures,
+        force_refresh=force_refresh,
+    )
+
+
 
 

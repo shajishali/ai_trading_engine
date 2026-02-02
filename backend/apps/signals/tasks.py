@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, date
-from typing import List, Dict
+from typing import List, Dict, Set
 from celery import shared_task
 from django.utils import timezone
 from django.db.models import Q
@@ -20,6 +20,23 @@ from apps.data.models import MarketData
 logger = logging.getLogger(__name__)
 
 
+def _cleanup_non_binance_futures_signals(valid_base_assets: Set[str]) -> Dict:
+    """
+    Delete TradingSignal rows for crypto symbols that are NOT Binance futures-eligible.
+    (Includes: non-Binance coins and spot-only Binance coins.)
+    """
+    try:
+        qs = TradingSignal.objects.filter(symbol__is_crypto_symbol=True).exclude(symbol__symbol__in=valid_base_assets)
+        signals_to_delete = qs.count()
+        if signals_to_delete == 0:
+            return {"signals_deleted": 0}
+        qs.delete()
+        return {"signals_deleted": signals_to_delete}
+    except Exception as e:
+        logger.error(f"Failed to cleanup non-Binance-futures signals: {e}", exc_info=True)
+        return {"signals_deleted": 0, "error": str(e)}
+
+
 @shared_task
 def generate_signals_for_all_symbols():
     """
@@ -31,9 +48,37 @@ def generate_signals_for_all_symbols():
     from datetime import date
     
     logger.info("Starting signal generation for all symbols (4 signals max, skip symbols with signals today)...")
+
+    # Ensure we only ever generate signals for Binance USDT perpetual futures base assets.
+    # Also deactivate non-eligible symbols so they won't be selected elsewhere.
+    valid_base_assets: Set[str] = set()
+    try:
+        from apps.trading.binance_futures_service import (
+            get_binance_usdt_futures_base_assets,
+            sync_binance_futures_symbols,
+        )
+
+        sync_result = sync_binance_futures_symbols(deactivate_non_futures=True)
+        if sync_result.get("status") == "success":
+            valid_base_assets = get_binance_usdt_futures_base_assets()
+            logger.info(
+                f"Binance futures sync: base_assets={sync_result.get('futures_base_assets')} "
+                f"created={sync_result.get('created')} updated={sync_result.get('updated')} "
+                f"deactivated={sync_result.get('deactivated')}"
+            )
+        else:
+            logger.warning(f"Binance futures sync failed; will proceed with existing DB symbols: {sync_result}")
+    except Exception as e:
+        logger.warning(f"Binance futures eligibility check failed; proceeding without filter: {e}")
     
     signal_service = SignalGenerationService()
     today = timezone.now().date()
+
+    # Delete signals for any non-eligible symbols (requested behavior).
+    if valid_base_assets:
+        cleanup_stats = _cleanup_non_binance_futures_signals(valid_base_assets)
+        if cleanup_stats.get("signals_deleted"):
+            logger.warning(f"Deleted {cleanup_stats['signals_deleted']} signal(s) for non-Binance-futures symbols")
     
     # Get symbols that DON'T have signals today
     symbols_with_signals_today = TradingSignal.objects.filter(
@@ -42,10 +87,15 @@ def generate_signals_for_all_symbols():
     ).values_list('symbol_id', flat=True).distinct()
     
     # Get active symbols excluding those that already have signals today
-    active_symbols = Symbol.objects.filter(
-        is_active=True, 
-        is_crypto_symbol=True
-    ).exclude(id__in=symbols_with_signals_today).order_by('?')  # Random order for variety
+    active_symbols_qs = Symbol.objects.filter(
+        is_active=True,
+        is_crypto_symbol=True,
+        symbol_type='CRYPTO',
+    )
+    if valid_base_assets:
+        active_symbols_qs = active_symbols_qs.filter(symbol__in=valid_base_assets)
+
+    active_symbols = active_symbols_qs.exclude(id__in=symbols_with_signals_today).order_by('?')  # Random order for variety
     
     logger.info(f"Found {active_symbols.count()} symbols without signals today (excluding {len(symbols_with_signals_today)} that already have signals)")
     
@@ -112,48 +162,41 @@ def generate_signals_for_all_symbols():
     
     # Signals are already saved during generation (no need to select top 10 here)
     # Best 5 signals will be selected at end of day by save_daily_best_signals_task
+    # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
+    # Otherwise, the signals page may continue showing an older cached list for up to 5 minutes,
+    # even though new signals were generated (seen as DB id mismatches).
+    try:
+        cache_keys_to_clear = [
+            "signal_statistics",
+            "signals_api_None_None_true_50",
+            "signals_api_None_None_True_50",
+        ]
+        cleared = 0
+        for key in cache_keys_to_clear:
+            if cache.get(key) is not None:
+                cache.delete(key)
+                cleared += 1
 
-        # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
-        # Otherwise, the signals page may continue showing an older cached list for up to 5 minutes,
-        # even though new signals were generated (seen as DB id mismatches).
-        try:
-            cache_keys_to_clear = [
-                "signal_statistics",
-                "signals_api_None_None_true_50",
-                "signals_api_None_None_True_50",
-            ]
-            cleared = 0
-            for key in cache_keys_to_clear:
-                if cache.get(key) is not None:
-                    cache.delete(key)
-                    cleared += 1
+        # Also clear a few common variants (mirrors clear-cache endpoint logic)
+        for symbol_val in [None, 'None']:
+            for signal_type_val in [None, 'None']:
+                for is_valid_val in [True, 'True', 'true']:
+                    for limit_val in [50, '50']:
+                        cache_key = f"signals_api_{symbol_val}_{signal_type_val}_{is_valid_val}_{limit_val}"
+                        if cache.get(cache_key) is not None:
+                            cache.delete(cache_key)
+                            cleared += 1
 
-            # Also clear a few common variants (mirrors clear-cache endpoint logic)
-            for symbol_val in [None, 'None']:
-                for signal_type_val in [None, 'None']:
-                    for is_valid_val in [True, 'True', 'true']:
-                        for limit_val in [50, '50']:
-                            cache_key = f"signals_api_{symbol_val}_{signal_type_val}_{is_valid_val}_{limit_val}"
-                            if cache.get(cache_key) is not None:
-                                cache.delete(cache_key)
-                                cleared += 1
+        logger.info(f"Invalidated {cleared} signal cache key(s) after generation")
+    except Exception as e:
+        logger.warning(f"Failed to invalidate signals cache after generation: {e}")
 
-            logger.info(f"Invalidated {cleared} signal cache key(s) after generation")
-        except Exception as e:
-            logger.warning(f"Failed to invalidate signals cache after generation: {e}")
-        
-        return {
-            'total_signals': total_signals,
-            'symbols_processed': active_symbols.count(),
-            'signals_generated': len(generated_signals),
-            'best_signals_selected': saved_count
-        }
-    
     return {
         'total_signals': total_signals,
         'symbols_processed': active_symbols.count(),
-        'signals_generated': 0,
-        'best_signals_selected': 0
+        'signals_generated': len(generated_signals),
+        'best_signals_selected': 0,
+        'binance_futures_filter_active': bool(valid_base_assets),
     }
 
 

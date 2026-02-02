@@ -145,11 +145,11 @@ app.conf.update(
         #     'schedule': crontab(hour=3, minute=0, day_of_week='sun'),  # Weekly on Sunday at 3 AM UTC
         #     'options': {'queue': 'data', 'priority': 3},  # Explicitly route to data queue
         # },
-        # ACTIVE: Update coin task (only task running)
-        'fetch-and-store-coins': {
-            'task': 'apps.data.tasks.fetch_and_store_coins_task',
+        # ACTIVE: Sync Binance futures-eligible coins (source of truth)
+        'sync-binance-futures-symbols': {
+            'task': 'apps.data.tasks.sync_binance_futures_symbols_task',
             'schedule': crontab(minute=0),  # Every hour at minute 0
-            'options': {'queue': 'data', 'priority': 5},  # Explicitly route to data queue
+            'options': {'queue': 'data', 'priority': 9},  # High priority: keeps eligible symbols accurate
         },
         # Save daily best signals at end of day (11:55 PM UTC)
         # End of day: Select best 5 signals from the 24 generated today (runs at 23:55)
