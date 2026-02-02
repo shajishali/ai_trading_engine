@@ -246,9 +246,9 @@ class SignalAPIView(View):
                     'cached_at': timezone.now().isoformat()
                 }
                 
-                # Cache the response for 5 minutes, but only if we have signals
-                # Don't cache empty results for too long (only 60 seconds) to allow quick recovery
-                cache_timeout = 300 if len(signal_data) > 0 else 60
+                # Cache the response for only 30 seconds to ensure fresh data
+                # Reduced from 5 minutes to prevent showing stale signals
+                cache_timeout = 30 if len(signal_data) > 0 else 10
                 cache.set(cache_key, response_data, cache_timeout)
                 logger.info(f"Cached response with {len(signal_data)} signals for {cache_timeout} seconds")
                 
@@ -381,7 +381,7 @@ class SignalAPIView(View):
                 'count': len(signal_data),
                 'cached_at': timezone.now().isoformat()
             }
-            cache.set(cache_key, response_data, 300)
+            cache.set(cache_key, response_data, 30)  # Reduced from 300 to 30 seconds for fresh data
         except Exception as e:
             logger.debug(f"Background cache refresh failed: {e}")
     
@@ -1395,7 +1395,7 @@ def signal_statistics(request):
         }
         
         # Cache the statistics for 10 minutes
-        cache.set(cache_key, response_data, 600)
+            cache.set(cache_key, response_data, 60)  # Reduced from 600 to 60 seconds for fresh statistics
         
         return JsonResponse(response_data)
         

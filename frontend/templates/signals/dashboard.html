@@ -1443,7 +1443,16 @@ function loadSignals(showNotificationOnNew = false) {
     console.log('Loading signals...'); // Debug log
     const previousCount = signalsData.length;
     
-    fetch('/signals/api/signals/')
+    // Add cache-busting timestamp to prevent browser caching
+    const cacheBuster = '?_t=' + Date.now();
+    fetch('/signals/api/signals/' + cacheBuster, {
+        cache: 'no-cache',
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
         .then(response => response.json())
         .then(data => {
             console.log('Signals API response:', data); // Debug log
@@ -2468,7 +2477,16 @@ function showBestSignals(selectedDate = null) {
         console.log(`Fetching best signals for date: ${targetDate}`);
         showNotification('Loading best signals...', 'info');
         
-        fetch(`/signals/api/daily-best-signals/?date=${targetDate}`)
+        // Add cache-busting to prevent browser caching
+        const cacheBuster = '&_t=' + Date.now();
+        fetch(`/signals/api/daily-best-signals/?date=${targetDate}${cacheBuster}`, {
+            cache: 'no-cache',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        })
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.signals && data.signals.length > 0) {
