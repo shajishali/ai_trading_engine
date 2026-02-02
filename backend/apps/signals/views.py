@@ -1394,8 +1394,8 @@ def signal_statistics(request):
             'statistics': statistics
         }
         
-        # Cache the statistics for 10 minutes
-            cache.set(cache_key, response_data, 60)  # Reduced from 600 to 60 seconds for fresh statistics
+        # Cache the statistics for 60 seconds (reduced from 600 for fresh data)
+        cache.set(cache_key, response_data, 60)
         
         return JsonResponse(response_data)
         
