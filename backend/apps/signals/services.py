@@ -1063,7 +1063,6 @@ class SignalGenerationService:
             # This ensures only ONE signal per symbol+type can be created at a time
             # ALSO: Check if this symbol already has a signal TODAY (one signal per coin per day rule)
             from django.db import transaction
-            from datetime import date
             
             today = timezone.now().date()
             
