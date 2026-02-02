@@ -22,28 +22,57 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def generate_signals_for_all_symbols():
-    """Generate signals for all active symbols and select top 10 best signals"""
-    logger.info("Starting signal generation for all symbols...")
+    """
+    Generate signals for active symbols with daily limit:
+    - Only 4 signals per generation (to get 24 total per day)
+    - Skip symbols that already have signals today
+    - Runs every 4 hours (6 times per day)
+    """
+    from datetime import date
+    
+    logger.info("Starting signal generation for all symbols (4 signals max, skip symbols with signals today)...")
     
     signal_service = SignalGenerationService()
-    active_symbols = Symbol.objects.filter(is_active=True, is_crypto_symbol=True)
+    today = timezone.now().date()
+    
+    # Get symbols that DON'T have signals today
+    symbols_with_signals_today = TradingSignal.objects.filter(
+        created_at__date=today,
+        is_valid=True
+    ).values_list('symbol_id', flat=True).distinct()
+    
+    # Get active symbols excluding those that already have signals today
+    active_symbols = Symbol.objects.filter(
+        is_active=True, 
+        is_crypto_symbol=True
+    ).exclude(id__in=symbols_with_signals_today).order_by('?')  # Random order for variety
+    
+    logger.info(f"Found {active_symbols.count()} symbols without signals today (excluding {len(symbols_with_signals_today)} that already have signals)")
     
     total_signals = 0
     generated_signals = []
+    max_signals_per_generation = 4  # Limit to 4 signals per generation
     
     for symbol in active_symbols:
+        # Stop if we've reached the limit
+        if total_signals >= max_signals_per_generation:
+            logger.info(f"Reached limit of {max_signals_per_generation} signals for this generation")
+            break
+        
         try:
             signals = signal_service.generate_signals_for_symbol(symbol)
-            generated_signals.extend(signals)
-            total_signals += len(signals)
             
-            if len(signals) > 0:
-                logger.debug(f"Generated {len(signals)} signals for {symbol.symbol}")
+            # Only take the first signal for this symbol (best one)
+            if signals:
+                best_signal = signals[0]  # Take first/best signal
+                generated_signals.append(best_signal)
+                total_signals += 1
+                logger.info(f"Generated signal for {symbol.symbol} (signal {total_signals}/{max_signals_per_generation})")
             
         except Exception as e:
             logger.error(f"Error generating signals for {symbol.symbol}: {e}")
     
-    logger.info(f"Signal generation completed. Total signals: {total_signals}")
+    logger.info(f"Signal generation completed. Generated {total_signals} signals (limit: {max_signals_per_generation})")
     
     # CRITICAL: Clean up any duplicates that might have been created due to race conditions
     # This ensures only the latest signal per symbol+type remains valid
@@ -81,21 +110,8 @@ def generate_signals_for_all_symbols():
     except Exception as e:
         logger.error(f"Error cleaning up duplicates: {e}")
     
-    # Select top 10 best signals
-    if generated_signals:
-        from apps.signals.unified_signal_task import _select_top_10_signals
-        best_signals = _select_top_10_signals(generated_signals)
-        
-        # Save top 10 signals
-        saved_count = 0
-        for signal in best_signals:
-            try:
-                signal.save()
-                saved_count += 1
-            except Exception as e:
-                logger.error(f"Error saving signal: {e}")
-        
-        logger.info(f"Selected and saved top {saved_count} best signals")
+    # Signals are already saved during generation (no need to select top 10 here)
+    # Best 5 signals will be selected at end of day by save_daily_best_signals_task
 
         # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
         # Otherwise, the signals page may continue showing an older cached list for up to 5 minutes,
@@ -581,33 +597,54 @@ def signal_health_check():
 
 
 @shared_task
-def save_daily_best_signals_task(target_date_str=None, limit=20):
+def save_daily_best_signals_task(target_date_str=None, limit=5):
     """
-    Save daily best signals for a specific date (defaults to yesterday)
-    This task runs at the end of each day to save the best signals
+    Save daily best 5 signals for a specific date (defaults to today)
+    This task runs at the end of each day (23:55) to select best 5 from the 24 signals generated
     """
     try:
         if target_date_str:
             target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
         else:
-            # Default to yesterday (end of day task)
-            target_date = (timezone.now() - timedelta(days=1)).date()
+            # Default to today (end of day task runs at 23:55)
+            target_date = timezone.now().date()
         
-        logger.info(f"Starting to save daily best signals for {target_date}...")
+        logger.info(f"Starting to save daily best {limit} signals for {target_date}...")
         
-        # Call the management command
-        call_command(
-            'save_daily_best_signals',
-            date=target_date.isoformat(),
-            limit=limit
-        )
+        # Get all signals created today
+        today_signals = TradingSignal.objects.filter(
+            created_at__date=target_date,
+            is_valid=True
+        ).select_related('symbol', 'signal_type').order_by('-quality_score', '-confidence_score', '-risk_reward_ratio')
         
-        logger.info(f"Successfully saved daily best signals for {target_date}")
+        logger.info(f"Found {today_signals.count()} signals for {target_date}")
+        
+        # Select top 5 best signals based on quality score, confidence, and risk-reward
+        best_signals = today_signals[:limit]
+        
+        # Clear previous best signals for this date
+        TradingSignal.objects.filter(
+            best_of_day_date=target_date,
+            is_best_of_day=True
+        ).update(is_best_of_day=False, best_of_day_date=None, best_of_day_rank=None)
+        
+        # Mark the best 5 signals
+        saved_count = 0
+        for rank, signal in enumerate(best_signals, start=1):
+            signal.is_best_of_day = True
+            signal.best_of_day_date = target_date
+            signal.best_of_day_rank = rank
+            signal.save()
+            saved_count += 1
+            logger.info(f"Marked {signal.symbol.symbol} + {signal.signal_type.name} as best signal #{rank} for {target_date}")
+        
+        logger.info(f"Successfully saved {saved_count} daily best signals for {target_date}")
         
         return {
             'success': True,
             'date': target_date.isoformat(),
-            'limit': limit
+            'limit': limit,
+            'saved_count': saved_count
         }
         
     except Exception as e:

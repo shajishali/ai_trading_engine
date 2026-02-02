@@ -72,10 +72,11 @@ app.conf.update(
         #     'schedule': crontab(minute='*/30'),  # Every 30 minutes
         #     'options': {'queue': 'data', 'priority': 10},  # Explicitly route to data queue
         # },
-        # ENABLED: Signal generation task (runs every hour at :00 minutes)
+        # ENABLED: Signal generation task (runs every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
+        # Generates 4 signals per run = 24 signals per day total
         'generate-trading-signals': {
             'task': 'apps.signals.tasks.generate_signals_for_all_symbols',
-            'schedule': crontab(minute=0),  # Every hour at :00 minutes (1:00, 2:00, 3:00, etc.)
+            'schedule': crontab(minute=0, hour='*/4'),  # Every 4 hours at :00 minutes
             'options': {'queue': 'signals', 'priority': 8},  # Explicitly route to signals queue
         },
         # DISABLED: Sentiment analysis tasks (disabled per user request)
@@ -152,8 +153,11 @@ app.conf.update(
             'options': {'queue': 'data', 'priority': 5},  # Explicitly route to data queue
         },
         # Save daily best signals at end of day (11:55 PM UTC)
+        # End of day: Select best 5 signals from the 24 generated today (runs at 23:55)
         'save-daily-best-signals': {
             'task': 'apps.signals.tasks.save_daily_best_signals_task',
+            'schedule': crontab(minute=55, hour=23),  # Daily at 23:55 (end of day)
+            'options': {'queue': 'signals', 'priority': 9},
             'schedule': crontab(hour=23, minute=55),  # Daily at 11:55 PM UTC
             'options': {'queue': 'signals', 'priority': 6},
         },

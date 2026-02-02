@@ -1061,9 +1061,24 @@ class SignalGenerationService:
             
             # CRITICAL: Use database transaction with locking to prevent race conditions
             # This ensures only ONE signal per symbol+type can be created at a time
+            # ALSO: Check if this symbol already has a signal TODAY (one signal per coin per day rule)
             from django.db import transaction
+            from datetime import date
+            
+            today = timezone.now().date()
             
             with transaction.atomic():
+                # Check if symbol already has ANY signal today (regardless of type)
+                symbol_has_signal_today = TradingSignal.objects.filter(
+                    symbol=symbol,
+                    created_at__date=today,
+                    is_valid=True
+                ).exists()
+                
+                if symbol_has_signal_today:
+                    logger.info(f"Skipping {symbol.symbol} - already has a signal today (one signal per coin per day rule)")
+                    return None  # Don't create signal for this symbol today
+                
                 # Lock all existing signals for this symbol+type to prevent concurrent creation
                 existing_signals = TradingSignal.objects.select_for_update().filter(
                     symbol=symbol,
