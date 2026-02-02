@@ -3,13 +3,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect
 from django.http import JsonResponse
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from django.contrib import messages
 from django.db import OperationalError, transaction
 import time
 from apps.trading.models import Portfolio, Position, Trade
 from apps.signals.models import TradingSignal, SignalType
 from apps.data.models import MarketData, TechnicalIndicator
+from django.utils import timezone
 
 
 def home(request):
@@ -250,8 +251,20 @@ def dashboard(request):
     except Portfolio.DoesNotExist:
         portfolio = None
     
-    # Get recent signals with related data
-    recent_signals = TradingSignal.objects.select_related('symbol', 'signal_type').filter(is_valid=True).order_by('-created_at')[:10]
+    # Get recent *active* signals (failsafe: exclude already-expired even if is_valid wasn't updated)
+    recent_signals = (
+        TradingSignal.objects.select_related('symbol', 'signal_type')
+        .filter(
+            is_valid=True,
+        )
+        .filter(
+            Q(expires_at__gte=timezone.now()) |
+            # Legacy/sample signals might have NULL expires_at; treat them as active
+            # only within the default expiry window (48h).
+            Q(expires_at__isnull=True, created_at__gte=timezone.now() - timezone.timedelta(hours=48))
+        )
+        .order_by('-created_at')[:10]
+    )
     
     # Calculate confidence percentages for display
     for signal in recent_signals:
@@ -469,7 +482,15 @@ def dashboard(request):
 @login_required
 def signals_view(request):
     """Signals view"""
-    recent_signals = TradingSignal.objects.filter(is_valid=True).order_by('-created_at')[:20]
+    # Failsafe: exclude already-expired even if is_valid wasn't updated by background tasks
+    recent_signals = (
+        TradingSignal.objects.filter(is_valid=True)
+        .filter(
+            Q(expires_at__gte=timezone.now()) |
+            Q(expires_at__isnull=True, created_at__gte=timezone.now() - timezone.timedelta(hours=48))
+        )
+        .order_by('-created_at')[:20]
+    )
     
     # Calculate metrics
     total_signals = TradingSignal.objects.count()

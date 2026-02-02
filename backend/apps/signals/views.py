@@ -133,7 +133,15 @@ class SignalAPIView(View):
                 # If no valid signals found and we're looking for valid ones, 
                 # show recent signals (within last 48 hours) even if invalid/executed
                 if is_valid:
-                    valid_signals = queryset.filter(is_valid=True)
+                    # Failsafe: treat signals with expires_at in the past as not active
+                    valid_signals = queryset.filter(
+                        is_valid=True
+                    ).filter(
+                        Q(expires_at__gte=timezone.now()) |
+                        # Legacy/sample signals might have NULL expires_at; treat them as active
+                        # only within the default expiry window (48h).
+                        Q(expires_at__isnull=True, created_at__gte=timezone.now() - timedelta(hours=48))
+                    )
                     valid_count = valid_signals.count()
                     
                     if valid_count == 0:

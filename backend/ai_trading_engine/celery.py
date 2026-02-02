@@ -157,6 +157,14 @@ app.conf.update(
             'schedule': crontab(hour=23, minute=55),  # Daily at 11:55 PM UTC
             'options': {'queue': 'signals', 'priority': 6},
         },
+        # Keep active-signal list clean by expiring old signals
+        # This updates `is_valid=False` for signals past `expires_at`.
+        'cleanup-expired-signals': {
+            'task': 'apps.signals.tasks.cleanup_expired_signals',
+            # Run frequently so UI/API doesn't show stale active signals
+            'schedule': crontab(minute='*/15'),
+            'options': {'queue': 'signals', 'priority': 3},
+        },
         # DISABLED: Monthly cleanup to preserve all historical data from 2020
         # 'historical-cleanup-monthly': {
         #     'task': 'apps.data.tasks.cleanup_old_data_task',

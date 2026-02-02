@@ -161,9 +161,16 @@ def cleanup_expired_signals():
     logger.info("Starting expired signal cleanup...")
     
     now = timezone.now()
+    # Expired if:
+    # - expires_at is in the past, OR
+    # - expires_at is NULL (legacy/sample rows) AND created_at older than the default expiry window.
+    #   (SignalGenerationService default expiry is 48 hours.)
+    legacy_expiry_cutoff = now - timedelta(hours=48)
     expired_signals = TradingSignal.objects.filter(
-        expires_at__lt=now,
         is_valid=True
+    ).filter(
+        Q(expires_at__lt=now) |
+        Q(expires_at__isnull=True, created_at__lt=legacy_expiry_cutoff)
     )
     
     expired_count = expired_signals.count()
