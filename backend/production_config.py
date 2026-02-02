@@ -65,17 +65,17 @@ CELERY_ENABLE_UTC = True
 
 # Celery Beat Schedule for Production
 CELERY_BEAT_SCHEDULE = {
-    # Database signal generation (every 30 minutes)
+    # Database signal generation (every hour)
     'generate-database-signals': {
         'task': 'apps.signals.database_signal_tasks.generate_database_signals_task',
-        'schedule': 1800,  # 30 minutes
+        'schedule': 3600,  # 1 hour
         'options': {'queue': 'database_signals', 'priority': 9}
     },
     
-    # Hybrid signal generation (every 15 minutes)
+    # Hybrid signal generation (every hour)
     'generate-hybrid-signals': {
         'task': 'apps.signals.database_signal_tasks.generate_hybrid_signals_task',
-        'schedule': 900,  # 15 minutes
+        'schedule': 3600,  # 1 hour
         'options': {'queue': 'signals', 'priority': 8}
     },
     
