@@ -214,6 +214,7 @@ class SignalAPIView(View):
                         'is_profitable': signal.is_profitable,
                         'profit_loss': float(signal.profit_loss) if signal.profit_loss else None,
                         'created_at': signal.created_at.isoformat(),
+                        'analyzed_at': signal.analyzed_at.isoformat() if signal.analyzed_at else signal.created_at.isoformat(),
                         'expires_at': signal.expires_at.isoformat() if signal.expires_at else None,
                         'technical_score': signal.technical_score,
                         'sentiment_score': signal.sentiment_score,
