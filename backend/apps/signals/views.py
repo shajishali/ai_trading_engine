@@ -163,11 +163,26 @@ class SignalAPIView(View):
                 else:
                     queryset = queryset.filter(is_valid=is_valid)
                 
-                signals = list(queryset.order_by('-created_at')[:limit])
+                # Get signals ordered by created_at
+                signals_queryset = queryset.order_by('-created_at', '-id')
+                
+                # IMPORTANT: Filter out duplicates - keep only the latest signal per symbol+type combination
+                # This ensures we don't show duplicate signals even if they exist in the database
+                seen_combinations = set()
+                unique_signals = []
+                for signal in signals_queryset:
+                    combo_key = (signal.symbol.id, signal.signal_type.id)
+                    if combo_key not in seen_combinations:
+                        seen_combinations.add(combo_key)
+                        unique_signals.append(signal)
+                        if len(unique_signals) >= limit:
+                            break
+                
+                signals = unique_signals
                 
                 # Log query results for debugging
                 logger.info(f"Query executed: symbol={symbol}, signal_type={signal_type}, is_valid={is_valid}, limit={limit}")
-                logger.info(f"Found {len(signals)} signals in database")
+                logger.info(f"Found {len(signals)} unique signals (after deduplication)")
                 if len(signals) == 0:
                     # Check total signals in database for debugging
                     total_all = TradingSignal.objects.count()
