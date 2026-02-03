@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
@@ -11,6 +12,8 @@ from apps.trading.models import Portfolio, Position, Trade
 from apps.signals.models import TradingSignal, SignalType
 from apps.data.models import MarketData, TechnicalIndicator
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 def home(request):
@@ -247,10 +250,19 @@ def logout_view(request):
 def dashboard(request):
     """Main dashboard view"""
     try:
+        return _dashboard_impl(request)
+    except Exception as e:
+        logger.exception("Dashboard view error: %s", e)
+        raise
+
+
+def _dashboard_impl(request):
+    """Dashboard implementation (wrapped for error logging)."""
+    try:
         portfolio = Portfolio.objects.get(user=request.user)
     except Portfolio.DoesNotExist:
         portfolio = None
-    
+
     # Get recent *active* signals (failsafe: exclude already-expired even if is_valid wasn't updated)
     recent_signals = (
         TradingSignal.objects.select_related('symbol', 'signal_type')
@@ -265,14 +277,18 @@ def dashboard(request):
         )
         .order_by('-created_at')[:10]
     )
-    
+
+    # Evaluate and keep only signals with valid symbol/signal_type (avoid template AttributeError)
+    recent_list = list(recent_signals)
+    recent_list = [s for s in recent_list if getattr(s, 'symbol', None) and getattr(s, 'signal_type', None)]
+
     # Calculate confidence percentages for display (guard against None)
-    for signal in recent_signals:
+    for signal in recent_list:
         signal.confidence_percentage = int((signal.confidence_score or 0) * 100)
         signal.quality_percentage = int((signal.quality_score or 0) * 100)
-    
+
     # If no signals exist, create some sample signals for demonstration
-    if not recent_signals.exists():
+    if not recent_list:
         try:
             from apps.trading.models import Symbol
             from apps.signals.models import SignalType
@@ -399,13 +415,16 @@ def dashboard(request):
                     defaults=signal_data
                 )
             
-            # Refresh the signals query
+            # Refresh the signals query and build safe list
             recent_signals = TradingSignal.objects.select_related('symbol', 'signal_type').filter(is_valid=True).order_by('-created_at')[:10]
-            
+            recent_list = [s for s in list(recent_signals) if getattr(s, 'symbol', None) and getattr(s, 'signal_type', None)]
+            for s in recent_list:
+                s.confidence_percentage = int((s.confidence_score or 0) * 100)
+                s.quality_percentage = int((s.quality_score or 0) * 100)
         except Exception as e:
-            print(f"Error creating sample signals: {e}")
-            recent_signals = TradingSignal.objects.none()
-    
+            logger.warning("Error creating sample signals: %s", e)
+            recent_list = []
+
     # Get portfolio statistics
     if portfolio:
         open_positions = Position.objects.filter(portfolio=portfolio, is_open=True)
@@ -435,9 +454,8 @@ def dashboard(request):
         win_rate = round((executed_signals.filter(profit_loss__gt=0).count() / executed_signals.count()) * 100)
     else:
         win_rate = 73  # Default
-    
-    # Calculate average signal quality (guard against None and empty)
-    recent_list = list(recent_signals)
+
+    # recent_list already set above (filtered for valid symbol/signal_type)
     if recent_list:
         avg_quality = round(sum([(s.quality_score or 0) for s in recent_list]) / len(recent_list) * 100)
         avg_confidence = round(sum([(s.confidence_score or 0) for s in recent_list]) / len(recent_list) * 100)
@@ -463,7 +481,7 @@ def dashboard(request):
     
     context = {
         'portfolio': portfolio,
-        'recent_signals': recent_signals,
+        'recent_signals': recent_list,
         'total_positions': total_positions,
         'total_pnl': total_pnl,
         'recent_trades': recent_trades,
