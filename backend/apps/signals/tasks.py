@@ -70,65 +70,60 @@ def _symbol_ids_with_signal_created_today() -> List[int]:
 @shared_task
 def generate_signals_for_all_symbols():
     """
-    Generate signals for active symbols:
-    - Max 5 signals per run (some runs may have fewer—display what we have).
-    - Do NOT generate for a coin that already has a signal created that same day.
-    - Schedule: every 1 hour for testing; you can change to every 4 hours in Celery beat.
+    HOURLY SIGNAL GENERATION QUEUE (run every 1h or every 4h via Celery beat).
+    Step 1: Ignore coins that already have a signal created today (any previous hour).
+    Step 2: Generate up to 5 new signals from remaining coins.
+    Step 3: Best signals are shown on the UI (main page = top 5 from last hour).
     """
     from datetime import date
-    
-    logger.info("Starting signal generation (max 5 per run, skip symbols with signal today)...")
 
-    # Ensure we only ever generate signals for Binance USDT perpetual futures base assets.
-    # Also deactivate non-eligible symbols so they won't be selected elsewhere.
+    today = timezone.now().date()
+    logger.info(f"[Signal Queue] Starting hourly run for date={today} (UTC).")
+
+    # --- Step 0: Binance futures eligibility ---
     valid_base_assets: Set[str] = set()
     try:
         from apps.trading.binance_futures_service import (
             get_binance_usdt_futures_base_assets,
             sync_binance_futures_symbols,
         )
-
         sync_result = sync_binance_futures_symbols(deactivate_non_futures=True)
         if sync_result.get("status") == "success":
             valid_base_assets = get_binance_usdt_futures_base_assets()
-            logger.info(
-                f"Binance futures sync: base_assets={sync_result.get('futures_base_assets')} "
-                f"created={sync_result.get('created')} updated={sync_result.get('updated')} "
-                f"deactivated={sync_result.get('deactivated')}"
-            )
+            logger.info(f"[Signal Queue] Binance sync ok: {sync_result.get('futures_base_assets', 0)} base assets.")
         else:
-            logger.warning(f"Binance futures sync failed; will proceed with existing DB symbols: {sync_result}")
+            logger.warning(f"[Signal Queue] Binance sync failed: {sync_result}")
     except Exception as e:
-        logger.warning(f"Binance futures eligibility check failed; proceeding without filter: {e}")
-    
-    signal_service = SignalGenerationService()
-    today = timezone.now().date()
+        logger.warning(f"[Signal Queue] Binance eligibility check failed: {e}")
 
-    # Delete signals for any non-eligible symbols (requested behavior).
     if valid_base_assets:
         cleanup_stats = _cleanup_non_binance_futures_signals(valid_base_assets)
         if cleanup_stats.get("signals_deleted"):
-            logger.warning(f"Deleted {cleanup_stats['signals_deleted']} signal(s) for non-Binance-futures symbols")
-    
-    # Exclude symbols that already have a signal created TODAY (any status).
-    # This ensures we never regenerate for the same symbol in the same day,
-    # so the same symbols do not appear every hour on the signal page.
+            logger.warning(f"[Signal Queue] Deleted {cleanup_stats['signals_deleted']} non-Binance-futures signals.")
+
+    # --- Step 1: IGNORE coins that already generated signals today (any previous hour) ---
     symbols_with_signal_today = set()
     try:
         symbols_with_signal_today = set(_symbol_ids_with_signal_created_today())
     except Exception as e:
-        logger.warning(f"Could not compute symbols-with-signal-today: {e}")
-    
-    # Also exclude symbols that have an ACTIVE signal (double safeguard).
-    symbols_with_active_signals = set()
-    try:
-        symbols_with_active_signals = set(_active_signal_symbol_ids())
-    except Exception as e:
-        logger.warning(f"Could not compute active-signal symbol ids: {e}")
-    
-    exclude_symbol_ids = symbols_with_signal_today | symbols_with_active_signals
+        logger.warning(f"[Signal Queue] Could not get symbols-with-signal-today: {e}")
 
-    # Get active symbols excluding those that already have signals today or active
+    symbols_with_active = set()
+    try:
+        symbols_with_active = set(_active_signal_symbol_ids())
+    except Exception as e:
+        logger.warning(f"[Signal Queue] Could not get active-signal symbols: {e}")
+
+    exclude_symbol_ids = symbols_with_signal_today | symbols_with_active
+    excluded_symbol_names = list(
+        Symbol.objects.filter(id__in=exclude_symbol_ids).values_list("symbol", flat=True)
+    )[:20]  # log up to 20
+    logger.info(
+        f"[Signal Queue] Step 1 – Ignore coins with signal today/active: {len(exclude_symbol_ids)} symbols excluded. "
+        f"Examples: {excluded_symbol_names}"
+    )
+
+    # --- Step 2: GENERATE signals from remaining coins (max 5 per run) ---
     active_symbols_qs = Symbol.objects.filter(
         is_active=True,
         is_crypto_symbol=True,
@@ -136,21 +131,18 @@ def generate_signals_for_all_symbols():
     )
     if valid_base_assets:
         active_symbols_qs = active_symbols_qs.filter(symbol__in=valid_base_assets)
-
     if exclude_symbol_ids:
         active_symbols_qs = active_symbols_qs.exclude(id__in=exclude_symbol_ids)
 
-    active_symbols = active_symbols_qs.order_by('?')  # Random order for variety
-    
-    logger.info(
-        f"Found {active_symbols.count()} eligible symbols (excluding {len(symbols_with_signal_today)} with signal today, "
-        f"{len(symbols_with_active_signals)} with active signal)"
-    )
-    
+    active_symbols = active_symbols_qs.order_by('?')
+    eligible_count = active_symbols.count()
+    logger.info(f"[Signal Queue] Step 2 – Eligible coins for this run: {eligible_count} (after exclusions).")
+
+    signal_service = SignalGenerationService()
     total_signals = 0
     generated_signals = []
-    max_signals_per_generation = 5  # Max 5 signals per run; some hours may have fewer—display what we have
-    
+    max_signals_per_generation = 5
+
     for symbol in active_symbols:
         # Stop if we've reached the limit
         if total_signals >= max_signals_per_generation:
@@ -168,9 +160,14 @@ def generate_signals_for_all_symbols():
                 logger.info(f"Generated signal for {symbol.symbol} (signal {total_signals}/{max_signals_per_generation})")
             
         except Exception as e:
-            logger.error(f"Error generating signals for {symbol.symbol}: {e}")
-    
-    logger.info(f"Signal generation completed. Generated {total_signals} signals (limit: {max_signals_per_generation})")
+            logger.error(f"[Signal Queue] Error generating for {symbol.symbol}: {e}")
+
+    generated_symbols = [s.symbol.symbol for s in generated_signals]
+    logger.info(
+        f"[Signal Queue] Step 2 done – Generated {total_signals} signals (max {max_signals_per_generation}). "
+        f"Symbols: {generated_symbols}"
+    )
+    logger.info("[Signal Queue] Step 3 – Best signals shown on UI (main page = top 5 from last hour).")
     
     # CRITICAL: Clean up any duplicates that might have been created due to race conditions
     # This ensures only the latest signal per symbol+type remains valid
