@@ -219,7 +219,7 @@ class Command(BaseCommand):
                     logger.error(f"Error processing {symbol_name} {timeframe}: {e}")
 
             # Update statistics
-                if symbol_success:
+            if symbol_success:
                 stats['successful_symbols'] += 1
                 stats['total_records'] += symbol_records
                 self.stdout.write(
