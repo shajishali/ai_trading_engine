@@ -321,9 +321,8 @@ def _dashboard_impl(request):
                 defaults={'description': 'Hold Signal', 'color': '#ffc107'}
             )
             
-            # Create sample signals
+            # Create sample signals (timezone already imported at top of file)
             from decimal import Decimal
-            from django.utils import timezone
             from datetime import timedelta
             
             sample_signals = [
