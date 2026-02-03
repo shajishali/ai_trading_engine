@@ -1135,7 +1135,7 @@
                                             <i class="fas fa-calendar me-1"></i>Date Filter
                                         </label>
                                         <input type="date" class="form-control form-control-sm" id="best-signals-date" 
-                                               value="" onchange="handleBestSignalsDateChange()" title="Select a date to view best 10 signals for that day">
+                                               value="" onchange="handleBestSignalsDateChange()" title="Select a date, then click Best Signals to load">
                                     </div>
                                     <div class="d-flex gap-2">
                                         <button type="button" class="btn btn-primary" id="best-signals-btn" onclick="showBestSignals()" disabled title="Select a date first">
@@ -2428,16 +2428,15 @@ function toggleTestMode() {
     statusSpan.textContent = testMode ? 'ON' : 'OFF';
 }
 
-// Handle date change for best signals: enable button only when date is selected
+// When date changes: only enable/disable the Best Signals button. Do NOT auto-load; user must click the button.
 function handleBestSignalsDateChange() {
     const dateInput = document.getElementById('best-signals-date');
     const bestSignalsBtn = document.getElementById('best-signals-btn');
     if (!dateInput || !bestSignalsBtn) return;
     if (dateInput.value) {
         bestSignalsBtn.disabled = false;
-        bestSignalsBtn.title = 'Load best 10 signals for selected date';
+        bestSignalsBtn.title = 'Click to load best 10 signals for selected date';
         bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals';
-        showBestSignals(dateInput.value);
     } else {
         bestSignalsBtn.disabled = true;
         bestSignalsBtn.title = 'Select a date first';
