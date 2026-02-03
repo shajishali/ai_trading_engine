@@ -643,5 +643,100 @@ def sync_binance_futures_symbols_task(deactivate_non_futures: bool = True, force
     )
 
 
+@shared_task
+def load_binance_futures_market_data_task(
+    days: int = 90,
+    max_symbols_per_run: int = 30,
+    timeframes: tuple = ('1h', '4h', '1d'),
+):
+    """
+    Sync Binance futures symbols and fill market data for signal generation.
+    Runs on a schedule; each run processes up to max_symbols_per_run coins (prioritizing
+    those with no or oldest data). Over multiple runs, all coins get data.
+
+    Call from Celery Beat (e.g. every 2 hours) until all records are stored.
+    """
+    from django.db.models import Min, Max
+    from apps.trading.models import Symbol
+    from apps.trading.binance_futures_service import (
+        sync_binance_futures_symbols,
+        get_binance_usdt_futures_base_assets,
+    )
+    from .models import MarketData, HistoricalDataRange
+    from .historical_data_manager import get_historical_data_manager
+
+    logger.info("[Binance Futures Data] Starting: sync symbols + load market data batch.")
+
+    # Step 1: Sync symbol list from Binance
+    try:
+        result = sync_binance_futures_symbols(
+            deactivate_non_futures=True,
+            force_refresh=True,
+        )
+        if result.get('status') != 'success':
+            logger.warning(f"[Binance Futures Data] Sync failed: {result.get('error')}")
+            return {'status': 'error', 'error': result.get('error'), 'synced': 0, 'filled': 0}
+    except Exception as e:
+        logger.exception(f"[Binance Futures Data] Sync error: {e}")
+        return {'status': 'error', 'error': str(e), 'synced': 0, 'filled': 0}
+
+    valid = get_binance_usdt_futures_base_assets(force_refresh=True)
+    symbols_qs = Symbol.objects.filter(
+        symbol_type='CRYPTO',
+        is_active=True,
+        is_crypto_symbol=True,
+    )
+    if valid:
+        symbols_qs = symbols_qs.filter(symbol__in=valid)
+
+    # Step 2: Pick symbols that need data most (no data or oldest latest_date)
+    # Subquery: latest MarketData timestamp per symbol for 1h
+    from django.db.models import OuterRef, Subquery
+    latest_1h = MarketData.objects.filter(
+        symbol=OuterRef('pk'),
+        timeframe='1h',
+    ).order_by('-timestamp')
+    symbols_with_latest = symbols_qs.annotate(
+        latest_ts=Subquery(latest_1h.values('timestamp')[:1]),
+    ).order_by('latest_ts')  # nulls first in Django (ASC nulls first)
+    to_process = list(symbols_with_latest[:max_symbols_per_run])
+    if not to_process:
+        logger.info("[Binance Futures Data] No symbols to process.")
+        return {'status': 'ok', 'synced': 1, 'filled': 0, 'message': 'no symbols to process'}
+
+    # Step 3: Fetch market data for each
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=days)
+    manager = get_historical_data_manager()
+    timeframes_list = list(timeframes)
+    ok = 0
+    fail = 0
+    for symbol in to_process:
+        symbol_ok = False
+        for tf in timeframes_list:
+            try:
+                if manager.fetch_complete_historical_data(
+                    symbol, timeframe=tf, start=start_date, end=end_date
+                ):
+                    symbol_ok = True
+            except Exception as e:
+                logger.warning(f"[Binance Futures Data] {symbol.symbol} {tf}: {e}")
+        if symbol_ok:
+            ok += 1
+        else:
+            fail += 1
+
+    logger.info(
+        f"[Binance Futures Data] Done. Processed {len(to_process)} symbols: ok={ok}, fail={fail}"
+    )
+    return {
+        'status': 'ok',
+        'synced': 1,
+        'filled': ok,
+        'failed': fail,
+        'total_processed': len(to_process),
+    }
+
+
 
 

@@ -151,6 +151,13 @@ app.conf.update(
             'schedule': crontab(minute=0),  # Every hour at minute 0
             'options': {'queue': 'data', 'priority': 9},  # High priority: keeps eligible symbols accurate
         },
+        # ACTIVE: Load market data for Binance futures coins (batch per run; over time all get data)
+        'load-binance-futures-market-data': {
+            'task': 'apps.data.tasks.load_binance_futures_market_data_task',
+            'schedule': crontab(minute=10, hour='*/2'),  # Every 2 hours at :10 (e.g. 00:10, 02:10, ...)
+            'options': {'queue': 'data', 'priority': 8},
+            'kwargs': {'days': 90, 'max_symbols_per_run': 30, 'timeframes': ('1h', '4h', '1d')},
+        },
         # Save daily best signals at end of day (11:55 PM UTC)
         # End of day: Select best 5 signals from the 24 generated today (runs at 23:55)
         'save-daily-best-signals': {
