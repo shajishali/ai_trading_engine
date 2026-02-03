@@ -1215,6 +1215,17 @@ let testMode = true; // Enable test mode by default
 let signalsChart = null; // Chart instance
 let signalsAutoRefreshInterval = null; // Auto-refresh interval for signals
 
+// Safely parse JSON from fetch response (avoids JSON.parse error when server returns HTML e.g. 302/401/500)
+function parseJsonResponse(response) {
+    const ct = (response.headers.get('Content-Type') || '').toLowerCase();
+    if (!ct.includes('application/json')) {
+        return response.text().then(function(text) {
+            throw new Error('Server returned non-JSON (status ' + response.status + ')');
+        });
+    }
+    return response.json();
+}
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing dashboard...'); // Debug log
@@ -1453,8 +1464,8 @@ function loadSignals(showNotificationOnNew = false) {
             'Expires': '0'
         }
     })
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) { return parseJsonResponse(response); })
+        .then(function(data) {
             console.log('Signals API response:', data); // Debug log
             if (data.success) {
                 const newSignalsData = data.signals || [];
@@ -1699,8 +1710,8 @@ function viewSignal(signalId) {
     function proceedWithSignal() {
         // Load signal details via AJAX to get complete information including detailed_explanation
         fetch(`/signals/api/signals/${signalId}/`)
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) { return parseJsonResponse(response); })
+        .then(function(data) {
             if (!data.success || !data.signal) {
                 console.log('Signal not found in API!'); // Debug log
                 showNotification('Signal not found', 'danger');
@@ -1939,8 +1950,8 @@ function updateSignalCount(count) {
 // Load statistics
 function loadStatistics() {
     fetch('/signals/api/performance/')
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) { return parseJsonResponse(response); })
+        .then(function(data) {
             if (data.success && data.current_metrics) {
                 const metrics = data.current_metrics;
                 const winRateEl = document.getElementById('win-rate');
@@ -2047,8 +2058,8 @@ function generateSignals() {
                 symbol: symbol
             })
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) { return parseJsonResponse(response); })
+        .then(function(data) {
             if (data.success) {
                 showNotification(`Successfully generated ${data.signals_generated} signals for ${data.symbol}!`, 'success');
                 setTimeout(loadSignals, 2000);
@@ -2080,8 +2091,8 @@ function syncPrices() {
             'Content-Type': 'application/json',
         }
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function(response) { return parseJsonResponse(response); })
+    .then(function(data) {
         if (data.success) {
             showNotification(`Successfully synchronized prices for ${data.synced_count} signals!`, 'success');
             setTimeout(loadSignals, 1000); // Reload signals to show updated prices
@@ -2485,8 +2496,8 @@ function showBestSignals(selectedDate = null) {
                 'Expires': '0'
             }
         })
-            .then(response => response.json())
-            .then(data => {
+            .then(function(response) { return parseJsonResponse(response); })
+            .then(function(data) {
                 if (!data.success && data.error === 'date_required') {
                     showNotification(data.message || 'Please select a date to view best signals.', 'warning');
                     return;
@@ -2616,8 +2627,8 @@ function searchSignals() {
         
         // Fetch filtered signals from API
         fetch(apiUrl)
-            .then(response => response.json())
-            .then(data => {
+            .then(function(response) { return parseJsonResponse(response); })
+            .then(function(data) {
                 if (data.success) {
                     let filteredSignals = data.signals || [];
                     
@@ -2748,13 +2759,13 @@ function stopSignalsAutoRefresh() {
 // Function to refresh live prices without reloading entire signals
 function refreshLivePrices() {
     fetch('/data/api/live-prices/')
-        .then(response => response.json())
-        .then(data => {
+        .then(function(response) { return parseJsonResponse(response); })
+        .then(function(data) {
             if (data.live_prices && signalsData.length > 0) {
                 updateSignalPrices(data.live_prices);
             }
         })
-        .catch(error => {
+        .catch(function(error) {
             console.error('Error refreshing live prices:', error);
         });
 }
