@@ -664,10 +664,10 @@ def signal_health_check():
 
 
 @shared_task
-def save_daily_best_signals_task(target_date_str=None, limit=5):
+def save_daily_best_signals_task(target_date_str=None, limit=10):
     """
-    Save daily best 5 signals for a specific date (defaults to today)
-    This task runs at the end of each day (23:55) to select best 5 from the 24 signals generated
+    Save daily best 10 signals for a specific date (defaults to today).
+    Runs at 23:55 UTC so the "Best Signals by date" view can show them.
     """
     try:
         if target_date_str:

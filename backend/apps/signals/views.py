@@ -43,7 +43,12 @@ class SignalAPIView(View):
         signal_type = request.GET.get('signal_type')
         is_valid = request.GET.get('is_valid', 'true').lower() == 'true'
         limit = int(request.GET.get('limit', 50))
-        
+        mode = request.GET.get('mode', '').strip().lower()
+
+        # Main dashboard: top 5 from last hour by quality + confidence (no cache)
+        if mode == 'top5':
+            return self._get_top5_signals_last_hour(request)
+
         # Create cache key based on parameters
         cache_key = f"signals_api_{symbol}_{signal_type}_{is_valid}_{limit}"
         cached_data = cache.get(cache_key)
@@ -328,7 +333,85 @@ class SignalAPIView(View):
                         'success': False,
                         'error': str(e)
                     }, status=500)
-    
+
+    def _get_top5_signals_last_hour(self, request):
+        """Return top 5 signals from the last hour by quality + confidence (main dashboard showcase)."""
+        from apps.signals.price_sync_service import price_sync_service
+        last_hour = timezone.now() - timedelta(hours=1)
+        queryset = (
+            TradingSignal.objects.select_related('symbol', 'signal_type')
+            .filter(created_at__gte=last_hour, is_valid=True)
+            .order_by('-quality_score', '-confidence_score', '-created_at')
+        )
+        seen = set()
+        unique = []
+        for signal in queryset:
+            key = (signal.symbol_id, signal.signal_type_id)
+            if key not in seen and len(unique) < 5:
+                seen.add(key)
+                unique.append(signal)
+        # If fewer than 5 in last hour, add from last 24h to fill (still by quality/confidence)
+        if len(unique) < 5:
+            last_24h = timezone.now() - timedelta(hours=24)
+            extra = (
+                TradingSignal.objects.select_related('symbol', 'signal_type')
+                .filter(created_at__gte=last_24h, created_at__lt=last_hour, is_valid=True)
+                .order_by('-quality_score', '-confidence_score', '-created_at')
+            )
+            for signal in extra:
+                key = (signal.symbol_id, signal.signal_type_id)
+                if key not in seen and len(unique) < 5:
+                    seen.add(key)
+                    unique.append(signal)
+        signal_data = []
+        for signal in unique:
+            sym = signal.symbol.symbol
+            sync = price_sync_service.get_synchronized_prices(sym)
+            signal_data.append({
+                'id': signal.id,
+                'symbol': sym,
+                'signal_type': signal.signal_type.name,
+                'strength': signal.strength,
+                'confidence_score': signal.confidence_score,
+                'confidence_level': signal.confidence_level,
+                'entry_price': float(signal.entry_price) if signal.entry_price else None,
+                'target_price': float(signal.target_price) if signal.target_price else None,
+                'stop_loss': float(signal.stop_loss) if signal.stop_loss else None,
+                'current_price': sync.get('current_price'),
+                'price_change_24h': sync.get('price_change_24h'),
+                'price_discrepancy_percent': sync.get('price_discrepancy_percent', 0),
+                'price_status': sync.get('price_status', 'unknown'),
+                'price_alert': sync.get('price_alert'),
+                'risk_reward_ratio': signal.risk_reward_ratio,
+                'quality_score': signal.quality_score,
+                'is_valid': signal.is_valid,
+                'is_executed': signal.is_executed,
+                'is_profitable': signal.is_profitable,
+                'profit_loss': float(signal.profit_loss) if signal.profit_loss else None,
+                'created_at': signal.created_at.isoformat(),
+                'analyzed_at': signal.analyzed_at.isoformat() if signal.analyzed_at else signal.created_at.isoformat(),
+                'expires_at': signal.expires_at.isoformat() if signal.expires_at else None,
+                'technical_score': signal.technical_score,
+                'sentiment_score': signal.sentiment_score,
+                'news_score': signal.news_score,
+                'volume_score': signal.volume_score,
+                'pattern_score': signal.pattern_score,
+                'timeframe': signal.timeframe,
+                'entry_point_type': signal.entry_point_type,
+                'entry_point_details': signal.entry_point_details,
+                'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
+                'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
+                'entry_confidence': signal.entry_confidence,
+                'is_best_of_day': signal.is_best_of_day,
+                'best_of_day_date': signal.best_of_day_date.isoformat() if signal.best_of_day_date else None,
+                'best_of_day_rank': signal.best_of_day_rank,
+            })
+        return JsonResponse({
+            'success': True,
+            'signals': signal_data,
+            'count': len(signal_data),
+        })
+
     def _refresh_cache_async(self, cache_key, symbol, signal_type, is_valid, limit):
         """Refresh cache asynchronously without blocking"""
         try:
@@ -775,44 +858,47 @@ class DailyBestSignalsView(View):
     """API view for daily best signals by date"""
     
     def get(self, request):
-        """Get best signals for a specific date"""
+        """Get best 10 signals for a specific date. Date is required."""
         try:
             from datetime import datetime
             from django.utils import timezone
             
-            # Get date parameter (YYYY-MM-DD format)
+            # Date is required: cannot view best signals without selecting a date
             date_str = request.GET.get('date')
-            if date_str:
-                try:
-                    target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-                except ValueError:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Invalid date format. Use YYYY-MM-DD'
-                    }, status=400)
-            else:
-                target_date = timezone.now().date()
+            if not date_str:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'date_required',
+                    'message': 'Please select a date to view best signals for that day.'
+                }, status=400)
+            try:
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid date format. Use YYYY-MM-DD'
+                }, status=400)
             
-            # Get best signals for the date
-            # Show best signals even if invalid/executed (historical view)
+            # Prefer pre-saved best-of-day (up to 10), then compute from signals created that day
             best_signals_queryset = TradingSignal.objects.filter(
                 is_best_of_day=True,
                 best_of_day_date=target_date
-            ).select_related(
-                'symbol', 'signal_type'
-            ).order_by('best_of_day_rank', '-created_at')
+            ).select_related('symbol', 'signal_type').order_by('best_of_day_rank', '-created_at')[:10]
             
-            # If no signals for this date, show most recent best signals
             if best_signals_queryset.count() == 0:
-                logger.info(f"No best signals found for {target_date}, showing most recent best signals")
-                best_signals_queryset = TradingSignal.objects.filter(
-                    is_best_of_day=True
-                ).select_related(
-                    'symbol', 'signal_type'
-                ).order_by('-best_of_day_date', 'best_of_day_rank', '-created_at')[:10]
+                # Compute best 10 for this date: signals created on target_date, ordered by quality + confidence
+                start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+                end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+                best_signals_queryset = (
+                    TradingSignal.objects.filter(
+                        created_at__gte=start_dt,
+                        created_at__lte=end_dt
+                    )
+                    .select_related('symbol', 'signal_type')
+                    .order_by('-quality_score', '-confidence_score', '-created_at')[:10]
+                )
             
-            # CRITICAL: Remove duplicates - keep only one signal per symbol+type combination
-            # This ensures no duplicate signals appear even if they exist in database
+            # Remove duplicates - one per symbol+type
             seen_combinations = set()
             unique_signals = []
             for signal in best_signals_queryset:
@@ -820,6 +906,8 @@ class DailyBestSignalsView(View):
                 if combo_key not in seen_combinations:
                     seen_combinations.add(combo_key)
                     unique_signals.append(signal)
+                    if len(unique_signals) >= 10:
+                        break
             
             # Serialize signals
             signal_data = []
@@ -979,17 +1067,8 @@ def signal_history(request):
         if signal_type:
             query &= Q(signal_type__name__icontains=signal_type)
         
-        # Show archived signals (executed or expired) OR active signals if no archived signals exist
-        archived_signals_count = TradingSignal.objects.filter(
-            Q(is_executed=True) | Q(is_valid=False)
-        ).count()
-        
-        if archived_signals_count > 0:
-            # Show only archived signals
-            query &= Q(Q(is_executed=True) | Q(is_valid=False))
-        else:
-            # If no archived signals, show active signals for demonstration
-            query &= Q(is_valid=True)
+        # Show ALL generated signals (history = full list, no filter by archived only)
+        # No extra filter: query already has symbol/signal_type if provided
         
         # Get signals with pagination
         signals = TradingSignal.objects.select_related(
