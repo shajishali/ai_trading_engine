@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3396,16 +3396,22 @@
     </style>
     
     {% block extra_css %}{% endblock %}
-    <!-- Set theme immediately so mobile/first load shows dark before paint (no flash of light) -->
+    <!-- Override to light only if user previously chose light (server already sent data-theme="dark" on html) -->
     <script>
         (function(){
-            var s = localStorage.getItem('theme');
-            document.documentElement.setAttribute('data-theme', s === 'light' ? 'light' : 'dark');
+            try {
+                var s = localStorage.getItem('theme');
+                if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
+            } catch (e) {}
         })();
     </script>
 </head>
-<body>
-    <script>document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');</script>
+<body data-theme="dark">
+    <script>
+        try {
+            if (localStorage.getItem('theme') === 'light') document.body.setAttribute('data-theme', 'light');
+        } catch (e) {}
+    </script>
     <!-- Premium Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light shadow-sm" style="background-color: var(--navbar-bg);">
         <div class="container">
@@ -3522,42 +3528,38 @@
     <!-- Use CDNJS (allowed by CSP) instead of code.jquery.com -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     
-    <!-- Dark/Light Mode Toggle Script (theme already set in head + start of body for instant dark on mobile) -->
+    <!-- Dark/Light Mode Toggle Script (server sends dark; we only override to light if user chose light before) -->
     <script>
-        // Theme toggle functionality
-        const themeToggle = document.getElementById('theme-toggle');
-        const themeIcon = document.getElementById('theme-icon');
-        const body = document.body;
-        
-        // Keep in sync with early script: saved preference or default dark (new users + mobile see dark first)
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        body.setAttribute('data-theme', currentTheme);
-        document.documentElement.setAttribute('data-theme', currentTheme === 'light' ? 'light' : 'dark');
-        
-        // Only proceed if theme toggle elements exist (not on login/welcome page when logged out)
-        if (themeToggle && themeIcon) {
-            updateThemeIcon(currentTheme);
+        (function(){
+            var themeToggle = document.getElementById('theme-toggle');
+            var themeIcon = document.getElementById('theme-icon');
+            var body = document.body;
+            var currentTheme = 'dark';
+            try { if (localStorage.getItem('theme') === 'light') currentTheme = 'light'; } catch (e) {}
+            body.setAttribute('data-theme', currentTheme);
+            document.documentElement.setAttribute('data-theme', currentTheme);
             
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = body.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                
-                body.setAttribute('data-theme', newTheme);
-                document.documentElement.setAttribute('data-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                updateThemeIcon(newTheme);
-            });
-            
-            function updateThemeIcon(theme) {
-                if (theme === 'dark') {
-                    themeIcon.className = 'fas fa-sun';
-                    themeToggle.title = 'Switch to Light Mode';
-                } else {
-                    themeIcon.className = 'fas fa-moon';
-                    themeToggle.title = 'Switch to Dark Mode';
+            if (themeToggle && themeIcon) {
+                function updateThemeIcon(theme) {
+                    if (theme === 'dark') {
+                        themeIcon.className = 'fas fa-sun';
+                        themeToggle.title = 'Switch to Light Mode';
+                    } else {
+                        themeIcon.className = 'fas fa-moon';
+                        themeToggle.title = 'Switch to Dark Mode';
+                    }
                 }
+                updateThemeIcon(currentTheme);
+                themeToggle.addEventListener('click', function() {
+                    var cur = body.getAttribute('data-theme');
+                    var newTheme = cur === 'dark' ? 'light' : 'dark';
+                    body.setAttribute('data-theme', newTheme);
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    try { localStorage.setItem('theme', newTheme); } catch (e) {}
+                    updateThemeIcon(newTheme);
+                });
             }
-        }
+        })();
     </script>
 
     <!-- Brightness Control Script -->
