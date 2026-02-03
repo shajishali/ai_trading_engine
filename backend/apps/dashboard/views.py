@@ -266,10 +266,10 @@ def dashboard(request):
         .order_by('-created_at')[:10]
     )
     
-    # Calculate confidence percentages for display
+    # Calculate confidence percentages for display (guard against None)
     for signal in recent_signals:
-        signal.confidence_percentage = int(signal.confidence_score * 100)
-        signal.quality_percentage = int(signal.quality_score * 100)
+        signal.confidence_percentage = int((signal.confidence_score or 0) * 100)
+        signal.quality_percentage = int((signal.quality_score or 0) * 100)
     
     # If no signals exist, create some sample signals for demonstration
     if not recent_signals.exists():
@@ -410,7 +410,7 @@ def dashboard(request):
     if portfolio:
         open_positions = Position.objects.filter(portfolio=portfolio, is_open=True)
         total_positions = open_positions.count()
-        total_pnl = sum([pos.unrealized_pnl for pos in open_positions])
+        total_pnl = sum([(pos.unrealized_pnl or 0) for pos in open_positions])
         
         # Recent trades
         recent_trades = Trade.objects.filter(portfolio=portfolio).order_by('-executed_at')[:5]
@@ -436,10 +436,11 @@ def dashboard(request):
     else:
         win_rate = 73  # Default
     
-    # Calculate average signal quality
-    if recent_signals.exists():
-        avg_quality = round(sum([signal.quality_score for signal in recent_signals]) / len(recent_signals) * 100)
-        avg_confidence = round(sum([signal.confidence_score for signal in recent_signals]) / len(recent_signals) * 100)
+    # Calculate average signal quality (guard against None and empty)
+    recent_list = list(recent_signals)
+    if recent_list:
+        avg_quality = round(sum([(s.quality_score or 0) for s in recent_list]) / len(recent_list) * 100)
+        avg_confidence = round(sum([(s.confidence_score or 0) for s in recent_list]) / len(recent_list) * 100)
     else:
         avg_quality = 75  # Default
         avg_confidence = 70  # Default
@@ -448,8 +449,8 @@ def dashboard(request):
     
     # Calculate signal distribution for charts
     signal_distribution = {}
-    if recent_signals.exists():
-        for signal in recent_signals:
+    if recent_list:
+        for signal in recent_list:
             signal_type = signal.signal_type.name
             if signal_type in signal_distribution:
                 signal_distribution[signal_type] += 1

@@ -303,6 +303,7 @@ ExecStart=/home/tradingengine/trading-engine/backend/venv/bin/gunicorn \
     ai_trading_engine.wsgi:application
 Restart=always
 RestartSec=10
+TimeoutStopSec=120
 
 [Install]
 WantedBy=multi-user.target
