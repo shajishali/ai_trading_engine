@@ -3396,8 +3396,16 @@
     </style>
     
     {% block extra_css %}{% endblock %}
+    <!-- Set theme immediately so mobile/first load shows dark before paint (no flash of light) -->
+    <script>
+        (function(){
+            var s = localStorage.getItem('theme');
+            document.documentElement.setAttribute('data-theme', s === 'light' ? 'light' : 'dark');
+        })();
+    </script>
 </head>
 <body>
+    <script>document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'dark');</script>
     <!-- Premium Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light shadow-sm" style="background-color: var(--navbar-bg);">
         <div class="container">
@@ -3514,18 +3522,19 @@
     <!-- Use CDNJS (allowed by CSP) instead of code.jquery.com -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     
-    <!-- Dark/Light Mode Toggle Script -->
+    <!-- Dark/Light Mode Toggle Script (theme already set in head + start of body for instant dark on mobile) -->
     <script>
         // Theme toggle functionality
         const themeToggle = document.getElementById('theme-toggle');
         const themeIcon = document.getElementById('theme-icon');
         const body = document.body;
         
-        // Check for saved theme preference or default to dark mode (new users see dark first)
+        // Keep in sync with early script: saved preference or default dark (new users + mobile see dark first)
         const currentTheme = localStorage.getItem('theme') || 'dark';
         body.setAttribute('data-theme', currentTheme);
+        document.documentElement.setAttribute('data-theme', currentTheme === 'light' ? 'light' : 'dark');
         
-        // Only proceed if theme toggle elements exist (not on login page)
+        // Only proceed if theme toggle elements exist (not on login/welcome page when logged out)
         if (themeToggle && themeIcon) {
             updateThemeIcon(currentTheme);
             
@@ -3534,6 +3543,7 @@
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 
                 body.setAttribute('data-theme', newTheme);
+                document.documentElement.setAttribute('data-theme', newTheme);
                 localStorage.setItem('theme', newTheme);
                 updateThemeIcon(newTheme);
             });
