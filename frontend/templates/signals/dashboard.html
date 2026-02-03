@@ -9,6 +9,7 @@
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        overflow-anchor: none; /* Prevent scroll-anchoring warning when live prices update */
     }
     
     #signals-table {
@@ -272,6 +273,7 @@
             font-size: 0.75rem;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            overflow-anchor: none; /* Avoid "scroll anchoring disabled" console warning on frequent price updates */
         }
         
         #signals-table {
