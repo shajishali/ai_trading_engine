@@ -156,6 +156,7 @@
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb, #007bff) var(--scrollbar-track, #f8f9fa);
     -webkit-overflow-scrolling: touch;
+    overflow-anchor: none; /* Prevent "scroll anchoring disabled" console warning on price updates */
 }
 
 .crypto-prices-scroll-container::-webkit-scrollbar {

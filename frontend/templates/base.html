@@ -18,6 +18,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
+        /* Prevent "scroll anchoring disabled" console warning when scrollable content updates frequently */
+        .table-responsive,
+        .crypto-prices-scroll-container,
+        [class*="overflow-auto"],
+        [class*="table-responsive"] {
+            overflow-anchor: none;
+        }
         :root {
             --primary-color: #022b57;
             --secondary-color: #0d6efd;
