@@ -56,8 +56,8 @@ def _active_signal_symbol_ids() -> List[int]:
 def _symbol_ids_with_signal_created_today() -> List[int]:
     """
     Return symbol IDs that have ANY signal created today (any status).
-    Used to avoid regenerating for the same symbol again the same day,
-    so the same symbols do not appear every hour.
+    Kept for compatibility; hourly run now uses _symbol_ids_with_signal_in_last_hour
+    so that each hour can show new signals (same or different symbols).
     """
     today = timezone.now().date()
     return list(
@@ -67,13 +67,28 @@ def _symbol_ids_with_signal_created_today() -> List[int]:
     )
 
 
+def _symbol_ids_with_signal_in_last_hour() -> List[int]:
+    """
+    Return symbol IDs that have a signal created in the last hour.
+    Used so we do not double-generate for the same symbol within the same hour,
+    but each new hour we can generate fresh signals (duplicate cleanup keeps latest).
+    """
+    last_hour = timezone.now() - timedelta(hours=1)
+    return list(
+        TradingSignal.objects.filter(created_at__gte=last_hour)
+        .values_list("symbol_id", flat=True)
+        .distinct()
+    )
+
+
 @shared_task
 def generate_signals_for_all_symbols():
     """
     HOURLY SIGNAL GENERATION QUEUE (run every 1h or every 4h via Celery beat).
-    Step 1: Ignore coins that already have a signal created today (any previous hour).
-    Step 2: Generate up to 5 new signals from remaining coins.
-    Step 3: Best signals are shown on the UI (main page = top 5 from last hour).
+    Step 1: No exclusion by "signal today" – so each hour can produce new signals.
+    Step 2: Generate up to 5 new signals (from random eligible coins; same symbols allowed).
+    Step 3: Duplicate cleanup keeps only the latest signal per symbol; older ones marked invalid.
+    Step 4: UI shows top 5 from last hour, so users see a fresh batch every hour.
     """
     from datetime import date
 
@@ -101,29 +116,16 @@ def generate_signals_for_all_symbols():
         if cleanup_stats.get("signals_deleted"):
             logger.warning(f"[Signal Queue] Deleted {cleanup_stats['signals_deleted']} non-Binance-futures signals.")
 
-    # --- Step 1: IGNORE coins that already generated signals today (any previous hour) ---
-    symbols_with_signal_today = set()
-    try:
-        symbols_with_signal_today = set(_symbol_ids_with_signal_created_today())
-    except Exception as e:
-        logger.warning(f"[Signal Queue] Could not get symbols-with-signal-today: {e}")
-
-    symbols_with_active = set()
-    try:
-        symbols_with_active = set(_active_signal_symbol_ids())
-    except Exception as e:
-        logger.warning(f"[Signal Queue] Could not get active-signal symbols: {e}")
-
-    exclude_symbol_ids = symbols_with_signal_today | symbols_with_active
-    excluded_symbol_names = list(
-        Symbol.objects.filter(id__in=exclude_symbol_ids).values_list("symbol", flat=True)
-    )[:20]  # log up to 20
+    # --- Step 1: Do NOT exclude symbols that already have a signal today.
+    # Each hour we generate up to 5 NEW signals (same or different symbols). Duplicate cleanup
+    # below keeps only the latest per symbol, so the dashboard "top 5 from last hour" shows
+    # fresh signals every hour instead of the same batch all day.
+    exclude_symbol_ids = set()
     logger.info(
-        f"[Signal Queue] Step 1 – Ignore coins with signal today/active: {len(exclude_symbol_ids)} symbols excluded. "
-        f"Examples: {excluded_symbol_names}"
+        "[Signal Queue] Step 1 – No daily exclusion; each hour generates fresh signals (duplicate cleanup keeps latest)."
     )
 
-    # --- Step 2: GENERATE signals from remaining coins (max 5 per run) ---
+    # --- Step 2: GENERATE signals from all eligible coins (max 5 per run). ---
     active_symbols_qs = Symbol.objects.filter(
         is_active=True,
         is_crypto_symbol=True,
