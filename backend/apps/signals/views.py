@@ -335,7 +335,9 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return top 5 signals from the last hour by quality + confidence (main dashboard showcase)."""
+        """Return top 5 signals from the last hour by quality + confidence.
+        Every hour we generate up to 5 new signals (from coins without a signal today); this shows those top 5 on the main page.
+        """
         from apps.signals.price_sync_service import price_sync_service
         last_hour = timezone.now() - timedelta(hours=1)
         queryset = (
@@ -879,24 +881,18 @@ class DailyBestSignalsView(View):
                     'error': 'Invalid date format. Use YYYY-MM-DD'
                 }, status=400)
             
-            # Prefer pre-saved best-of-day (up to 10), then compute from signals created that day
-            best_signals_queryset = TradingSignal.objects.filter(
-                is_best_of_day=True,
-                best_of_day_date=target_date
-            ).select_related('symbol', 'signal_type').order_by('best_of_day_rank', '-created_at')[:10]
-            
-            if best_signals_queryset.count() == 0:
-                # Compute best 10 for this date: signals created on target_date, ordered by quality + confidence
-                start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
-                end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
-                best_signals_queryset = (
-                    TradingSignal.objects.filter(
-                        created_at__gte=start_dt,
-                        created_at__lte=end_dt
-                    )
-                    .select_related('symbol', 'signal_type')
-                    .order_by('-quality_score', '-confidence_score', '-created_at')[:10]
+            # Best 10 signals generated for that day: all signals created on target_date, top 10 by quality + confidence.
+            # So when user picks a date and clicks Best Signal, they see the best 10 generated that day (e.g. so far today).
+            start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+            end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+            best_signals_queryset = (
+                TradingSignal.objects.filter(
+                    created_at__gte=start_dt,
+                    created_at__lte=end_dt
                 )
+                .select_related('symbol', 'signal_type')
+                .order_by('-quality_score', '-confidence_score', '-created_at')[:10]
+            )
             
             # Remove duplicates - one per symbol+type
             seen_combinations = set()

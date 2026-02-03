@@ -53,17 +53,31 @@ def _active_signal_symbol_ids() -> List[int]:
     )
 
 
+def _symbol_ids_with_signal_created_today() -> List[int]:
+    """
+    Return symbol IDs that have ANY signal created today (any status).
+    Used to avoid regenerating for the same symbol again the same day,
+    so the same symbols do not appear every hour.
+    """
+    today = timezone.now().date()
+    return list(
+        TradingSignal.objects.filter(created_at__date=today)
+        .values_list("symbol_id", flat=True)
+        .distinct()
+    )
+
+
 @shared_task
 def generate_signals_for_all_symbols():
     """
-    Generate signals for active symbols with daily limit:
-    - Only 4 signals per generation (to get 24 total per day)
-    - Skip symbols that already have signals today
-    - Runs every 4 hours (6 times per day)
+    Generate signals for active symbols:
+    - Max 5 signals per run (some runs may have fewer—display what we have).
+    - Do NOT generate for a coin that already has a signal created that same day.
+    - Schedule: every 1 hour for testing; you can change to every 4 hours in Celery beat.
     """
     from datetime import date
     
-    logger.info("Starting signal generation for all symbols (4 signals max, skip symbols with signals today)...")
+    logger.info("Starting signal generation (max 5 per run, skip symbols with signal today)...")
 
     # Ensure we only ever generate signals for Binance USDT perpetual futures base assets.
     # Also deactivate non-eligible symbols so they won't be selected elsewhere.
@@ -96,15 +110,25 @@ def generate_signals_for_all_symbols():
         if cleanup_stats.get("signals_deleted"):
             logger.warning(f"Deleted {cleanup_stats['signals_deleted']} signal(s) for non-Binance-futures symbols")
     
-    # Get symbols that already have an ACTIVE signal (so we don't regenerate them).
-    # This fixes the "same coin keeps showing each hour" issue.
+    # Exclude symbols that already have a signal created TODAY (any status).
+    # This ensures we never regenerate for the same symbol in the same day,
+    # so the same symbols do not appear every hour on the signal page.
+    symbols_with_signal_today = set()
+    try:
+        symbols_with_signal_today = set(_symbol_ids_with_signal_created_today())
+    except Exception as e:
+        logger.warning(f"Could not compute symbols-with-signal-today: {e}")
+    
+    # Also exclude symbols that have an ACTIVE signal (double safeguard).
     symbols_with_active_signals = set()
     try:
         symbols_with_active_signals = set(_active_signal_symbol_ids())
     except Exception as e:
         logger.warning(f"Could not compute active-signal symbol ids: {e}")
     
-    # Get active symbols excluding those that already have signals today
+    exclude_symbol_ids = symbols_with_signal_today | symbols_with_active_signals
+
+    # Get active symbols excluding those that already have signals today or active
     active_symbols_qs = Symbol.objects.filter(
         is_active=True,
         is_crypto_symbol=True,
@@ -113,19 +137,19 @@ def generate_signals_for_all_symbols():
     if valid_base_assets:
         active_symbols_qs = active_symbols_qs.filter(symbol__in=valid_base_assets)
 
-    if symbols_with_active_signals:
-        active_symbols_qs = active_symbols_qs.exclude(id__in=symbols_with_active_signals)
+    if exclude_symbol_ids:
+        active_symbols_qs = active_symbols_qs.exclude(id__in=exclude_symbol_ids)
 
     active_symbols = active_symbols_qs.order_by('?')  # Random order for variety
     
     logger.info(
-        f"Found {active_symbols.count()} eligible symbols without ACTIVE signals "
-        f"(excluding {len(symbols_with_active_signals)} that already have active signals)"
+        f"Found {active_symbols.count()} eligible symbols (excluding {len(symbols_with_signal_today)} with signal today, "
+        f"{len(symbols_with_active_signals)} with active signal)"
     )
     
     total_signals = 0
     generated_signals = []
-    max_signals_per_generation = 4  # Limit to 4 signals per generation
+    max_signals_per_generation = 5  # Max 5 signals per run; some hours may have fewer—display what we have
     
     for symbol in active_symbols:
         # Stop if we've reached the limit
