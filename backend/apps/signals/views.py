@@ -335,15 +335,15 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return top 5 signals from the last hour by quality + confidence.
-        Every hour we generate up to 5 new signals (from coins without a signal today); this shows those top 5 on the main page.
+        """Return newest 5 signals in the last hour (by created_at).
+        Each hour stores up to 5 new signals; main page shows that latest batch. Fill from 1–24h if needed.
         """
         from apps.signals.price_sync_service import price_sync_service
         last_hour = timezone.now() - timedelta(hours=1)
         queryset = (
             TradingSignal.objects.select_related('symbol', 'signal_type')
             .filter(created_at__gte=last_hour, is_valid=True)
-            .order_by('-quality_score', '-confidence_score', '-created_at')
+            .order_by('-created_at')
         )
         seen = set()
         unique = []
@@ -352,13 +352,13 @@ class SignalAPIView(View):
             if key not in seen and len(unique) < 5:
                 seen.add(key)
                 unique.append(signal)
-        # If fewer than 5 in last hour, add from last 24h to fill (still by quality/confidence)
+        # If fewer than 5 in last hour, fill from 1–24h (newest first)
         if len(unique) < 5:
             last_24h = timezone.now() - timedelta(hours=24)
             extra = (
                 TradingSignal.objects.select_related('symbol', 'signal_type')
                 .filter(created_at__gte=last_24h, created_at__lt=last_hour, is_valid=True)
-                .order_by('-quality_score', '-confidence_score', '-created_at')
+                .order_by('-created_at')
             )
             for signal in extra:
                 key = (signal.symbol_id, signal.signal_type_id)
@@ -881,29 +881,40 @@ class DailyBestSignalsView(View):
                     'error': 'Invalid date format. Use YYYY-MM-DD'
                 }, status=400)
             
-            # Best 10 signals generated for that day: all signals created on target_date, top 10 by quality + confidence.
-            # So when user picks a date and clicks Best Signal, they see the best 10 generated that day (e.g. so far today).
-            start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
-            end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
-            best_signals_queryset = (
-                TradingSignal.objects.filter(
-                    created_at__gte=start_dt,
-                    created_at__lte=end_dt
+            today = timezone.now().date()
+            # Past date: show the final 10 saved at 23:55 for that day. Today: live top 10 from today's pool (24*5 signals).
+            if target_date < today:
+                best_signals_queryset = (
+                    TradingSignal.objects.filter(
+                        best_of_day_date=target_date,
+                        is_best_of_day=True
+                    )
+                    .select_related('symbol', 'signal_type')
+                    .order_by('best_of_day_rank')
                 )
-                .select_related('symbol', 'signal_type')
-                .order_by('-quality_score', '-confidence_score', '-created_at')[:10]
-            )
-            
-            # Remove duplicates - one per symbol+type
-            seen_combinations = set()
-            unique_signals = []
-            for signal in best_signals_queryset:
-                combo_key = (signal.symbol.id, signal.signal_type.id)
-                if combo_key not in seen_combinations:
-                    seen_combinations.add(combo_key)
-                    unique_signals.append(signal)
-                    if len(unique_signals) >= 10:
-                        break
+                unique_signals = list(best_signals_queryset)
+            else:
+                # Today: best 10 by quality from all signals created today (live from 24*5 pool)
+                start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+                end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+                day_signals = (
+                    TradingSignal.objects.filter(
+                        created_at__gte=start_dt,
+                        created_at__lte=end_dt,
+                        is_valid=True
+                    )
+                    .select_related('symbol', 'signal_type')
+                    .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')
+                )
+                seen_combinations = set()
+                unique_signals = []
+                for signal in day_signals:
+                    combo_key = (signal.symbol.id, signal.signal_type.id)
+                    if combo_key not in seen_combinations:
+                        seen_combinations.add(combo_key)
+                        unique_signals.append(signal)
+                        if len(unique_signals) >= 10:
+                            break
             
             # Serialize signals
             signal_data = []

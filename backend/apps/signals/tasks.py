@@ -699,16 +699,22 @@ def save_daily_best_signals_task(target_date_str=None, limit=10):
         
         logger.info(f"Starting to save daily best {limit} signals for {target_date}...")
         
-        # Get all signals created today
-        today_signals = TradingSignal.objects.filter(
+        # Get all signals created that day (24*5 pool), ordered by quality
+        day_signals = TradingSignal.objects.filter(
             created_at__date=target_date,
             is_valid=True
         ).select_related('symbol', 'signal_type').order_by('-quality_score', '-confidence_score', '-risk_reward_ratio')
         
-        logger.info(f"Found {today_signals.count()} signals for {target_date}")
+        logger.info(f"Found {day_signals.count()} signals for {target_date}")
         
-        # Select top 5 best signals based on quality score, confidence, and risk-reward
-        best_signals = today_signals[:limit]
+        # One per symbol+type, top 10 by quality (final best 10 for the day)
+        seen = set()
+        best_signals = []
+        for signal in day_signals:
+            key = (signal.symbol_id, signal.signal_type_id)
+            if key not in seen and len(best_signals) < limit:
+                seen.add(key)
+                best_signals.append(signal)
         
         # Clear previous best signals for this date
         TradingSignal.objects.filter(
@@ -716,7 +722,7 @@ def save_daily_best_signals_task(target_date_str=None, limit=10):
             is_best_of_day=True
         ).update(is_best_of_day=False, best_of_day_date=None, best_of_day_rank=None)
         
-        # Mark the best 5 signals
+        # Mark the best 10 signals
         saved_count = 0
         for rank, signal in enumerate(best_signals, start=1):
             signal.is_best_of_day = True
