@@ -45,7 +45,7 @@ class SignalAPIView(View):
         limit = int(request.GET.get('limit', 50))
         mode = request.GET.get('mode', '').strip().lower()
 
-        # Main dashboard: top 5 from last hour by quality + confidence (no cache)
+        # Main dashboard: 5 signals for current clock hour from today's pool (no cache)
         if mode == 'top5':
             return self._get_top5_signals_last_hour(request)
 
@@ -335,38 +335,53 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return newest 5 signals in the last hour (by created_at).
-        Each hour stores up to 5 new signals; main page shows that latest batch. Fill from 1–24h if needed.
+        """Return 5 signals for the current clock hour: the 5 generated in that hour (by created_at).
+        Uses ALL signals created today (including is_valid=False) so each hour has its own batch
+        after duplicate cleanup; otherwise we'd only ever have 5 valid and the page would never change.
         """
         from apps.signals.price_sync_service import price_sync_service
-        last_hour = timezone.now() - timedelta(hours=1)
-        queryset = (
+        now = timezone.now()
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_today = start_of_today + timedelta(days=1)
+        current_hour = now.hour  # 0-23
+        hour_start = start_of_today + timedelta(hours=current_hour)
+        hour_end = hour_start + timedelta(hours=1)
+        # Signals created in this clock hour (include invalid so we see that hour's batch after cleanup)
+        in_this_hour = (
             TradingSignal.objects.select_related('symbol', 'signal_type')
-            .filter(created_at__gte=last_hour, is_valid=True)
-            .order_by('-created_at')
+            .filter(
+                created_at__gte=hour_start,
+                created_at__lt=hour_end,
+            )
+            .order_by('-quality_score', '-confidence_score', '-created_at')
         )
         seen = set()
-        unique = []
-        for signal in queryset:
+        batch = []
+        for signal in in_this_hour:
             key = (signal.symbol_id, signal.signal_type_id)
-            if key not in seen and len(unique) < 5:
+            if key not in seen and len(batch) < 5:
                 seen.add(key)
-                unique.append(signal)
-        # If fewer than 5 in last hour, fill from 1–24h (newest first)
-        if len(unique) < 5:
-            last_24h = timezone.now() - timedelta(hours=24)
-            extra = (
-                TradingSignal.objects.select_related('symbol', 'signal_type')
-                .filter(created_at__gte=last_24h, created_at__lt=last_hour, is_valid=True)
-                .order_by('-created_at')
-            )
-            for signal in extra:
-                key = (signal.symbol_id, signal.signal_type_id)
-                if key not in seen and len(unique) < 5:
-                    seen.add(key)
-                    unique.append(signal)
+                batch.append(signal)
+        # If this hour has fewer than 5, fill from previous hours (same day, newest first)
+        if len(batch) < 5:
+            rest_start = start_of_today
+            rest_end = hour_start
+            if rest_end > rest_start:
+                extra = (
+                    TradingSignal.objects.select_related('symbol', 'signal_type')
+                    .filter(
+                        created_at__gte=rest_start,
+                        created_at__lt=rest_end,
+                    )
+                    .order_by('-created_at')
+                )
+                for signal in extra:
+                    key = (signal.symbol_id, signal.signal_type_id)
+                    if key not in seen and len(batch) < 5:
+                        seen.add(key)
+                        batch.append(signal)
         signal_data = []
-        for signal in unique:
+        for signal in batch:
             sym = signal.symbol.symbol
             sync = price_sync_service.get_synchronized_prices(sym)
             signal_data.append({
