@@ -903,40 +903,47 @@ class DailyBestSignalsView(View):
                 }, status=400)
             
             today = timezone.now().date()
-            # READ-ONLY: Only return signals that were created on target_date (never mix dates).
-            # Past date: use saved best_of_day marks, and enforce created_at date to avoid any cross-date leakage.
-            # Today: top 10 by quality from signals already generated hourly today (no new generation).
-            start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
-            end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+            # STRICT: Return signals ONLY for target_date. Never mix other dates.
+            # Use calendar date (signal_date or created_at__date) so timezone cannot leak another day.
+            from django.db.models import Q
+            date_filter = (
+                Q(signal_date=target_date)
+                | Q(signal_date__isnull=True, created_at__date=target_date)
+            )
+            day_signals = (
+                TradingSignal.objects.filter(date_filter)
+                .select_related('symbol', 'signal_type')
+            )
 
             if target_date < today:
-                # Past: only signals saved as best-of-day for this date AND created on this date
-                best_signals_queryset = (
-                    TradingSignal.objects.filter(
-                        best_of_day_date=target_date,
-                        is_best_of_day=True,
-                        created_at__gte=start_dt,
-                        created_at__lte=end_dt,
+                # Past: prefer saved best_of_day for ordering; take top 10 by rank then quality
+                with_best = day_signals.filter(
+                    best_of_day_date=target_date,
+                    is_best_of_day=True,
+                ).order_by('best_of_day_rank')
+                unique_signals = list(with_best[:10])
+                if len(unique_signals) < 10:
+                    # Fill remaining from same day by quality (e.g. best_of_day not run that day)
+                    seen_ids = {s.id for s in unique_signals}
+                    seen_symbol_type = {(s.symbol_id, s.signal_type_id) for s in unique_signals}
+                    rest = (
+                        day_signals.exclude(id__in=seen_ids)
+                        .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')
                     )
-                    .select_related('symbol', 'signal_type')
-                    .order_by('best_of_day_rank')
-                )
-                unique_signals = list(best_signals_queryset)
+                    for signal in rest:
+                        if len(unique_signals) >= 10:
+                            break
+                        key = (signal.symbol_id, signal.signal_type_id)
+                        if key not in seen_symbol_type:
+                            seen_symbol_type.add(key)
+                            unique_signals.append(signal)
             else:
-                # Today: top 10 by quality from hourly-generated signals for this date only (read-only).
-                # Prefer signal_date when set so we never mix dates; else created_at range.
-                from django.db.models import Q
-                day_signals = (
-                    TradingSignal.objects.filter(
-                        Q(signal_date=target_date)
-                        | Q(signal_date__isnull=True, created_at__gte=start_dt, created_at__lte=end_dt),
-                    )
-                    .select_related('symbol', 'signal_type')
-                    .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')
-                )
+                # Today: top 10 by quality from this date only
                 seen_combinations = set()
                 unique_signals = []
-                for signal in day_signals:
+                for signal in day_signals.order_by(
+                    '-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at'
+                ):
                     combo_key = (signal.symbol.id, signal.signal_type.id)
                     if combo_key not in seen_combinations:
                         seen_combinations.add(combo_key)
