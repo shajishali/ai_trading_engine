@@ -239,6 +239,9 @@ class SignalAPIView(View):
                         'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
                         'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
                         'entry_confidence': signal.entry_confidence,
+                        'is_best_of_day': signal.is_best_of_day,
+                        'best_of_day_date': signal.best_of_day_date.isoformat() if signal.best_of_day_date else None,
+                        'best_of_day_rank': signal.best_of_day_rank
                     })
                 
                 response_data = {
@@ -332,26 +335,26 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return exactly 5 signals for the current clock hour (UTC).
-        Prefer signal_date/signal_hour when set (canonical); else fall back to created_at window.
-        No regeneration; read from DB only so page refresh does not change data.
+        """Return exactly the 5 signals stored for the current (date, hour) in UTC.
+        Prefers signal_date/signal_hour when set (no recalculation); falls back to created_at for old rows.
+        Page refresh does not change signals – data is read-only from DB.
         """
         from apps.signals.price_sync_service import price_sync_service
         now = timezone.now()
         today = now.date()
         current_hour = now.hour  # 0-23 UTC
-        # Prefer canonical slot: signals with signal_date and signal_hour set for this hour
-        by_slot = (
+        # Prefer explicit slot: signals stored for this (date, hour)
+        with_slot = (
             TradingSignal.objects.select_related('symbol', 'signal_type')
             .filter(signal_date=today, signal_hour=current_hour)
             .order_by('-quality_score', '-confidence_score', '-created_at')
         )
-        batch = list(by_slot[:5])
-        # Fallback: no slot fields yet (legacy or first run) – use created_at window for this hour
+        batch = list(with_slot[:5])
+        # Fallback: no slot set yet (legacy or first run) – use created_at in this hour
         if len(batch) < 5:
             hour_start = now.replace(minute=0, second=0, microsecond=0)
             hour_end = hour_start + timedelta(hours=1)
-            in_this_hour = (
+            fallback = (
                 TradingSignal.objects.select_related('symbol', 'signal_type')
                 .filter(
                     created_at__gte=hour_start,
@@ -360,27 +363,11 @@ class SignalAPIView(View):
                 .order_by('-quality_score', '-confidence_score', '-created_at')
             )
             seen = {(s.symbol_id, s.signal_type_id) for s in batch}
-            for signal in in_this_hour:
+            for signal in fallback:
+                if len(batch) >= 5:
+                    break
                 key = (signal.symbol_id, signal.signal_type_id)
-                if key not in seen and len(batch) < 5:
-                    seen.add(key)
-                    batch.append(signal)
-        # If still fewer than 5, fill from earlier hours same day (newest first)
-        if len(batch) < 5:
-            start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            hour_start = now.replace(minute=0, second=0, microsecond=0)
-            seen = {(s.symbol_id, s.signal_type_id) for s in batch}
-            extra = (
-                TradingSignal.objects.select_related('symbol', 'signal_type')
-                .filter(
-                    created_at__gte=start_of_today,
-                    created_at__lt=hour_start,
-                )
-                .order_by('-created_at')
-            )
-            for signal in extra:
-                key = (signal.symbol_id, signal.signal_type_id)
-                if key not in seen and len(batch) < 5:
+                if key not in seen:
                     seen.add(key)
                     batch.append(signal)
         signal_data = []
@@ -422,6 +409,9 @@ class SignalAPIView(View):
                 'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
                 'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
                 'entry_confidence': signal.entry_confidence,
+                'is_best_of_day': signal.is_best_of_day,
+                'best_of_day_date': signal.best_of_day_date.isoformat() if signal.best_of_day_date else None,
+                'best_of_day_rank': signal.best_of_day_rank,
             })
         return JsonResponse({
             'success': True,
@@ -863,6 +853,149 @@ class SignalAlertView(View):
             
         except Exception as e:
             logger.error(f"Error marking alerts as read: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(login_required, name='dispatch')
+class DailyBestSignalsView(View):
+    """API view for daily best signals by date"""
+    
+    def get(self, request):
+        """Get best 10 signals for a specific date. Date is required."""
+        try:
+            from datetime import datetime
+            from django.utils import timezone
+            
+            # Date is required: cannot view best signals without selecting a date
+            date_str = request.GET.get('date')
+            if not date_str:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'date_required',
+                    'message': 'Please select a date to view best signals for that day.'
+                }, status=400)
+            try:
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid date format. Use YYYY-MM-DD'
+                }, status=400)
+            
+            today = timezone.now().date()
+            # READ-ONLY: Only return signals that were created on target_date (never mix dates).
+            # Past date: use saved best_of_day marks, and enforce created_at date to avoid any cross-date leakage.
+            # Today: top 10 by quality from signals already generated hourly today (no new generation).
+            start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+            end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+
+            if target_date < today:
+                # Past: only signals saved as best-of-day for this date AND created on this date
+                best_signals_queryset = (
+                    TradingSignal.objects.filter(
+                        best_of_day_date=target_date,
+                        is_best_of_day=True,
+                        created_at__gte=start_dt,
+                        created_at__lte=end_dt,
+                    )
+                    .select_related('symbol', 'signal_type')
+                    .order_by('best_of_day_rank')
+                )
+                unique_signals = list(best_signals_queryset)
+            else:
+                # Today: top 10 by quality from hourly-generated signals for today only (read-only)
+                day_signals = (
+                    TradingSignal.objects.filter(
+                        created_at__gte=start_dt,
+                        created_at__lte=end_dt,
+                    )
+                    .select_related('symbol', 'signal_type')
+                    .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')
+                )
+                seen_combinations = set()
+                unique_signals = []
+                for signal in day_signals:
+                    combo_key = (signal.symbol.id, signal.signal_type.id)
+                    if combo_key not in seen_combinations:
+                        seen_combinations.add(combo_key)
+                        unique_signals.append(signal)
+                        if len(unique_signals) >= 10:
+                            break
+            
+            # Serialize signals
+            signal_data = []
+            for signal in unique_signals:
+                signal_data.append({
+                    'id': signal.id,
+                    'symbol': signal.symbol.symbol,
+                    'signal_type': signal.signal_type.name,
+                    'strength': signal.strength,
+                    'confidence_score': signal.confidence_score,
+                    'confidence_level': signal.confidence_level,
+                    'entry_price': float(signal.entry_price) if signal.entry_price else None,
+                    'target_price': float(signal.target_price) if signal.target_price else None,
+                    'stop_loss': float(signal.stop_loss) if signal.stop_loss else None,
+                    'risk_reward_ratio': signal.risk_reward_ratio,
+                    'quality_score': signal.quality_score,
+                    'timeframe': signal.timeframe,
+                    'entry_point_type': signal.entry_point_type,
+                    'best_of_day_rank': signal.best_of_day_rank,
+                    'created_at': signal.created_at.isoformat(),
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'date': target_date.isoformat(),
+                'signals': signal_data,
+                'count': len(signal_data)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting daily best signals: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(login_required, name='dispatch')
+class AvailableDatesView(View):
+    """API view to get available dates with best signals"""
+    
+    def get(self, request):
+        """Get list of dates that have best signals"""
+        try:
+            from django.db.models import Count
+            
+            # Get distinct dates that have best signals
+            dates = TradingSignal.objects.filter(
+                is_best_of_day=True
+            ).values('best_of_day_date').annotate(
+                signal_count=Count('id')
+            ).order_by('-best_of_day_date')
+            
+            date_list = [
+                {
+                    'date': item['best_of_day_date'].isoformat() if item['best_of_day_date'] else None,
+                    'count': item['signal_count']
+                }
+                for item in dates
+                if item['best_of_day_date']
+            ]
+            
+            return JsonResponse({
+                'success': True,
+                'dates': date_list,
+                'count': len(date_list)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting available dates: {e}")
             return JsonResponse({
                 'success': False,
                 'error': str(e)

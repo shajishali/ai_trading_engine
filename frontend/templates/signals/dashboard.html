@@ -770,6 +770,21 @@
         }
     }
     
+    /* Best Signals Button Active State */
+    #best-signals-btn.active {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%) !important;
+        border: 2px solid #ff9800 !important;
+        color: white !important;
+        box-shadow: 0 4px 14px rgba(255, 193, 7, 0.5) !important;
+        font-weight: 600 !important;
+    }
+    
+    #best-signals-btn.active:hover {
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important;
+        box-shadow: 0 6px 20px rgba(255, 152, 0, 0.6) !important;
+        transform: translateY(-2px);
+    }
+    
     /* Filter Controls Styling */
     .filter-controls {
         background: rgba(248, 249, 250, 0.9);
@@ -801,6 +816,44 @@
         outline: none;
     }
     
+    /* Best Signals Button Styling */
+    #best-signals-btn {
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    #best-signals-btn:not(.active) {
+        background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+        border: 2px solid #0d6efd;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+    }
+    
+    #best-signals-btn:not(.active):hover {
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+        box-shadow: 0 6px 18px rgba(13, 110, 253, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    /* Date input styling for best signals filter */
+    #best-signals-date {
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+    }
+    
+    #best-signals-date:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        outline: none;
+    }
+    
+    #best-signals-date:hover {
+        border-color: #adb5bd;
+    }
+    
     /* Mobile Responsive Filter Controls */
     @media (max-width: 768px) {
         .filter-controls {
@@ -821,6 +874,25 @@
         .filter-controls .d-flex .btn {
             width: 100%;
         }
+    }
+    
+    /* Best Signal Row Highlighting */
+    .best-signal-row {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+        border-left: 4px solid #ffc107 !important;
+    }
+    
+    .best-signal-row:hover {
+        background-color: rgba(255, 193, 7, 0.2) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+    }
+    
+    .best-rank-badge {
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 12px;
     }
     
 </style>
@@ -1130,7 +1202,6 @@ let currentSignalId = null;
 let testMode = true; // Enable test mode by default
 let signalsChart = null; // Chart instance
 let signalsAutoRefreshInterval = null; // Auto-refresh interval for signals
-
 
 // Safely parse JSON from fetch response (avoids JSON.parse error when server returns HTML e.g. 302/401/500)
 function parseJsonResponse(response) {
@@ -2356,56 +2427,44 @@ function toggleTestMode() {
     statusSpan.textContent = testMode ? 'ON' : 'OFF';
 }
 
-// Reset all filters
+// Reset all filters and reload hourly top 5
 function resetFilters() {
     const symbolFilterEl = document.getElementById('symbol-filter');
     const timeframeFilterEl = document.getElementById('timeframe-filter');
     if (symbolFilterEl) symbolFilterEl.value = '';
     if (timeframeFilterEl) timeframeFilterEl.value = '';
     loadSignals();
-    showNotification('Filters reset. Showing top signals.', 'info');
+    showNotification('Filters reset. Showing top 5 signals for current hour.', 'info');
 }
 
 
-// Search/filter signals based on current filters
+// Search/filter signals based on symbol and timeframe (hourly view only)
 function searchSignals() {
     try {
         const symbolFilterEl = document.getElementById('symbol-filter');
         const timeframeFilterEl = document.getElementById('timeframe-filter');
         const symbolFilter = symbolFilterEl ? symbolFilterEl.value : '';
         const timeframeFilter = timeframeFilterEl ? timeframeFilterEl.value : '';
-        
         const params = new URLSearchParams();
         if (symbolFilter) params.append('symbol', symbolFilter);
         if (timeframeFilter) params.append('timeframe', timeframeFilter);
         params.append('limit', 100);
-        
         let apiUrl = '/signals/api/signals/';
-        if (params.toString()) {
-            apiUrl += '?' + params.toString();
-        }
-        
+        if (params.toString()) apiUrl += '?' + params.toString();
         showNotification('Searching signals...', 'info');
-        
         fetch(apiUrl)
             .then(function(response) { return parseJsonResponse(response); })
             .then(function(data) {
                 if (data.success) {
                     let filteredSignals = data.signals || [];
-                    if (timeframeFilter && data.signals && !data.signals.find(s => s.timeframe === timeframeFilter)) {
-                        filteredSignals = filteredSignals.filter(signal => 
-                            !timeframeFilter || signal.timeframe === timeframeFilter
-                        );
+                    if (timeframeFilter && (!data.signals || !data.signals.find(s => s.timeframe === timeframeFilter))) {
+                        filteredSignals = (filteredSignals || []).filter(signal => !timeframeFilter || signal.timeframe === timeframeFilter);
                     }
                     displaySignals(filteredSignals);
                     updateSignalCount(filteredSignals.length);
                     updateSignalsChart(filteredSignals);
                     const filterCount = [symbolFilter, timeframeFilter].filter(f => f).length;
-                    if (filterCount > 0) {
-                        showNotification(`Found ${filteredSignals.length} signal(s) matching your search criteria.`, 'success');
-                    } else {
-                        showNotification(`Showing all ${filteredSignals.length} signals.`, 'info');
-                    }
+                    showNotification(filterCount > 0 ? `Found ${filteredSignals.length} signal(s).` : `Showing ${filteredSignals.length} signals.`, filterCount > 0 ? 'success' : 'info');
                 } else {
                     showNotification('Error searching signals: ' + (data.error || 'Unknown error'), 'danger');
                 }
@@ -2422,7 +2481,7 @@ function searchSignals() {
     }
 }
 
-// Filter signals by symbol and timeframe (used by dropdown change events)
+// Filter signals by symbol and timeframe (client-side on current hourly data)
 function filterSignals() {
     const symbolFilterEl = document.getElementById('symbol-filter');
     const timeframeFilterEl = document.getElementById('timeframe-filter');

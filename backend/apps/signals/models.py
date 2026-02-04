@@ -209,9 +209,9 @@ class TradingSignal(models.Model):
         blank=True,
         help_text="Rank of this signal among best signals of the day (1 = best)"
     )
-
-    # Hourly slot: which calendar date and hour (0-23 UTC) this signal belongs to.
-    # Enables "exactly 5 per hour", "never regenerate for an hour that exists", and DB-level daily uniqueness.
+    
+    # Hourly slot: which calendar date and hour (0-23) this signal belongs to (UTC).
+    # Enables "exactly 5 per hour" and "one coin per day" with DB enforcement.
     signal_date = models.DateField(
         null=True,
         blank=True,
@@ -235,14 +235,7 @@ class TradingSignal(models.Model):
             models.Index(fields=['is_best_of_day', 'best_of_day_date']),
             models.Index(fields=['signal_date', 'signal_hour']),
         ]
-        constraints = [
-            # One coin per day: prevent same symbol appearing twice on the same signal_date.
-            models.UniqueConstraint(
-                fields=['symbol', 'signal_date'],
-                condition=models.Q(signal_date__isnull=False),
-                name='unique_symbol_per_signal_date',
-            ),
-        ]
+        # One coin per day enforced in app logic (tasks.py); MySQL does not support partial unique constraints.
     
     def __str__(self):
         return f"{self.symbol.symbol} {self.signal_type.name} - {self.confidence_score:.2f}"
@@ -258,34 +251,6 @@ class TradingSignal(models.Model):
         if not self.expires_at:
             return None
         return self.expires_at - timezone.now()
-
-
-class SignalGenerationSlot(models.Model):
-    """
-    One row per (date, hour) to enforce idempotent hourly signal generation.
-    When completed_at is set, the hourly task MUST skip (never regenerate for that slot).
-    Used with select_for_update() to avoid race conditions when cron runs overlap.
-    """
-    signal_date = models.DateField(db_index=True)
-    signal_hour = models.IntegerField()  # 0-23 UTC
-    completed_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Signal Generation Slot'
-        verbose_name_plural = 'Signal Generation Slots'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['signal_date', 'signal_hour'],
-                name='unique_signal_slot_date_hour',
-            ),
-        ]
-        indexes = [
-            models.Index(fields=['signal_date', 'signal_hour']),
-        ]
-
-    def __str__(self):
-        return f"{self.signal_date} hour {self.signal_hour}"
 
 
 class SignalFactorContribution(models.Model):

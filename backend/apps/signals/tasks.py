@@ -9,7 +9,7 @@ from django.core.cache import cache
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalAlert, SignalPerformance,
-    MarketRegime, SignalGenerationSlot,
+    MarketRegime
 )
 from apps.signals.services import (
     SignalGenerationService, MarketRegimeService, SignalPerformanceService
@@ -53,18 +53,34 @@ def _active_signal_symbol_ids() -> List[int]:
     )
 
 
-def _symbol_ids_with_signal_on_date(target_date) -> List[int]:
+def _symbol_ids_with_signal_on_date(today: date) -> List[int]:
     """
-    Return symbol IDs that have ANY signal for the given date.
-    Uses signal_date when set (new logic), else created_at.date() for backward compatibility.
-    Enforces "one coin per day" by excluding these from the candidate list.
+    Return symbol IDs that already have a signal for the given date.
+    Uses signal_date when set (new logic), else created_at date for backward compatibility.
+    Enforces: one coin only once per day.
     """
     from django.db.models import Q
     return list(
         TradingSignal.objects.filter(
-            Q(signal_date=target_date) | Q(signal_date__isnull=True, created_at__date=target_date)
+            Q(signal_date=today) | Q(signal_date__isnull=True, created_at__date=today)
         ).values_list("symbol_id", flat=True).distinct()
     )
+
+
+def _symbol_ids_with_signal_created_today() -> List[int]:
+    """Alias for _symbol_ids_with_signal_on_date(timezone.now().date())."""
+    return _symbol_ids_with_signal_on_date(timezone.now().date())
+
+
+def _count_signals_for_hour(signal_date: date, signal_hour: int) -> int:
+    """
+    Count signals stored for this (date, hour). Only counts rows with signal_date/signal_hour set.
+    Used to skip generation if this hour already has 5 (never regenerate).
+    """
+    return TradingSignal.objects.filter(
+        signal_date=signal_date,
+        signal_hour=signal_hour,
+    ).count()
 
 
 def _symbol_ids_with_signal_in_last_hour() -> List[int]:
@@ -88,224 +104,223 @@ def generate_signals_for_all_symbols():
 
     STRICT RULES:
     - Exactly 5 signals per hour; one signal = one unique coin.
-    - A coin can appear ONLY ONCE per day (DB constraint: unique_symbol_per_signal_date).
-    - NEVER regenerate for an hour that already has 5 signals (idempotent via SignalGenerationSlot).
-    - All times UTC; page refresh must not change signals (read from DB only).
+    - A coin can appear ONLY ONCE per day (DB constraint: unique_signal_per_coin_per_day).
+    - Total daily = 24 × 5 = 120 unique coins max.
+    - NEVER regenerate: if this (date, hour) already has 5 signals, skip.
+    - All times UTC (timezone.now()).
 
     Flow:
-    1. Lock slot (date, hour); if already completed, return (idempotent).
-    2. Exclude all coins that already have a signal on TODAY (signal_date or created_at.date).
-    3. Generate candidates from remaining coins; rank by score; select TOP 5.
-    4. Set signal_date and signal_hour on the 5; invalidate the rest. Mark slot completed.
+    1. Acquire cache lock for (today, hour) to avoid concurrent runs.
+    2. If this hour already has 5 signals (signal_date/signal_hour), return.
+    3. Exclude all coins that already have a signal on this date.
+    4. Generate candidates from remaining coins, rank by score, take top 5.
+    5. Set signal_date=today, signal_hour=hour on the 5; invalidate the rest.
     """
-    from django.db import transaction
-    from django.db.utils import IntegrityError
+    from datetime import date
+    from django.db import transaction, IntegrityError
 
     now = timezone.now()
     today = now.date()
-    current_hour = now.hour  # 0-23 UTC
-    logger.info(f"[Signal Queue] Starting hourly run for date={today} hour={current_hour} (UTC).")
+    hour = now.hour  # 0-23 UTC
+    logger.info(f"[Signal Queue] Starting hourly run for date={today} hour={hour} (UTC).")
 
-    # --- Idempotency: never regenerate for a slot that already has 5 signals ---
-    slot, _ = SignalGenerationSlot.objects.get_or_create(
-        signal_date=today,
-        signal_hour=current_hour,
-        defaults={'completed_at': None},
-    )
-    try:
-        with transaction.atomic():
-            slot_refresh = SignalGenerationSlot.objects.select_for_update().get(pk=slot.pk)
-            if slot_refresh.completed_at is not None:
-                logger.info(
-                    f"[Signal Queue] Slot ({today}, hour={current_hour}) already completed at {slot_refresh.completed_at}; skipping."
-                )
-                return {
-                    'total_signals': 0,
-                    'skipped': True,
-                    'reason': 'slot_already_completed',
-                }
-    except SignalGenerationSlot.DoesNotExist:
-        pass
-
-    # --- Step 0: Binance futures eligibility ---
-    valid_base_assets: Set[str] = set()
-    try:
-        from apps.trading.binance_futures_service import (
-            get_binance_usdt_futures_base_assets,
-            sync_binance_futures_symbols,
-        )
-        sync_result = sync_binance_futures_symbols(deactivate_non_futures=True)
-        if sync_result.get("status") == "success":
-            valid_base_assets = get_binance_usdt_futures_base_assets()
-            logger.info(f"[Signal Queue] Binance sync ok: {sync_result.get('futures_base_assets', 0)} base assets.")
-        else:
-            logger.warning(f"[Signal Queue] Binance sync failed: {sync_result}")
-    except Exception as e:
-        logger.warning(f"[Signal Queue] Binance eligibility check failed: {e}")
-
-    if valid_base_assets:
-        cleanup_stats = _cleanup_non_binance_futures_signals(valid_base_assets)
-        if cleanup_stats.get("signals_deleted"):
-            logger.warning(f"[Signal Queue] Deleted {cleanup_stats['signals_deleted']} non-Binance-futures signals.")
-
-    # --- Step 1: Exclude coins that already have a signal on TODAY (any hour) ---
-    exclude_symbol_ids = set(_symbol_ids_with_signal_on_date(today))
-    logger.info(
-        f"[Signal Queue] Step 1 – Excluding {len(exclude_symbol_ids)} symbols that already have a signal on {today}."
-    )
-
-    # --- Step 2: Eligible symbols = active, crypto, not already used today ---
-    active_symbols_qs = Symbol.objects.filter(
-        is_active=True,
-        is_crypto_symbol=True,
-        symbol_type='CRYPTO',
-    )
-    if valid_base_assets:
-        active_symbols_qs = active_symbols_qs.filter(symbol__in=valid_base_assets)
-    if exclude_symbol_ids:
-        active_symbols_qs = active_symbols_qs.exclude(id__in=exclude_symbol_ids)
-
-    active_symbols = list(active_symbols_qs.order_by('?'))
-    eligible_count = len(active_symbols)
-    logger.info(f"[Signal Queue] Step 2 – Eligible coins for this hour: {eligible_count} (not yet signaled today).")
-
-    if eligible_count == 0:
-        logger.warning("[Signal Queue] No eligible symbols left for today; marking slot completed and skipping.")
-        with transaction.atomic():
-            SignalGenerationSlot.objects.filter(pk=slot.pk).update(completed_at=now)
+    # --- Race safety: only one run per (date, hour) ---
+    lock_key = f"signal_gen:{today.isoformat()}:{hour}"
+    if not cache.add(lock_key, 1, timeout=3600):  # 1 hour TTL
+        logger.warning(f"[Signal Queue] Skipping – another process holds lock for {today} {hour}:00.")
         return {
             'total_signals': 0,
-            'symbols_processed': 0,
-            'signals_generated': 0,
-            'best_signals_selected': 0,
-            'binance_futures_filter_active': bool(valid_base_assets),
+            'skipped': 'lock',
+            'date': today.isoformat(),
+            'hour': hour,
         }
 
-    signal_service = SignalGenerationService()
-    max_signals_per_hour = 5
-    max_candidates_to_try = 50
-    candidates: List[tuple] = []  # (score, signal)
-
-    for symbol in active_symbols[:max_candidates_to_try]:
-        try:
-            signals = signal_service.generate_signals_for_symbol(symbol)
-            if not signals:
-                continue
-            best = signals[0]
-            score = (float(best.quality_score) if best.quality_score else 0) * 0.5 + (
-                float(best.confidence_score) if best.confidence_score else 0
-            ) * 0.5
-            candidates.append((score, best))
-        except Exception as e:
-            logger.error(f"[Signal Queue] Error generating for {symbol.symbol}: {e}")
-
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    generated_signals = [s for _, s in candidates[:max_signals_per_hour]]
-    generated_symbols = [s.symbol.symbol for s in generated_signals]
-
-    # Invalidate extras from this run (only 5 kept)
-    for _, s in candidates[max_signals_per_hour:]:
-        s.is_valid = False
-        s.save(update_fields=['is_valid'])
-        logger.debug(f"[Signal Queue] Invalidated extra signal {s.id} ({s.symbol.symbol}) from this run.")
-
-    # Persist slot: set signal_date and signal_hour on the 5 (enables APIs and enforces one-coin-per-day at DB)
     try:
-        with transaction.atomic():
-            for s in generated_signals:
-                s.signal_date = today
-                s.signal_hour = current_hour
-                s.save(update_fields=['signal_date', 'signal_hour'])
-            SignalGenerationSlot.objects.filter(pk=slot.pk).update(completed_at=now)
-    except IntegrityError as e:
-        logger.error(f"[Signal Queue] Unique constraint (symbol per day) violated: {e}; rolling back slot completion.")
-        # Do not set completed_at so a retry can run; invalidate the 5 we tried to tag so they don't count as "today"
-        for s in generated_signals:
+        # --- Never regenerate: if this hour already has 5, skip ---
+        existing_count = _count_signals_for_hour(today, hour)
+        if existing_count >= 5:
+            logger.info(f"[Signal Queue] Skipping – hour {hour} already has {existing_count} signals for {today}.")
+            return {
+                'total_signals': 0,
+                'skipped': 'hour_full',
+                'date': today.isoformat(),
+                'hour': hour,
+                'existing_count': existing_count,
+            }
+
+        # --- Step 0: Binance futures eligibility ---
+        valid_base_assets: Set[str] = set()
+        try:
+            from apps.trading.binance_futures_service import (
+                get_binance_usdt_futures_base_assets,
+                sync_binance_futures_symbols,
+            )
+            sync_result = sync_binance_futures_symbols(deactivate_non_futures=True)
+            if sync_result.get("status") == "success":
+                valid_base_assets = get_binance_usdt_futures_base_assets()
+                logger.info(f"[Signal Queue] Binance sync ok: {sync_result.get('futures_base_assets', 0)} base assets.")
+            else:
+                logger.warning(f"[Signal Queue] Binance sync failed: {sync_result}")
+        except Exception as e:
+            logger.warning(f"[Signal Queue] Binance eligibility check failed: {e}")
+
+        if valid_base_assets:
+            cleanup_stats = _cleanup_non_binance_futures_signals(valid_base_assets)
+            if cleanup_stats.get("signals_deleted"):
+                logger.warning(f"[Signal Queue] Deleted {cleanup_stats['signals_deleted']} non-Binance-futures signals.")
+
+        # --- Step 1: Exclude coins that already have a signal on this date (any hour) ---
+        exclude_symbol_ids = set(_symbol_ids_with_signal_on_date(today))
+        logger.info(
+            f"[Signal Queue] Step 1 – Excluding {len(exclude_symbol_ids)} symbols that already have a signal today."
+        )
+
+        # --- Step 2: Eligible symbols = active, crypto, not already signaled today ---
+        active_symbols_qs = Symbol.objects.filter(
+            is_active=True,
+            is_crypto_symbol=True,
+            symbol_type='CRYPTO',
+        )
+        if valid_base_assets:
+            active_symbols_qs = active_symbols_qs.filter(symbol__in=valid_base_assets)
+        if exclude_symbol_ids:
+            active_symbols_qs = active_symbols_qs.exclude(id__in=exclude_symbol_ids)
+
+        active_symbols = list(active_symbols_qs.order_by('?'))
+        eligible_count = len(active_symbols)
+        logger.info(f"[Signal Queue] Step 2 – Eligible coins for this hour: {eligible_count} (not yet signaled today).")
+
+        if eligible_count == 0:
+            logger.warning("[Signal Queue] No eligible symbols left for today; skipping generation.")
+            return {
+                'total_signals': 0,
+                'symbols_processed': 0,
+                'signals_generated': 0,
+                'best_signals_selected': 0,
+                'binance_futures_filter_active': bool(valid_base_assets),
+            }
+
+        signal_service = SignalGenerationService()
+        max_signals_per_hour = 5
+        max_candidates_to_try = 50  # Cap to avoid long runs; from these we pick best 5
+        # Generate one best signal per symbol (candidate), then pick best 5 by quality
+        candidates: List[tuple] = []  # (score, signal)
+
+        for symbol in active_symbols[:max_candidates_to_try]:
+            try:
+                signals = signal_service.generate_signals_for_symbol(symbol)
+                if not signals:
+                    continue
+                best = signals[0]
+                score = (float(best.quality_score) if best.quality_score else 0) * 0.5 + (
+                    float(best.confidence_score) if best.confidence_score else 0
+                ) * 0.5
+                candidates.append((score, best))
+            except Exception as e:
+                logger.error(f"[Signal Queue] Error generating for {symbol.symbol}: {e}")
+
+        # Sort by score descending and take top 5 (already distinct symbols)
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        generated_signals = [s for _, s in candidates[:max_signals_per_hour]]
+        generated_symbols = [s.symbol.symbol for s in generated_signals]
+        # Invalidate any other signals created in this run (only 5 stored per hour)
+        for _, s in candidates[max_signals_per_hour:]:
             s.is_valid = False
             s.save(update_fields=['is_valid'])
-        return {
-            'total_signals': 0,
-            'error': 'unique_constraint_violation',
-            'detail': str(e),
-        }
+            logger.debug(f"[Signal Queue] Invalidated extra signal {s.id} ({s.symbol.symbol}) from this run.")
 
-    logger.info(
-        f"[Signal Queue] Step 2 done – Stored {len(generated_signals)} signals for ({today}, hour={current_hour}). "
-        f"Symbols: {generated_symbols}"
-    )
+        # --- Persist slot: set signal_date and signal_hour for the chosen 5 (race-safe in transaction) ---
+        try:
+            with transaction.atomic():
+                for s in generated_signals:
+                    s.signal_date = today
+                    s.signal_hour = hour
+                    s.save(update_fields=['signal_date', 'signal_hour'])
+        except IntegrityError as e:
+            logger.warning(f"[Signal Queue] Unique constraint hit (duplicate coin/day): {e}. Hour may have been filled by another run.")
+            return {
+                'total_signals': 0,
+                'skipped': 'constraint',
+                'date': today.isoformat(),
+                'hour': hour,
+            }
 
-    # CRITICAL: Clean up any duplicates that might have been created due to race conditions
-    # This ensures only the latest signal per symbol+type remains valid
-    try:
-        from django.db.models import Count, Max
-        from django.db import transaction
+        logger.info(
+            f"[Signal Queue] Step 2 done – Selected best {len(generated_signals)} signals for this hour. "
+            f"Symbols: {generated_symbols}"
+        )
+
+        # CRITICAL: Clean up any duplicates that might have been created due to race conditions
+        # This ensures only the latest signal per symbol+type remains valid
+        try:
+            from django.db.models import Count, Max
+            
+            with transaction.atomic():
+                # Find all symbol+type combinations with multiple valid signals
+                duplicates = TradingSignal.objects.values('symbol', 'signal_type').annotate(
+                    count=Count('id')
+                ).filter(count__gt=1, is_valid=True, is_executed=False)
+                
+                cleaned_count = 0
+                for dup in duplicates:
+                    symbol_id = dup['symbol']
+                    signal_type_id = dup['signal_type']
+                    
+                    # Get all valid signals, keep only the latest
+                    all_signals = TradingSignal.objects.filter(
+                        symbol_id=symbol_id,
+                        signal_type_id=signal_type_id,
+                        is_valid=True,
+                        is_executed=False
+                    ).order_by('-created_at', '-id')
+                    
+                    if all_signals.count() > 1:
+                        latest = all_signals.first()
+                        others = all_signals.exclude(id=latest.id)
+                        count = others.update(is_valid=False)
+                        cleaned_count += count
+                
+                if cleaned_count > 0:
+                    logger.warning(f"Cleaned up {cleaned_count} duplicate signals after generation")
+        except Exception as e:
+            logger.error(f"Error cleaning up duplicates: {e}")
         
-        with transaction.atomic():
-            # Find all symbol+type combinations with multiple valid signals
-            duplicates = TradingSignal.objects.values('symbol', 'signal_type').annotate(
-                count=Count('id')
-            ).filter(count__gt=1, is_valid=True, is_executed=False)
-            
-            cleaned_count = 0
-            for dup in duplicates:
-                symbol_id = dup['symbol']
-                signal_type_id = dup['signal_type']
-                
-                # Get all valid signals, keep only the latest
-                all_signals = TradingSignal.objects.filter(
-                    symbol_id=symbol_id,
-                    signal_type_id=signal_type_id,
-                    is_valid=True,
-                    is_executed=False
-                ).order_by('-created_at', '-id')
-                
-                if all_signals.count() > 1:
-                    latest = all_signals.first()
-                    others = all_signals.exclude(id=latest.id)
-                    count = others.update(is_valid=False)
-                    cleaned_count += count
-            
-            if cleaned_count > 0:
-                logger.warning(f"Cleaned up {cleaned_count} duplicate signals after generation")
-    except Exception as e:
-        logger.error(f"Error cleaning up duplicates: {e}")
-    
-    # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
-    # Otherwise, the signals page may continue showing an older cached list for up to 5 minutes,
-    # even though new signals were generated (seen as DB id mismatches).
-    try:
-        cache_keys_to_clear = [
-            "signal_statistics",
-            "signals_api_None_None_true_50",
-            "signals_api_None_None_True_50",
-        ]
-        cleared = 0
-        for key in cache_keys_to_clear:
-            if cache.get(key) is not None:
-                cache.delete(key)
-                cleared += 1
+        # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
+        try:
+            cache_keys_to_clear = [
+                "signal_statistics",
+                "signals_api_None_None_true_50",
+                "signals_api_None_None_True_50",
+            ]
+            cleared = 0
+            for key in cache_keys_to_clear:
+                if cache.get(key) is not None:
+                    cache.delete(key)
+                    cleared += 1
 
-        # Also clear a few common variants (mirrors clear-cache endpoint logic)
-        for symbol_val in [None, 'None']:
-            for signal_type_val in [None, 'None']:
-                for is_valid_val in [True, 'True', 'true']:
-                    for limit_val in [50, '50']:
-                        cache_key = f"signals_api_{symbol_val}_{signal_type_val}_{is_valid_val}_{limit_val}"
-                        if cache.get(cache_key) is not None:
-                            cache.delete(cache_key)
-                            cleared += 1
+            # Also clear a few common variants (mirrors clear-cache endpoint logic)
+            for symbol_val in [None, 'None']:
+                for signal_type_val in [None, 'None']:
+                    for is_valid_val in [True, 'True', 'true']:
+                        for limit_val in [50, '50']:
+                            cache_key = f"signals_api_{symbol_val}_{signal_type_val}_{is_valid_val}_{limit_val}"
+                            if cache.get(cache_key) is not None:
+                                cache.delete(cache_key)
+                                cleared += 1
 
-        logger.info(f"Invalidated {cleared} signal cache key(s) after generation")
-    except Exception as e:
-        logger.warning(f"Failed to invalidate signals cache after generation: {e}")
+            logger.info(f"Invalidated {cleared} signal cache key(s) after generation")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate signals cache after generation: {e}")
 
-    return {
-        'total_signals': len(generated_signals),
-        'symbols_processed': eligible_count,
-        'signals_generated': len(generated_signals),
-        'best_signals_selected': len(generated_signals),
-        'binance_futures_filter_active': bool(valid_base_assets),
-    }
+        return {
+            'total_signals': len(generated_signals),
+            'symbols_processed': eligible_count,
+            'signals_generated': len(generated_signals),
+            'best_signals_selected': len(generated_signals),
+            'binance_futures_filter_active': bool(valid_base_assets),
+        }
+    finally:
+        cache.delete(lock_key)
 
 
 @shared_task
@@ -747,3 +762,66 @@ def signal_health_check():
         return {'error': str(e)}
 
 
+@shared_task
+def save_daily_best_signals_task(target_date_str=None, limit=10):
+    """
+    Save daily best 10 signals for a specific date (defaults to today).
+    Runs at 23:55 UTC so the "Best Signals by date" view can show them.
+    """
+    try:
+        if target_date_str:
+            target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        else:
+            # Default to today (end of day task runs at 23:55)
+            target_date = timezone.now().date()
+        
+        logger.info(f"Starting to save daily best {limit} signals for {target_date}...")
+        
+        # Get all signals created that day (24*5 pool), ordered by quality
+        day_signals = TradingSignal.objects.filter(
+            created_at__date=target_date,
+            is_valid=True
+        ).select_related('symbol', 'signal_type').order_by('-quality_score', '-confidence_score', '-risk_reward_ratio')
+        
+        logger.info(f"Found {day_signals.count()} signals for {target_date}")
+        
+        # One per symbol+type, top 10 by quality (final best 10 for the day)
+        seen = set()
+        best_signals = []
+        for signal in day_signals:
+            key = (signal.symbol_id, signal.signal_type_id)
+            if key not in seen and len(best_signals) < limit:
+                seen.add(key)
+                best_signals.append(signal)
+        
+        # Clear previous best signals for this date
+        TradingSignal.objects.filter(
+            best_of_day_date=target_date,
+            is_best_of_day=True
+        ).update(is_best_of_day=False, best_of_day_date=None, best_of_day_rank=None)
+        
+        # Mark the best 10 signals
+        saved_count = 0
+        for rank, signal in enumerate(best_signals, start=1):
+            signal.is_best_of_day = True
+            signal.best_of_day_date = target_date
+            signal.best_of_day_rank = rank
+            signal.save()
+            saved_count += 1
+            logger.info(f"Marked {signal.symbol.symbol} + {signal.signal_type.name} as best signal #{rank} for {target_date}")
+        
+        logger.info(f"Successfully saved {saved_count} daily best signals for {target_date}")
+        
+        return {
+            'success': True,
+            'date': target_date.isoformat(),
+            'limit': limit,
+            'saved_count': saved_count
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving daily best signals: {e}", exc_info=True)
+        return {
+            'success': False,
+            'error': str(e)
+        }
