@@ -904,12 +904,11 @@ class DailyBestSignalsView(View):
             
             today = timezone.now().date()
             # STRICT: Return signals ONLY for target_date. Never mix other dates.
-            # Use calendar date (signal_date or created_at__date) so timezone cannot leak another day.
+            # Filter ONLY by signal_date (backfilled and set by hourly task). Do NOT use
+            # created_at__date here: on MySQL, DATE(created_at) uses session timezone and can
+            # include the next UTC day (e.g. Feb 4 04:01 UTC shown as Feb 3 in PST).
             from django.db.models import Q
-            date_filter = (
-                Q(signal_date=target_date)
-                | Q(signal_date__isnull=True, created_at__date=target_date)
-            )
+            date_filter = Q(signal_date=target_date)
             day_signals = (
                 TradingSignal.objects.filter(date_filter)
                 .select_related('symbol', 'signal_type')
