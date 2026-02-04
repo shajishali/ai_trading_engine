@@ -897,26 +897,31 @@ class DailyBestSignalsView(View):
                 }, status=400)
             
             today = timezone.now().date()
-            # Past date: show the final 10 saved at 23:55 for that day. Today: live top 10 from today's pool (24*5 signals).
+            # READ-ONLY: Only return signals that were created on target_date (never mix dates).
+            # Past date: use saved best_of_day marks, and enforce created_at date to avoid any cross-date leakage.
+            # Today: top 10 by quality from signals already generated hourly today (no new generation).
+            start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+            end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+
             if target_date < today:
+                # Past: only signals saved as best-of-day for this date AND created on this date
                 best_signals_queryset = (
                     TradingSignal.objects.filter(
                         best_of_day_date=target_date,
-                        is_best_of_day=True
+                        is_best_of_day=True,
+                        created_at__gte=start_dt,
+                        created_at__lte=end_dt,
                     )
                     .select_related('symbol', 'signal_type')
                     .order_by('best_of_day_rank')
                 )
                 unique_signals = list(best_signals_queryset)
             else:
-                # Today: best 10 by quality from all signals created today (live from 24*5 pool)
-                start_dt = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
-                end_dt = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+                # Today: top 10 by quality from hourly-generated signals for today only (read-only)
                 day_signals = (
                     TradingSignal.objects.filter(
                         created_at__gte=start_dt,
                         created_at__lte=end_dt,
-                        is_valid=True
                     )
                     .select_related('symbol', 'signal_type')
                     .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')

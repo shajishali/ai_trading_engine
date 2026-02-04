@@ -1217,6 +1217,10 @@ let testMode = true; // Enable test mode by default
 let signalsChart = null; // Chart instance
 let signalsAutoRefreshInterval = null; // Auto-refresh interval for signals
 
+// View mode: 'hourly' = top 5 from current hour; 'best_by_date' = top 10 for selected date (read-only)
+let currentViewMode = 'hourly';
+let selectedBestDate = null; // When in best_by_date, the date being shown (YYYY-MM-DD)
+
 // Safely parse JSON from fetch response (avoids JSON.parse error when server returns HTML e.g. 302/401/500)
 function parseJsonResponse(response) {
     const ct = (response.headers.get('Content-Type') || '').toLowerCase();
@@ -1470,6 +1474,10 @@ function loadSignals(showNotificationOnNew = false) {
         .then(function(data) {
             console.log('Signals API response:', data); // Debug log
             if (data.success) {
+                // Do not overwrite table when user is viewing Best Signals by date (UI must stay stable)
+                if (currentViewMode !== 'hourly') {
+                    return;
+                }
                 const newSignalsData = data.signals || [];
                 const newCount = newSignalsData.length;
                 
@@ -2505,6 +2513,9 @@ function showBestSignals(selectedDate = null) {
                     return;
                 }
                 if (data.success && data.signals && data.signals.length > 0) {
+                    currentViewMode = 'best_by_date';
+                    selectedBestDate = targetDate;
+                    signalsData = data.signals;
                     displaySignals(data.signals);
                     updateSignalCount(data.count || data.signals.length);
                     updateSignalsChart(data.signals);
@@ -2520,11 +2531,16 @@ function showBestSignals(selectedDate = null) {
                     return;
                 }
                 if (data.success && (!data.signals || data.signals.length === 0)) {
-                    showNotification(`No signals found for ${dateDisplay}. Try another date.`, 'warning');
+                    currentViewMode = 'best_by_date';
+                    selectedBestDate = targetDate;
+                    signalsData = [];
+                    displaySignals([]);
+                    updateSignalCount(0);
                     if (bestSignalsBtn) {
-                        bestSignalsBtn.classList.remove('active');
-                        bestSignalsBtn.innerHTML = '<i class="fas fa-star me-2"></i>Best Signals';
+                        bestSignalsBtn.classList.add('active');
+                        bestSignalsBtn.innerHTML = `<i class="fas fa-star me-2"></i>Best Signals (${dateDisplay})`;
                     }
+                    showNotification(`No signals found for ${dateDisplay}. Try another date.`, 'warning');
                     return;
                 }
                 // Fallback: client-side filter from current signalsData
@@ -2570,6 +2586,10 @@ function showBestSignals(selectedDate = null) {
 
 // Reset all filters
 function resetFilters() {
+    // Switch back to hourly view so auto-refresh and loadSignals update the table
+    currentViewMode = 'hourly';
+    selectedBestDate = null;
+
     // Reset filter dropdowns
     const symbolFilterEl = document.getElementById('symbol-filter');
     const timeframeFilterEl = document.getElementById('timeframe-filter');
