@@ -158,15 +158,6 @@ app.conf.update(
             'options': {'queue': 'data', 'priority': 8},
             'kwargs': {'days': 90, 'max_symbols_per_run': 30, 'timeframes': ('1h', '4h', '1d')},
         },
-        # Save daily best signals at end of day (11:55 PM UTC)
-        # End of day: Select best 5 signals from the 24 generated today (runs at 23:55)
-        'save-daily-best-signals': {
-            'task': 'apps.signals.tasks.save_daily_best_signals_task',
-            'schedule': crontab(minute=55, hour=23),  # Daily at 23:55 (end of day)
-            'options': {'queue': 'signals', 'priority': 9},
-            'schedule': crontab(hour=23, minute=55),  # Daily at 11:55 PM UTC
-            'options': {'queue': 'signals', 'priority': 6},
-        },
         # Keep active-signal list clean by expiring old signals
         # This updates `is_valid=False` for signals past `expires_at`.
         'cleanup-expired-signals': {

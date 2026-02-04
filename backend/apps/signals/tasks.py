@@ -270,8 +270,6 @@ def generate_signals_for_all_symbols():
     except Exception as e:
         logger.error(f"Error cleaning up duplicates: {e}")
     
-    # Signals are already saved during generation (no need to select top 10 here)
-    # Best 5 signals will be selected at end of day by save_daily_best_signals_task
     # IMPORTANT: invalidate cached signals API responses so the UI updates immediately.
     # Otherwise, the signals page may continue showing an older cached list for up to 5 minutes,
     # even though new signals were generated (seen as DB id mismatches).
@@ -749,67 +747,3 @@ def signal_health_check():
         return {'error': str(e)}
 
 
-@shared_task
-def save_daily_best_signals_task(target_date_str=None, limit=10):
-    """
-    Save daily best 10 signals for a specific date (defaults to today).
-    Runs at 23:55 UTC so the "Best Signals by date" view can show them.
-    """
-    try:
-        if target_date_str:
-            target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
-        else:
-            # Default to today (end of day task runs at 23:55)
-            target_date = timezone.now().date()
-        
-        logger.info(f"Starting to save daily best {limit} signals for {target_date}...")
-        
-        # Get all signals for that day only (use signal_date when set to avoid mixing dates)
-        from django.db.models import Q
-        day_signals = TradingSignal.objects.filter(
-            Q(signal_date=target_date) | Q(signal_date__isnull=True, created_at__date=target_date),
-            is_valid=True,
-        ).select_related('symbol', 'signal_type').order_by('-quality_score', '-confidence_score', '-risk_reward_ratio')
-        
-        logger.info(f"Found {day_signals.count()} signals for {target_date}")
-        
-        # One per symbol+type, top 10 by quality (final best 10 for the day)
-        seen = set()
-        best_signals = []
-        for signal in day_signals:
-            key = (signal.symbol_id, signal.signal_type_id)
-            if key not in seen and len(best_signals) < limit:
-                seen.add(key)
-                best_signals.append(signal)
-        
-        # Clear previous best signals for this date
-        TradingSignal.objects.filter(
-            best_of_day_date=target_date,
-            is_best_of_day=True
-        ).update(is_best_of_day=False, best_of_day_date=None, best_of_day_rank=None)
-        
-        # Mark the best 10 signals
-        saved_count = 0
-        for rank, signal in enumerate(best_signals, start=1):
-            signal.is_best_of_day = True
-            signal.best_of_day_date = target_date
-            signal.best_of_day_rank = rank
-            signal.save()
-            saved_count += 1
-            logger.info(f"Marked {signal.symbol.symbol} + {signal.signal_type.name} as best signal #{rank} for {target_date}")
-        
-        logger.info(f"Successfully saved {saved_count} daily best signals for {target_date}")
-        
-        return {
-            'success': True,
-            'date': target_date.isoformat(),
-            'limit': limit,
-            'saved_count': saved_count
-        }
-        
-    except Exception as e:
-        logger.error(f"Error saving daily best signals: {e}", exc_info=True)
-        return {
-            'success': False,
-            'error': str(e)
-        }

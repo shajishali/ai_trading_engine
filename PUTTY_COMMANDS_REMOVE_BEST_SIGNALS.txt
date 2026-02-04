@@ -1,0 +1,32 @@
+# Commands to run in PuTTY after removing Date + Best Signals feature
+# Run these on your server (one block at a time or all in order).
+
+# 1) Go to project root (adjust path if yours is different)
+cd /path/to/your/project
+# Example: cd /var/www/ai_trading_engine  or  cd ~/Research\ Development
+
+# 2) Pull latest code (if you pushed from your machine)
+git pull origin main
+
+# 3) Restart Gunicorn so Django loads new views/urls
+sudo systemctl restart gunicorn
+# Or if you use a different process name:
+# sudo systemctl restart gunicorn.socket
+# sudo systemctl restart your-app-service
+
+# 4) Restart Celery Beat so the schedule no longer runs save-daily-best-signals
+sudo systemctl restart celery-beat
+
+# 5) Optional: restart Celery workers (only if they cache task list)
+sudo systemctl restart celery-worker
+# If you have multiple workers:
+# sudo systemctl restart celery-worker@1 celery-worker@2
+
+# 6) Verify (optional)
+# Check that daily-best-signals and available-dates routes are gone:
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/signals/api/daily-best-signals/
+# Expect 404 (or 302 if login required and redirect)
+
+# Check beat schedule no longer has save-daily-best-signals:
+# celery -A ai_trading_engine inspect scheduled
+# (run from backend directory; should not list save_daily_best_signals_task)

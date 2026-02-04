@@ -239,9 +239,6 @@ class SignalAPIView(View):
                         'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
                         'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
                         'entry_confidence': signal.entry_confidence,
-                        'is_best_of_day': signal.is_best_of_day,
-                        'best_of_day_date': signal.best_of_day_date.isoformat() if signal.best_of_day_date else None,
-                        'best_of_day_rank': signal.best_of_day_rank
                     })
                 
                 response_data = {
@@ -425,9 +422,6 @@ class SignalAPIView(View):
                 'entry_zone_low': float(signal.entry_zone_low) if signal.entry_zone_low else None,
                 'entry_zone_high': float(signal.entry_zone_high) if signal.entry_zone_high else None,
                 'entry_confidence': signal.entry_confidence,
-                'is_best_of_day': signal.is_best_of_day,
-                'best_of_day_date': signal.best_of_day_date.isoformat() if signal.best_of_day_date else None,
-                'best_of_day_rank': signal.best_of_day_rank,
             })
         return JsonResponse({
             'success': True,
@@ -869,157 +863,6 @@ class SignalAlertView(View):
             
         except Exception as e:
             logger.error(f"Error marking alerts as read: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            }, status=500)
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-@method_decorator(login_required, name='dispatch')
-class DailyBestSignalsView(View):
-    """API view for daily best signals by date"""
-    
-    def get(self, request):
-        """Get best 10 signals for a specific date. Date is required."""
-        try:
-            from datetime import datetime
-            from django.utils import timezone
-            
-            # Date is required: cannot view best signals without selecting a date
-            date_str = request.GET.get('date')
-            if not date_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'date_required',
-                    'message': 'Please select a date to view best signals for that day.'
-                }, status=400)
-            try:
-                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            except ValueError:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid date format. Use YYYY-MM-DD'
-                }, status=400)
-            
-            today = timezone.now().date()
-            # STRICT: Return signals ONLY for target_date. Never mix other dates.
-            # Filter ONLY by signal_date (backfilled and set by hourly task). Do NOT use
-            # created_at__date here: on MySQL, DATE(created_at) uses session timezone and can
-            # include the next UTC day (e.g. Feb 4 04:01 UTC shown as Feb 3 in PST).
-            from django.db.models import Q
-            date_filter = Q(signal_date=target_date)
-            day_signals = (
-                TradingSignal.objects.filter(date_filter)
-                .select_related('symbol', 'signal_type')
-            )
-
-            if target_date < today:
-                # Past: prefer saved best_of_day for ordering; take top 10 by rank then quality
-                with_best = day_signals.filter(
-                    best_of_day_date=target_date,
-                    is_best_of_day=True,
-                ).order_by('best_of_day_rank')
-                unique_signals = list(with_best[:10])
-                if len(unique_signals) < 10:
-                    # Fill remaining from same day by quality (e.g. best_of_day not run that day)
-                    seen_ids = {s.id for s in unique_signals}
-                    seen_symbol_type = {(s.symbol_id, s.signal_type_id) for s in unique_signals}
-                    rest = (
-                        day_signals.exclude(id__in=seen_ids)
-                        .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')
-                    )
-                    for signal in rest:
-                        if len(unique_signals) >= 10:
-                            break
-                        key = (signal.symbol_id, signal.signal_type_id)
-                        if key not in seen_symbol_type:
-                            seen_symbol_type.add(key)
-                            unique_signals.append(signal)
-            else:
-                # Today: top 10 by quality from this date only
-                seen_combinations = set()
-                unique_signals = []
-                for signal in day_signals.order_by(
-                    '-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at'
-                ):
-                    combo_key = (signal.symbol.id, signal.signal_type.id)
-                    if combo_key not in seen_combinations:
-                        seen_combinations.add(combo_key)
-                        unique_signals.append(signal)
-                        if len(unique_signals) >= 10:
-                            break
-            
-            # Serialize signals
-            signal_data = []
-            for signal in unique_signals:
-                signal_data.append({
-                    'id': signal.id,
-                    'symbol': signal.symbol.symbol,
-                    'signal_type': signal.signal_type.name,
-                    'strength': signal.strength,
-                    'confidence_score': signal.confidence_score,
-                    'confidence_level': signal.confidence_level,
-                    'entry_price': float(signal.entry_price) if signal.entry_price else None,
-                    'target_price': float(signal.target_price) if signal.target_price else None,
-                    'stop_loss': float(signal.stop_loss) if signal.stop_loss else None,
-                    'risk_reward_ratio': signal.risk_reward_ratio,
-                    'quality_score': signal.quality_score,
-                    'timeframe': signal.timeframe,
-                    'entry_point_type': signal.entry_point_type,
-                    'best_of_day_rank': signal.best_of_day_rank,
-                    'created_at': signal.created_at.isoformat(),
-                })
-            
-            return JsonResponse({
-                'success': True,
-                'date': target_date.isoformat(),
-                'signals': signal_data,
-                'count': len(signal_data)
-            })
-            
-        except Exception as e:
-            logger.error(f"Error getting daily best signals: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            }, status=500)
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-@method_decorator(login_required, name='dispatch')
-class AvailableDatesView(View):
-    """API view to get available dates with best signals"""
-    
-    def get(self, request):
-        """Get list of dates that have best signals"""
-        try:
-            from django.db.models import Count
-            
-            # Get distinct dates that have best signals
-            dates = TradingSignal.objects.filter(
-                is_best_of_day=True
-            ).values('best_of_day_date').annotate(
-                signal_count=Count('id')
-            ).order_by('-best_of_day_date')
-            
-            date_list = [
-                {
-                    'date': item['best_of_day_date'].isoformat() if item['best_of_day_date'] else None,
-                    'count': item['signal_count']
-                }
-                for item in dates
-                if item['best_of_day_date']
-            ]
-            
-            return JsonResponse({
-                'success': True,
-                'dates': date_list,
-                'count': len(date_list)
-            })
-            
-        except Exception as e:
-            logger.error(f"Error getting available dates: {e}")
             return JsonResponse({
                 'success': False,
                 'error': str(e)
