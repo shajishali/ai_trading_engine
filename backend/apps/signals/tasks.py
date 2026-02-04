@@ -9,7 +9,7 @@ from django.core.cache import cache
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalAlert, SignalPerformance,
-    MarketRegime
+    MarketRegime, SignalGenerationSlot,
 )
 from apps.signals.services import (
     SignalGenerationService, MarketRegimeService, SignalPerformanceService
@@ -53,17 +53,17 @@ def _active_signal_symbol_ids() -> List[int]:
     )
 
 
-def _symbol_ids_with_signal_created_today() -> List[int]:
+def _symbol_ids_with_signal_on_date(target_date) -> List[int]:
     """
-    Return symbol IDs that have ANY signal created today (any status).
-    Kept for compatibility; hourly run now uses _symbol_ids_with_signal_in_last_hour
-    so that each hour can show new signals (same or different symbols).
+    Return symbol IDs that have ANY signal for the given date.
+    Uses signal_date when set (new logic), else created_at.date() for backward compatibility.
+    Enforces "one coin per day" by excluding these from the candidate list.
     """
-    today = timezone.now().date()
+    from django.db.models import Q
     return list(
-        TradingSignal.objects.filter(created_at__date=today)
-        .values_list("symbol_id", flat=True)
-        .distinct()
+        TradingSignal.objects.filter(
+            Q(signal_date=target_date) | Q(signal_date__isnull=True, created_at__date=target_date)
+        ).values_list("symbol_id", flat=True).distinct()
     )
 
 
@@ -86,23 +86,46 @@ def generate_signals_for_all_symbols():
     """
     HOURLY SIGNAL GENERATION (run every hour via Celery beat).
 
-    Business rules:
-    - For each hour: only 5 signals are shown and stored.
-    - Exclude coins that already received a signal earlier on the SAME DAY.
-    - From eligible coins, generate candidates and select the BEST 5 for this hour.
-    - Signals are stored permanently (no recalculation on page refresh).
+    STRICT RULES:
+    - Exactly 5 signals per hour; one signal = one unique coin.
+    - A coin can appear ONLY ONCE per day (DB constraint: unique_symbol_per_signal_date).
+    - NEVER regenerate for an hour that already has 5 signals (idempotent via SignalGenerationSlot).
+    - All times UTC; page refresh must not change signals (read from DB only).
 
     Flow:
-    1. Exclude symbols that have any signal with created_at.date() == today.
-    2. For remaining symbols, generate signal candidates (one best per symbol).
-    3. Rank candidates by quality/confidence and take top 5 (distinct symbols).
-    4. Only those 5 are persisted; duplicate cleanup keeps consistency.
+    1. Lock slot (date, hour); if already completed, return (idempotent).
+    2. Exclude all coins that already have a signal on TODAY (signal_date or created_at.date).
+    3. Generate candidates from remaining coins; rank by score; select TOP 5.
+    4. Set signal_date and signal_hour on the 5; invalidate the rest. Mark slot completed.
     """
-    from datetime import date
+    from django.db import transaction
+    from django.db.utils import IntegrityError
 
     now = timezone.now()
     today = now.date()
-    logger.info(f"[Signal Queue] Starting hourly run for date={today} hour={now.hour} (UTC).")
+    current_hour = now.hour  # 0-23 UTC
+    logger.info(f"[Signal Queue] Starting hourly run for date={today} hour={current_hour} (UTC).")
+
+    # --- Idempotency: never regenerate for a slot that already has 5 signals ---
+    slot, _ = SignalGenerationSlot.objects.get_or_create(
+        signal_date=today,
+        signal_hour=current_hour,
+        defaults={'completed_at': None},
+    )
+    try:
+        with transaction.atomic():
+            slot_refresh = SignalGenerationSlot.objects.select_for_update().get(pk=slot.pk)
+            if slot_refresh.completed_at is not None:
+                logger.info(
+                    f"[Signal Queue] Slot ({today}, hour={current_hour}) already completed at {slot_refresh.completed_at}; skipping."
+                )
+                return {
+                    'total_signals': 0,
+                    'skipped': True,
+                    'reason': 'slot_already_completed',
+                }
+    except SignalGenerationSlot.DoesNotExist:
+        pass
 
     # --- Step 0: Binance futures eligibility ---
     valid_base_assets: Set[str] = set()
@@ -125,14 +148,13 @@ def generate_signals_for_all_symbols():
         if cleanup_stats.get("signals_deleted"):
             logger.warning(f"[Signal Queue] Deleted {cleanup_stats['signals_deleted']} non-Binance-futures signals.")
 
-    # --- Step 1: Exclude symbols that already have a signal created TODAY (any hour).
-    # This enforces "each coin at most once per day" so each hour shows 5 different coins.
-    exclude_symbol_ids = set(_symbol_ids_with_signal_created_today())
+    # --- Step 1: Exclude coins that already have a signal on TODAY (any hour) ---
+    exclude_symbol_ids = set(_symbol_ids_with_signal_on_date(today))
     logger.info(
-        f"[Signal Queue] Step 1 – Excluding {len(exclude_symbol_ids)} symbols that already have a signal today."
+        f"[Signal Queue] Step 1 – Excluding {len(exclude_symbol_ids)} symbols that already have a signal on {today}."
     )
 
-    # --- Step 2: Eligible symbols = active, crypto, not already signaled today ---
+    # --- Step 2: Eligible symbols = active, crypto, not already used today ---
     active_symbols_qs = Symbol.objects.filter(
         is_active=True,
         is_crypto_symbol=True,
@@ -148,7 +170,9 @@ def generate_signals_for_all_symbols():
     logger.info(f"[Signal Queue] Step 2 – Eligible coins for this hour: {eligible_count} (not yet signaled today).")
 
     if eligible_count == 0:
-        logger.warning("[Signal Queue] No eligible symbols left for today; skipping generation.")
+        logger.warning("[Signal Queue] No eligible symbols left for today; marking slot completed and skipping.")
+        with transaction.atomic():
+            SignalGenerationSlot.objects.filter(pk=slot.pk).update(completed_at=now)
         return {
             'total_signals': 0,
             'symbols_processed': 0,
@@ -159,8 +183,7 @@ def generate_signals_for_all_symbols():
 
     signal_service = SignalGenerationService()
     max_signals_per_hour = 5
-    max_candidates_to_try = 50  # Cap to avoid long runs; from these we pick best 5
-    # Generate one best signal per symbol (candidate), then pick best 5 by quality
+    max_candidates_to_try = 50
     candidates: List[tuple] = []  # (score, signal)
 
     for symbol in active_symbols[:max_candidates_to_try]:
@@ -176,17 +199,38 @@ def generate_signals_for_all_symbols():
         except Exception as e:
             logger.error(f"[Signal Queue] Error generating for {symbol.symbol}: {e}")
 
-    # Sort by score descending and take top 5 (already distinct symbols)
     candidates.sort(key=lambda x: x[0], reverse=True)
     generated_signals = [s for _, s in candidates[:max_signals_per_hour]]
     generated_symbols = [s.symbol.symbol for s in generated_signals]
-    # Invalidate any other signals created in this run (only 5 stored per hour)
+
+    # Invalidate extras from this run (only 5 kept)
     for _, s in candidates[max_signals_per_hour:]:
         s.is_valid = False
         s.save(update_fields=['is_valid'])
         logger.debug(f"[Signal Queue] Invalidated extra signal {s.id} ({s.symbol.symbol}) from this run.")
+
+    # Persist slot: set signal_date and signal_hour on the 5 (enables APIs and enforces one-coin-per-day at DB)
+    try:
+        with transaction.atomic():
+            for s in generated_signals:
+                s.signal_date = today
+                s.signal_hour = current_hour
+                s.save(update_fields=['signal_date', 'signal_hour'])
+            SignalGenerationSlot.objects.filter(pk=slot.pk).update(completed_at=now)
+    except IntegrityError as e:
+        logger.error(f"[Signal Queue] Unique constraint (symbol per day) violated: {e}; rolling back slot completion.")
+        # Do not set completed_at so a retry can run; invalidate the 5 we tried to tag so they don't count as "today"
+        for s in generated_signals:
+            s.is_valid = False
+            s.save(update_fields=['is_valid'])
+        return {
+            'total_signals': 0,
+            'error': 'unique_constraint_violation',
+            'detail': str(e),
+        }
+
     logger.info(
-        f"[Signal Queue] Step 2 done – Selected best {len(generated_signals)} signals for this hour. "
+        f"[Signal Queue] Step 2 done – Stored {len(generated_signals)} signals for ({today}, hour={current_hour}). "
         f"Symbols: {generated_symbols}"
     )
 
@@ -720,10 +764,11 @@ def save_daily_best_signals_task(target_date_str=None, limit=10):
         
         logger.info(f"Starting to save daily best {limit} signals for {target_date}...")
         
-        # Get all signals created that day (24*5 pool), ordered by quality
+        # Get all signals for that day only (use signal_date when set to avoid mixing dates)
+        from django.db.models import Q
         day_signals = TradingSignal.objects.filter(
-            created_at__date=target_date,
-            is_valid=True
+            Q(signal_date=target_date) | Q(signal_date__isnull=True, created_at__date=target_date),
+            is_valid=True,
         ).select_related('symbol', 'signal_type').order_by('-quality_score', '-confidence_score', '-risk_reward_ratio')
         
         logger.info(f"Found {day_signals.count()} signals for {target_date}")

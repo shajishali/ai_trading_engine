@@ -335,51 +335,57 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return 5 signals for the current clock hour: the 5 generated in that hour (by created_at).
-        Uses ALL signals created today (including is_valid=False) so each hour has its own batch
-        after duplicate cleanup; otherwise we'd only ever have 5 valid and the page would never change.
+        """Return exactly 5 signals for the current clock hour (UTC).
+        Prefer signal_date/signal_hour when set (canonical); else fall back to created_at window.
+        No regeneration; read from DB only so page refresh does not change data.
         """
         from apps.signals.price_sync_service import price_sync_service
         now = timezone.now()
-        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_today = start_of_today + timedelta(days=1)
-        current_hour = now.hour  # 0-23
-        hour_start = start_of_today + timedelta(hours=current_hour)
-        hour_end = hour_start + timedelta(hours=1)
-        # Signals created in this clock hour (include invalid so we see that hour's batch after cleanup)
-        in_this_hour = (
+        today = now.date()
+        current_hour = now.hour  # 0-23 UTC
+        # Prefer canonical slot: signals with signal_date and signal_hour set for this hour
+        by_slot = (
             TradingSignal.objects.select_related('symbol', 'signal_type')
-            .filter(
-                created_at__gte=hour_start,
-                created_at__lt=hour_end,
-            )
+            .filter(signal_date=today, signal_hour=current_hour)
             .order_by('-quality_score', '-confidence_score', '-created_at')
         )
-        seen = set()
-        batch = []
-        for signal in in_this_hour:
-            key = (signal.symbol_id, signal.signal_type_id)
-            if key not in seen and len(batch) < 5:
-                seen.add(key)
-                batch.append(signal)
-        # If this hour has fewer than 5, fill from previous hours (same day, newest first)
+        batch = list(by_slot[:5])
+        # Fallback: no slot fields yet (legacy or first run) – use created_at window for this hour
         if len(batch) < 5:
-            rest_start = start_of_today
-            rest_end = hour_start
-            if rest_end > rest_start:
-                extra = (
-                    TradingSignal.objects.select_related('symbol', 'signal_type')
-                    .filter(
-                        created_at__gte=rest_start,
-                        created_at__lt=rest_end,
-                    )
-                    .order_by('-created_at')
+            hour_start = now.replace(minute=0, second=0, microsecond=0)
+            hour_end = hour_start + timedelta(hours=1)
+            in_this_hour = (
+                TradingSignal.objects.select_related('symbol', 'signal_type')
+                .filter(
+                    created_at__gte=hour_start,
+                    created_at__lt=hour_end,
                 )
-                for signal in extra:
-                    key = (signal.symbol_id, signal.signal_type_id)
-                    if key not in seen and len(batch) < 5:
-                        seen.add(key)
-                        batch.append(signal)
+                .order_by('-quality_score', '-confidence_score', '-created_at')
+            )
+            seen = {(s.symbol_id, s.signal_type_id) for s in batch}
+            for signal in in_this_hour:
+                key = (signal.symbol_id, signal.signal_type_id)
+                if key not in seen and len(batch) < 5:
+                    seen.add(key)
+                    batch.append(signal)
+        # If still fewer than 5, fill from earlier hours same day (newest first)
+        if len(batch) < 5:
+            start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            hour_start = now.replace(minute=0, second=0, microsecond=0)
+            seen = {(s.symbol_id, s.signal_type_id) for s in batch}
+            extra = (
+                TradingSignal.objects.select_related('symbol', 'signal_type')
+                .filter(
+                    created_at__gte=start_of_today,
+                    created_at__lt=hour_start,
+                )
+                .order_by('-created_at')
+            )
+            for signal in extra:
+                key = (signal.symbol_id, signal.signal_type_id)
+                if key not in seen and len(batch) < 5:
+                    seen.add(key)
+                    batch.append(signal)
         signal_data = []
         for signal in batch:
             sym = signal.symbol.symbol
@@ -917,11 +923,13 @@ class DailyBestSignalsView(View):
                 )
                 unique_signals = list(best_signals_queryset)
             else:
-                # Today: top 10 by quality from hourly-generated signals for today only (read-only)
+                # Today: top 10 by quality from hourly-generated signals for this date only (read-only).
+                # Prefer signal_date when set so we never mix dates; else created_at range.
+                from django.db.models import Q
                 day_signals = (
                     TradingSignal.objects.filter(
-                        created_at__gte=start_dt,
-                        created_at__lte=end_dt,
+                        Q(signal_date=target_date)
+                        | Q(signal_date__isnull=True, created_at__gte=start_dt, created_at__lte=end_dt),
                     )
                     .select_related('symbol', 'signal_type')
                     .order_by('-quality_score', '-confidence_score', '-risk_reward_ratio', '-created_at')

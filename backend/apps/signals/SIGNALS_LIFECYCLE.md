@@ -2,26 +2,28 @@
 
 ## Overview
 
-- **Hourly**: Every hour, exactly **5 signals** are generated and stored. Each belongs to a **coin**, a **specific hour**, and a **specific date** (inferred from `created_at`).
-- **Best Signals (date-based)**: User selects a date and sees the **top 10** signals for that date only, from signals **already generated** that day (read-only, no new generation).
+- **Hourly**: Every hour, exactly **5 signals** are generated and stored. Each has one **coin**, **signal_date**, **signal_hour** (0–23 UTC), and score. **24 × 5 = 120 unique coins per day**.
+- **DB constraint**: `unique_symbol_per_signal_date` – one row per (symbol, signal_date) when signal_date is set (PostgreSQL; MySQL does not support partial unique constraints, so app logic enforces this).
+- **Idempotency**: `SignalGenerationSlot` (date, hour, completed_at). Once a slot is completed, the task **never** regenerates for that hour.
+- **Best Signals (date-based)**: User selects a date and sees the **top 10** for that date only (read-only; no generation; never mix dates).
 
 ---
 
 ## 1. Hourly Signal Generation
 
-**When**: Celery beat runs `generate_signals_for_all_symbols` every hour (e.g. at :00).
+**When**: Celery beat runs `generate_signals_for_all_symbols` every hour (e.g. at :00 UTC).
 
 **Rules**:
 
-1. **Daily uniqueness**: For the current day, ignore all coins that already have at least one signal with `created_at.date() == today`. Only consider coins that have **not** appeared earlier that day.
-2. **Candidates**: From the remaining coins, generate signal candidates (up to 50 symbols tried per run to limit runtime). Each candidate is scored (quality + confidence).
-3. **Best 5**: Select the **best 5** signals by score. Only these 5 remain valid; any other signals created in the same run are set `is_valid=False`.
-4. **Persistence**: Signals are stored in the DB. The UI **never** recalculates; it fetches by `created_at` in the current hour (and date).
+1. **Slot lock**: Get or create `SignalGenerationSlot(signal_date=today, signal_hour=current_hour)`. If `completed_at` is set, **return immediately** (never regenerate for that hour).
+2. **Daily uniqueness**: Exclude all coins that already have a signal on today (`signal_date=today` or `created_at.date()=today`). Only consider coins that have **not** appeared that day.
+3. **Candidates**: From remaining coins (up to 50 per run), generate candidates; rank by score; select **top 5**.
+4. **Persist**: Set `signal_date=today`, `signal_hour=current_hour` on the 5; invalidate the rest. Mark slot `completed_at=now()`. On `IntegrityError` (duplicate symbol/date), do not mark completed and invalidate the 5.
 
 **Implementation**: `apps.signals.tasks.generate_signals_for_all_symbols`
 
-- Uses `_symbol_ids_with_signal_created_today()` to exclude symbols.
-- Builds a list of (score, signal) from eligible symbols, sorts, takes top 5, invalidates the rest.
+- Uses `_symbol_ids_with_signal_on_date(today)` to exclude symbols (uses signal_date or created_at.date).
+- Builds (score, signal) from eligible symbols, sorts, takes top 5, sets signal_date/signal_hour, marks slot completed.
 
 ---
 
@@ -68,8 +70,9 @@
 | Best Signals for a date with no signals | API returns empty list; UI shows “No signals” and stays in best_by_date view. |
 | Best Signals for “today” before any run | Empty or partial list from today’s `created_at` only. |
 | Duplicate symbol+type in same hour | Backend duplicate cleanup keeps latest per symbol+type. |
-| Timezone | All times in UTC; `created_at` and date filters use server timezone (timezone.now()). |
-| Save daily best | `save_daily_best_signals_task` at 23:55 marks top 10 for that day (from signals with `created_at` on that date). |
+| Timezone | All times UTC; `signal_date` / `signal_hour` and `created_at` use timezone.now(). |
+| Concurrency | Slot row locked with select_for_update(); only one worker can complete a given (date, hour). |
+| Save daily best | `save_daily_best_signals_task` at 23:55 marks top 10 for that day (from signals with signal_date or created_at on that date). |
 
 ---
 
