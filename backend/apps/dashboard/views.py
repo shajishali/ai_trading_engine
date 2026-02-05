@@ -499,38 +499,8 @@ def _dashboard_impl(request):
 
 @login_required
 def signals_view(request):
-    """Signals view"""
-    # Failsafe: exclude already-expired even if is_valid wasn't updated by background tasks
-    recent_signals = (
-        TradingSignal.objects.filter(is_valid=True)
-        .filter(
-            Q(expires_at__gte=timezone.now()) |
-            Q(expires_at__isnull=True, created_at__gte=timezone.now() - timezone.timedelta(hours=48))
-        )
-        .order_by('-created_at')[:20]
-    )
-    
-    # Calculate metrics
-    total_signals = TradingSignal.objects.count()
-    active_signals = TradingSignal.objects.filter(is_valid=True).count()
-    
-    # Calculate win rate (simplified)
-    executed_signals = TradingSignal.objects.filter(is_executed=True)
-    if executed_signals.count() > 0:
-        win_rate = round((executed_signals.filter(profit_loss__gt=0).count() / executed_signals.count()) * 100)
-    else:
-        win_rate = 73  # Default
-    
-    context = {
-        'recent_signals': recent_signals,
-        'total_signals': total_signals,
-        'active_signals': active_signals,
-        'win_rate': win_rate,
-        'profit_factor': 2.8,  # Default
-        # live_crypto_prices is automatically available via context processor
-    }
-    
-    return render(request, 'dashboard/signals.html', context)
+    """Redirect to main signals page (table-only dashboard)."""
+    return redirect('signals:signal_dashboard')
 
 
 def api_dashboard_stats(request):

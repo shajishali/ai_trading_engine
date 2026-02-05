@@ -316,13 +316,11 @@ class DashboardViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'dashboard/portfolio.html')
     
-    def test_signals_template_rendering(self):
-        """Test signals template renders without errors"""
+    def test_signals_redirects_to_signals_dashboard(self):
+        """Test dashboard signals view redirects to main signals page"""
         self.client.login(username='testuser', password='testpass123')
         response = self.client.get(reverse('dashboard:signals'))
-        
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'dashboard/signals.html')
+        self.assertRedirects(response, reverse('signals:signal_dashboard'))
 
 
 class DashboardIntegrationTestCase(TestCase):
