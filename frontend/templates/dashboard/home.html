@@ -201,11 +201,47 @@
         transform: translateX(3px);
     }
     
+    /* Ensure footer text is always white/visible in all themes */
+    footer,
+    footer * {
+        color: #ffffff !important;
+    }
+    
+    footer p,
+    footer .text-light,
+    footer li,
+    footer a,
+    footer a.text-light,
+    footer a.text-white {
+        color: #ffffff !important;
+        opacity: 1 !important;
+    }
+    
+    footer a:hover {
+        color: #ffffff !important;
+        opacity: 1 !important;
+    }
+    
+    footer hr {
+        border-color: rgba(255, 255, 255, 0.3) !important;
+    }
+    
     /* Ensure footer is visible in all themes */
     body[data-theme="light"] footer,
     body[data-theme="dark"] footer,
     body:not([data-theme]) footer {
         background: linear-gradient(135deg, #0a2d5a 0%, #113E80 100%) !important;
+    }
+    
+    /* Force white text in footer for light mode */
+    body[data-theme="light"] footer,
+    body[data-theme="light"] footer *,
+    body[data-theme="light"] footer p,
+    body[data-theme="light"] footer .text-light,
+    body[data-theme="light"] footer li,
+    body[data-theme="light"] footer a,
+    body[data-theme="light"] footer h5 {
+        color: #ffffff !important;
     }
 </style>
 
@@ -357,7 +393,7 @@
                 <h5 class="mb-2">
                     <i class="fas fa-chart-line me-2"></i>CryptAI
                 </h5>
-                <p class="text-light" style="opacity: 0.95; font-size: 0.9rem;">
+                <p class="text-light" style="color: #ffffff !important; opacity: 0.95; font-size: 0.9rem;">
                     Advanced AI-powered trading platform with real-time signals, machine learning insights, and comprehensive analytics for informed trading decisions.
                 </p>
                 <div class="mt-2">
@@ -381,17 +417,17 @@
                 <h5 class="mb-2">Quick Links</h5>
                 <ul class="list-unstyled">
                     <li class="mb-2">
-                        <a href="{% url 'dashboard:dashboard' %}" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                        <a href="{% url 'dashboard:dashboard' %}" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
                             <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Dashboard
                         </a>
                     </li>
                     <li class="mb-2">
-                        <a href="/signals/" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                        <a href="/signals/" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
                             <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Trading Signals
                         </a>
                     </li>
                     <li class="mb-2">
-                        <a href="{% url 'analytics:backtesting' %}" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                        <a href="{% url 'analytics:backtesting' %}" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
                             <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Backtesting
                         </a>
                     </li>
@@ -402,17 +438,17 @@
             <div class="col-md-4 mb-3">
                 <h5 class="mb-2">Contact & Support</h5>
                 <ul class="list-unstyled">
-                    <li class="mb-2 text-light" style="opacity: 0.95;">
+                    <li class="mb-2 text-light" style="color: #ffffff !important; opacity: 0.95;">
                         <i class="fas fa-envelope me-2"></i>support@cryptai.com
                     </li>
-                    <li class="mb-2 text-light" style="opacity: 0.95;">
+                    <li class="mb-2 text-light" style="color: #ffffff !important; opacity: 0.95;">
                         <i class="fas fa-phone me-2"></i>+94776696901
                     </li>
-                    <li class="mb-2 text-light" style="opacity: 0.95;">
+                    <li class="mb-2 text-light" style="color: #ffffff !important; opacity: 0.95;">
                         <i class="fas fa-clock me-2"></i>24/7 Support Available
                     </li>
                     <li class="mb-2">
-                        <a href="#" class="text-light" style="text-decoration: none; opacity: 0.95;">
+                        <a href="#" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
                             <i class="fas fa-question-circle me-2"></i>Help Center
                         </a>
                     </li>
@@ -424,14 +460,14 @@
         <hr class="my-3" style="border-color: rgba(255,255,255,0.3);">
         <div class="row">
             <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
-                <p class="mb-0 text-light" style="opacity: 0.9;">
+                <p class="mb-0 text-light" style="color: #ffffff !important; opacity: 0.9;">
                     &copy; {% now "Y" %} CryptAI. All rights reserved.
                 </p>
             </div>
             <div class="col-md-6 text-center text-md-end">
-                <a href="#" class="text-light me-3" style="text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Privacy Policy</a>
-                <a href="#" class="text-light me-3" style="text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Terms of Service</a>
-                <a href="#" class="text-light" style="text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Disclaimer</a>
+                <a href="#" class="text-light me-3" style="color: #ffffff !important; text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Privacy Policy</a>
+                <a href="#" class="text-light me-3" style="color: #ffffff !important; text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Terms of Service</a>
+                <a href="#" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.9; font-size: 0.9rem;">Disclaimer</a>
             </div>
         </div>
     </div>
