@@ -9,7 +9,7 @@ from django.core.cache import cache
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalAlert, SignalPerformance,
-    MarketRegime
+    MarketRegime, HourlyBestSignal
 )
 from apps.signals.services import (
     SignalGenerationService, MarketRegimeService, SignalPerformanceService
@@ -74,13 +74,23 @@ def _symbol_ids_with_signal_created_today() -> List[int]:
 
 def _count_signals_for_hour(signal_date: date, signal_hour: int) -> int:
     """
-    Count signals stored for this (date, hour). Only counts rows with signal_date/signal_hour set.
-    Used to skip generation if this hour already has 5 (never regenerate).
+    Count hourly-best slots for this (date, hour). Used to skip generation if
+    this hour already has 5 (never regenerate). Source of truth: HourlyBestSignal.
     """
-    return TradingSignal.objects.filter(
+    return HourlyBestSignal.objects.filter(
         signal_date=signal_date,
         signal_hour=signal_hour,
     ).count()
+
+
+def _symbol_ids_in_hourly_best_for_hour(signal_date: date, signal_hour: int) -> Set[int]:
+    """Symbol IDs that already have an entry in HourlyBestSignal for this (date, hour)."""
+    return set(
+        HourlyBestSignal.objects.filter(
+            signal_date=signal_date,
+            signal_hour=signal_hour,
+        ).values_list("symbol_id", flat=True)
+    )
 
 
 def _symbol_ids_with_signal_in_last_hour() -> List[int]:
@@ -171,6 +181,11 @@ def generate_signals_for_all_symbols():
 
         # --- Step 1: Exclude coins that already have a signal on this date (any hour) ---
         exclude_symbol_ids = set(_symbol_ids_with_signal_on_date(today))
+        # Also exclude symbols that already appear in HourlyBestSignal today (one coin per day, 120 max)
+        today_best_symbols = set(
+            HourlyBestSignal.objects.filter(signal_date=today).values_list("symbol_id", flat=True)
+        )
+        exclude_symbol_ids |= today_best_symbols
         logger.info(
             f"[Signal Queue] Step 1 – Excluding {len(exclude_symbol_ids)} symbols that already have a signal today."
         )
@@ -219,25 +234,47 @@ def generate_signals_for_all_symbols():
             except Exception as e:
                 logger.error(f"[Signal Queue] Error generating for {symbol.symbol}: {e}")
 
-        # Sort by score descending and take top 5 (already distinct symbols)
+        # Sort by score descending; then take only symbols not already in this hour's best (no duplicate coin per hour/day)
         candidates.sort(key=lambda x: x[0], reverse=True)
-        generated_signals = [s for _, s in candidates[:max_signals_per_hour]]
+        existing_in_hour = _symbol_ids_in_hourly_best_for_hour(today, hour)
+        to_add: List[TradingSignal] = []
+        for _, s in candidates:
+            if s.symbol_id in existing_in_hour:
+                continue
+            to_add.append(s)
+            existing_in_hour.add(s.symbol_id)
+            if len(to_add) >= max_signals_per_hour:
+                break
+        generated_signals = to_add
         generated_symbols = [s.symbol.symbol for s in generated_signals]
-        # Invalidate any other signals created in this run (only 5 stored per hour)
-        for _, s in candidates[max_signals_per_hour:]:
-            s.is_valid = False
-            s.save(update_fields=['is_valid'])
-            logger.debug(f"[Signal Queue] Invalidated extra signal {s.id} ({s.symbol.symbol}) from this run.")
 
-        # --- Persist slot: set signal_date and signal_hour for the chosen 5 (race-safe in transaction) ---
+        # Invalidate any other signals from this run that were not selected
+        chosen_ids = {s.id for s in generated_signals}
+        for _, s in candidates:
+            if s.id not in chosen_ids:
+                s.is_valid = False
+                s.save(update_fields=['is_valid'])
+                logger.debug(f"[Signal Queue] Invalidated extra signal {s.id} ({s.symbol.symbol}) from this run.")
+
+        # --- Persist: HourlyBestSignal (source of truth for display) + signal_date/signal_hour on TradingSignal ---
         try:
             with transaction.atomic():
-                for s in generated_signals:
+                for rank_one_based, s in enumerate(generated_signals, start=1):
+                    HourlyBestSignal.objects.update_or_create(
+                        signal_date=today,
+                        signal_hour=hour,
+                        symbol_id=s.symbol_id,
+                        defaults={
+                            "trading_signal_id": s.id,
+                            "rank": rank_one_based,
+                            "quality_score": float(s.quality_score) if s.quality_score is not None else None,
+                        },
+                    )
                     s.signal_date = today
                     s.signal_hour = hour
                     s.save(update_fields=['signal_date', 'signal_hour'])
         except IntegrityError as e:
-            logger.warning(f"[Signal Queue] Unique constraint hit (duplicate coin/day): {e}. Hour may have been filled by another run.")
+            logger.warning(f"[Signal Queue] Unique constraint hit (duplicate coin/hour): {e}. Hour may have been filled by another run.")
             return {
                 'total_signals': 0,
                 'skipped': 'constraint',
@@ -246,7 +283,7 @@ def generate_signals_for_all_symbols():
             }
 
         logger.info(
-            f"[Signal Queue] Step 2 done – Selected best {len(generated_signals)} signals for this hour. "
+            f"[Signal Queue] Step 2 done – Selected best {len(generated_signals)} signals for this hour (HourlyBestSignal). "
             f"Symbols: {generated_symbols}"
         )
 

@@ -616,3 +616,54 @@ class SpotPosition(models.Model):
     
     def __str__(self):
         return f"{self.portfolio.name} - {self.symbol.symbol}"
+
+
+class HourlyBestSignal(models.Model):
+    """
+    Best signals per hour for display. One row per (date, hour, symbol).
+    Max 5 symbols per hour, 24 hours = 120 rows per day. Ensures the same coin
+    is not shown again in the same hour on the same day (no duplicate batch).
+    """
+    signal_date = models.DateField(
+        db_index=True,
+        help_text="Calendar date (UTC) for this hourly slot"
+    )
+    signal_hour = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(23)],
+        db_index=True,
+        help_text="Hour of day 0-23 UTC"
+    )
+    symbol = models.ForeignKey(Symbol, on_delete=models.CASCADE)
+    trading_signal = models.ForeignKey(
+        TradingSignal,
+        on_delete=models.CASCADE,
+        related_name="hourly_best_entries"
+    )
+    rank = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Rank within this hour (1 = best)"
+    )
+    quality_score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        null=True,
+        blank=True,
+        help_text="Snapshot of signal quality when selected"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Hourly Best Signal"
+        verbose_name_plural = "Hourly Best Signals"
+        ordering = ["signal_date", "signal_hour", "rank"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["signal_date", "signal_hour", "symbol"],
+                name="unique_symbol_per_hour_per_day",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["signal_date", "signal_hour"]),
+        ]
+
+    def __str__(self):
+        return f"{self.signal_date} {self.signal_hour:02d}:00 {self.symbol.symbol} (#{self.rank})"

@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.signals.models import (
     SignalType, SignalFactor, TradingSignal, SignalFactorContribution,
-    MarketRegime, SignalPerformance, SignalAlert
+    MarketRegime, SignalPerformance, SignalAlert, HourlyBestSignal
 )
 from apps.signals.admin_filters import (
     SignalDateRangeFilter, SignalPerformanceFilter, SignalStrengthFilter,
@@ -490,6 +490,17 @@ class SignalAlertAdmin(admin.ModelAdmin):
         updated = queryset.update(is_read=False)
         self.message_user(request, f"{updated} alerts marked as unread.")
     mark_as_unread.short_description = "Mark selected alerts as unread"
+
+
+@admin.register(HourlyBestSignal)
+class HourlyBestSignalAdmin(admin.ModelAdmin):
+    list_display = ['signal_date', 'signal_hour', 'symbol', 'rank', 'quality_score', 'trading_signal', 'created_at']
+    list_filter = ['signal_date', 'signal_hour']
+    search_fields = ['symbol__symbol', 'symbol__name']
+    ordering = ['-signal_date', '-signal_hour', 'rank']
+    raw_id_fields = ['symbol', 'trading_signal']
+    readonly_fields = ['created_at']
+    date_hierarchy = 'signal_date'
 
 
 # Custom admin site configuration

@@ -18,7 +18,7 @@ from django.conf import settings
 
 from apps.signals.models import (
     TradingSignal, SignalType, SignalFactor, SignalAlert,
-    MarketRegime, SignalPerformance
+    MarketRegime, SignalPerformance, HourlyBestSignal
 )
 from apps.signals.services import (
     SignalGenerationService, MarketRegimeService, SignalPerformanceService
@@ -335,41 +335,52 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return exactly the 5 signals stored for the current (date, hour) in UTC.
-        Prefers signal_date/signal_hour when set (no recalculation); falls back to created_at for old rows.
-        Page refresh does not change signals – data is read-only from DB.
+        """Return the best signals for the current (date, hour) from HourlyBestSignal.
+        Ensures no duplicate coins per hour/day. Fallback to TradingSignal slot/created_at for legacy data.
         """
         from apps.signals.price_sync_service import price_sync_service
         now = timezone.now()
         today = now.date()
         current_hour = now.hour  # 0-23 UTC
-        # Prefer explicit slot: signals stored for this (date, hour)
-        with_slot = (
-            TradingSignal.objects.select_related('symbol', 'signal_type')
+
+        # Primary: read from HourlyBestSignal (one row per symbol per hour per day, max 5 per hour)
+        hourly_best = (
+            HourlyBestSignal.objects.select_related('symbol', 'trading_signal', 'trading_signal__signal_type')
             .filter(signal_date=today, signal_hour=current_hour)
-            .order_by('-quality_score', '-confidence_score', '-created_at')
+            .order_by('rank')
         )
-        batch = list(with_slot[:5])
-        # Fallback: no slot set yet (legacy or first run) – use created_at in this hour
+        batch = []
+        for hb in hourly_best:
+            batch.append(hb.trading_signal)
+
+        # Fallback: no HourlyBestSignal rows yet – use TradingSignal with signal_date/signal_hour or created_at
         if len(batch) < 5:
-            hour_start = now.replace(minute=0, second=0, microsecond=0)
-            hour_end = hour_start + timedelta(hours=1)
-            fallback = (
+            with_slot = (
                 TradingSignal.objects.select_related('symbol', 'signal_type')
-                .filter(
-                    created_at__gte=hour_start,
-                    created_at__lt=hour_end,
-                )
+                .filter(signal_date=today, signal_hour=current_hour)
                 .order_by('-quality_score', '-confidence_score', '-created_at')
             )
-            seen = {(s.symbol_id, s.signal_type_id) for s in batch}
-            for signal in fallback:
-                if len(batch) >= 5:
-                    break
-                key = (signal.symbol_id, signal.signal_type_id)
-                if key not in seen:
-                    seen.add(key)
-                    batch.append(signal)
+            batch = list(with_slot[:5])
+            if len(batch) < 5:
+                hour_start = now.replace(minute=0, second=0, microsecond=0)
+                hour_end = hour_start + timedelta(hours=1)
+                fallback = (
+                    TradingSignal.objects.select_related('symbol', 'signal_type')
+                    .filter(
+                        created_at__gte=hour_start,
+                        created_at__lt=hour_end,
+                    )
+                    .order_by('-quality_score', '-confidence_score', '-created_at')
+                )
+                seen = {(s.symbol_id, s.signal_type_id) for s in batch}
+                for signal in fallback:
+                    if len(batch) >= 5:
+                        break
+                    key = (signal.symbol_id, signal.signal_type_id)
+                    if key not in seen:
+                        seen.add(key)
+                        batch.append(signal)
+
         signal_data = []
         for signal in batch:
             sym = signal.symbol.symbol
@@ -1002,9 +1013,25 @@ class AvailableDatesView(View):
             }, status=500)
 
 
+def _signal_dashboard_safe_context(error=None):
+    """Build a minimal safe context for the signal dashboard (used on error or as defaults)."""
+    return {
+        'recent_signals': [],
+        'daily_metrics': {},
+        'active_alerts': [],
+        'recent_regimes': [],
+        'total_signals': 0,
+        'active_signals': 0,
+        'executed_signals': 0,
+        'profitable_signals': 0,
+        'win_rate': 0.0,
+        'error': error,
+    }
+
+
 @login_required
 def signal_dashboard(request):
-    """Signal dashboard view"""
+    """Signal dashboard view. On error, still renders page with safe context and shows error message."""
     try:
         # Get recent signals
         recent_signals = TradingSignal.objects.select_related(
@@ -1040,14 +1067,15 @@ def signal_dashboard(request):
             'active_signals': active_signals,
             'executed_signals': executed_signals,
             'profitable_signals': profitable_signals,
-            'win_rate': win_rate
+            'win_rate': win_rate,
+            'error': None,
         }
-        
         return render(request, 'signals/dashboard.html', context)
         
     except Exception as e:
-        logger.error(f"Error rendering signal dashboard: {e}")
-        return render(request, 'signals/dashboard.html', {'error': str(e)})
+        logger.exception("Error rendering signal dashboard: %s", e)
+        context = _signal_dashboard_safe_context(error=str(e))
+        return render(request, 'signals/dashboard.html', context)
 
 
 @login_required
