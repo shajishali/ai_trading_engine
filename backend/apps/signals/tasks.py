@@ -260,10 +260,10 @@ def generate_signals_for_all_symbols():
             }
         generated_symbols = [s.symbol.symbol for s in generated_signals]
 
-        # Invalidate any other signals from this run that were not selected
+        # Invalidate any other signals from this run that were not selected (only if already in DB)
         chosen_ids = {s.id for s in generated_signals}
         for _, s in candidates:
-            if s.id not in chosen_ids:
+            if s.id not in chosen_ids and s.pk is not None:
                 s.is_valid = False
                 s.save(update_fields=['is_valid'])
                 logger.debug(f"[Signal Queue] Invalidated extra signal {s.id} ({s.symbol.symbol}) from this run.")
