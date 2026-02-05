@@ -169,9 +169,8 @@ def api_symbols(request):
     })
 
 
-@login_required
 def api_live_prices(request):
-    """API endpoint for live prices from real APIs"""
+    """API endpoint for live prices (public GET so home page can load prices without login)"""
     try:
         from .real_price_service import get_live_prices
         
