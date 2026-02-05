@@ -8,8 +8,50 @@
     /* Signal History Table Styling */
     .table-responsive {
         border-radius: 8px;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: visible;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        /* Ensure table can scroll on mobile */
+        display: block;
+    }
+    
+    /* Make table scrollable on mobile */
+    @media (max-width: 991px) {
+        .table-responsive {
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            /* Extend beyond container to prevent cut-off */
+            margin-left: -15px;
+            margin-right: -15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: calc(100% + 30px);
+            /* Show scrollbar for better UX */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(102, 126, 234, 0.5) transparent;
+        }
+        
+        .table-responsive::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
     }
     
     #history-table {
@@ -18,6 +60,21 @@
         color: var(--text-color);
         border-collapse: collapse;
         width: 100%;
+        min-width: 1200px; /* Ensure table doesn't shrink too much */
+        table-layout: auto;
+    }
+    
+    /* Mobile: allow table to be wider than viewport for scrolling */
+    @media (max-width: 991px) {
+        #history-table {
+            min-width: 1000px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        #history-table {
+            min-width: 900px;
+        }
     }
     
     #history-table thead th {
@@ -386,44 +443,206 @@
     }
     
     /* Responsive adjustments */
-    @media (max-width: 768px) {
+    @media (max-width: 991px) {
         .table-responsive {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            margin-left: -15px;
+            margin-right: -15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: calc(100% + 30px);
+        }
+        
+        #history-table {
+            font-size: 0.85rem;
         }
         
         #history-table thead th,
         #history-table tbody td {
-            padding: 10px 8px;
+            padding: 10px 6px;
+            white-space: nowrap;
         }
         
         #history-table thead th:first-child,
         #history-table tbody td:first-child {
-            padding-left: 15px;
+            padding-left: 10px;
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            z-index: 5;
+        }
+        
+        #history-table thead th:first-child {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 15;
         }
         
         #history-table thead th:last-child,
         #history-table tbody td:last-child {
-            padding-right: 15px;
+            padding-right: 10px;
         }
         
         .badge {
-            padding: 6px 10px;
-            font-size: 0.75rem;
-            min-width: 70px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            min-width: 60px;
         }
         
         .btn-group .btn {
-            padding: 5px 8px;
-            font-size: 0.75rem;
-            min-width: 30px;
-            height: 30px;
+            padding: 4px 6px;
+            font-size: 0.7rem;
+            min-width: 28px;
+            height: 28px;
+        }
+        
+        /* Reduce column widths on mobile */
+        #history-table thead th,
+        #history-table tbody td {
+            width: auto !important;
+            min-width: 80px;
+        }
+        
+        #history-table thead th:nth-child(1),
+        #history-table tbody td:nth-child(1) {
+            min-width: 70px;
+        }
+        
+        #history-table thead th:nth-child(2),
+        #history-table tbody td:nth-child(2) {
+            min-width: 90px;
+        }
+        
+        #history-table thead th:nth-child(3),
+        #history-table tbody td:nth-child(3) {
+            min-width: 80px;
+        }
+        
+        #history-table thead th:nth-child(4),
+        #history-table tbody td:nth-child(4) {
+            min-width: 100px;
+        }
+        
+        #history-table thead th:nth-child(5),
+        #history-table tbody td:nth-child(5) {
+            min-width: 90px;
+        }
+        
+        #history-table thead th:nth-child(6),
+        #history-table tbody td:nth-child(6) {
+            min-width: 90px;
+        }
+        
+        #history-table thead th:nth-child(7),
+        #history-table tbody td:nth-child(7) {
+            min-width: 80px;
+        }
+        
+        #history-table thead th:nth-child(8),
+        #history-table tbody td:nth-child(8) {
+            min-width: 120px;
+        }
+        
+        #history-table thead th:nth-child(9),
+        #history-table tbody td:nth-child(9) {
+            min-width: 140px;
+        }
+        
+        #history-table thead th:nth-child(10),
+        #history-table tbody td:nth-child(10) {
+            min-width: 100px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 5px;
+            padding-right: 5px;
+            overflow-x: visible;
+        }
+        
+        .table-responsive {
+            margin-left: -5px;
+            margin-right: -5px;
+            padding-left: 5px;
+            padding-right: 5px;
+            width: calc(100% + 10px);
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        #history-table {
+            font-size: 0.8rem;
+            min-width: 900px;
+        }
+        
+        #history-table thead th,
+        #history-table tbody td {
+            padding: 8px 4px;
+            white-space: nowrap;
+        }
+        
+        #history-table thead th:first-child,
+        #history-table tbody td:first-child {
+            padding-left: 8px;
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            z-index: 5;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        
+        #history-table thead th:first-child {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 15;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+        }
+        
+        [data-theme="dark"] #history-table tbody td:first-child {
+            background: var(--dark-card-bg, #1a2a3a);
+        }
+        
+        .badge {
+            padding: 3px 6px;
+            font-size: 0.65rem;
+            min-width: 50px;
+        }
+        
+        .card {
+            margin-left: 0;
+            margin-right: 0;
+            overflow: visible;
+        }
+        
+        .card-body {
+            padding: 0.5rem !important;
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        
+        .row {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        
+        .col-12 {
+            padding-left: 5px;
+            padding-right: 5px;
+            overflow-x: visible;
+        }
+        
+        .filter-controls {
+            padding: 15px 10px !important;
+        }
+        
+        .stat-card {
+            padding: 15px 10px;
+            font-size: 0.9rem;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4" style="overflow-x: visible;">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">Signal History</h2>
         <div class="d-flex gap-2">
@@ -536,8 +755,8 @@
     
     <!-- Signal History Table -->
     <div class="row">
-        <div class="col-12">
-            <div class="card">
+        <div class="col-12" style="overflow-x: visible;">
+            <div class="card" style="overflow: visible;">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-history me-2"></i>Signal History
@@ -549,21 +768,25 @@
                         Showing {{ signals|length }} of {{ total_count }} archived signals
                     </small>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
+                <div class="card-body" style="overflow-x: auto; padding-left: 0; padding-right: 0; overflow-y: visible;">
+                    <div class="table-responsive" style="overflow-x: auto; overflow-y: visible; position: relative;">
+                        <!-- Mobile scroll hint -->
+                        <div class="d-md-none text-center mb-2" style="color: var(--text-color); opacity: 0.7; font-size: 0.85rem;">
+                            <i class="fas fa-arrows-alt-h me-1"></i>Scroll horizontally to see all columns
+                        </div>
                         <table class="table table-hover" id="history-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 8%;">Symbol</th>
-                                    <th style="width: 10%;">Signal Type</th>
-                                    <th style="width: 8%;">Confidence</th>
-                                    <th style="width: 12%;">Entry Price</th>
-                                    <th style="width: 10%;">Target</th>
-                                    <th style="width: 10%;">Stop Loss</th>
-                                    <th style="width: 8%;">Timeframe</th>
-                                    <th style="width: 10%;">Entry Point</th>
-                                    <th style="width: 10%;">Archived</th>
-                                    <th style="width: 8%;">Reason</th>
+                                    <th style="width: 8%; min-width: 70px;">Symbol</th>
+                                    <th style="width: 10%; min-width: 90px;">Signal Type</th>
+                                    <th style="width: 8%; min-width: 80px;">Confidence</th>
+                                    <th style="width: 12%; min-width: 100px;">Entry Price</th>
+                                    <th style="width: 10%; min-width: 90px;">Target</th>
+                                    <th style="width: 10%; min-width: 90px;">Stop Loss</th>
+                                    <th style="width: 8%; min-width: 80px;">Timeframe</th>
+                                    <th style="width: 10%; min-width: 120px;">Entry Point</th>
+                                    <th style="width: 10%; min-width: 140px;">Archived</th>
+                                    <th style="width: 8%; min-width: 100px;">Reason</th>
                                 </tr>
                             </thead>
                             <tbody>
