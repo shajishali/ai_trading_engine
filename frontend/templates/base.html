@@ -432,6 +432,12 @@
             
             .navbar-nav {
                 text-align: center;
+                width: 100%;
+                margin: 0 !important;
+            }
+            
+            .navbar-nav.mx-auto {
+                margin: 0 !important;
             }
             
             /* Hero section buttons */
@@ -713,6 +719,88 @@
             align-items: center;
             justify-content: space-between;
         }
+        
+        /* Mobile navbar collapse improvements */
+        @media (max-width: 991px) {
+            .navbar {
+                padding: 0.5rem 1rem;
+            }
+            
+            .navbar .container-fluid {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            
+            .navbar-collapse {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                padding: 1rem 0;
+                margin-top: 0.75rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.15);
+            }
+            
+            .navbar-collapse .navbar-nav {
+                width: 100% !important;
+                margin: 0 !important;
+                flex-direction: column !important;
+            }
+            
+            .navbar-collapse .navbar-nav.mx-auto {
+                margin-bottom: 0.75rem !important;
+                padding-bottom: 0.75rem;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            .navbar-collapse .navbar-nav:last-child {
+                margin-left: 0 !important;
+                margin-top: 0 !important;
+                justify-content: center !important;
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+                gap: 0.5rem !important;
+                padding-top: 0.75rem;
+            }
+            
+            .navbar-nav .nav-item {
+                width: 100%;
+                margin: 0.25rem 0 !important;
+            }
+            
+            .navbar-nav:last-child .nav-item {
+                width: auto;
+                margin: 0.25rem !important;
+            }
+            
+            .navbar-nav .nav-link {
+                justify-content: center !important;
+                text-align: center !important;
+                padding: 0.75rem 1rem !important;
+                border-radius: 0.5rem;
+                display: flex !important;
+                align-items: center !important;
+                width: 100%;
+            }
+            
+            .navbar-nav .btn {
+                margin: 0.25rem !important;
+                width: auto;
+                min-width: 44px;
+                height: 44px;
+            }
+            
+            .navbar-nav .nav-item.dropdown {
+                width: 100%;
+            }
+            
+            .navbar-nav .nav-item.dropdown .nav-link {
+                width: 100%;
+                justify-content: center !important;
+            }
+            
+            .navbar-nav .nav-item .btn-outline-secondary {
+                margin: 0.25rem !important;
+            }
+        }
 
         .navbar-nav {
             align-items: center;
@@ -783,6 +871,29 @@
             .navbar-brand {
                 font-size: 1.1rem !important;
                 padding: 0.3rem 0.6rem;
+            }
+            
+            .navbar-collapse {
+                padding: 0.75rem 0;
+            }
+            
+            .navbar-collapse .navbar-nav .nav-link {
+                padding: 0.6rem 0.75rem !important;
+                font-size: 0.95rem;
+            }
+            
+            .navbar-nav:last-child {
+                gap: 0.4rem !important;
+            }
+            
+            .navbar-nav .btn {
+                padding: 0.4rem 0.6rem !important;
+                font-size: 0.85rem;
+            }
+            
+            .navbar-toggler {
+                padding: 0.4rem 0.6rem;
+                font-size: 1rem;
             }
         }
 
@@ -3490,18 +3601,19 @@
     </script>
     <!-- Premium Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light shadow-sm" style="background-color: var(--navbar-bg);">
-        <div class="container">
+        <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'dashboard:home' %}">
                 <i class="fas fa-chart-line me-2"></i>
-                CryptAI
+                <span class="d-none d-sm-inline">CryptAI</span>
+                <span class="d-sm-none">CryptAI</span>
             </a>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav mx-auto">
+                <ul class="navbar-nav mx-auto w-100 w-lg-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'dashboard:home' %}" id="nav-home">
                             <i class="fas fa-home me-1"></i>Home
@@ -3533,7 +3645,7 @@
                     {% endif %}
                 </ul>
                 
-                <ul class="navbar-nav">
+                <ul class="navbar-nav ms-lg-auto mt-3 mt-lg-0">
                     {% if user.is_authenticated %}
                         <li class="nav-item">
                             <button class="btn btn-outline-secondary btn-sm me-3" id="theme-toggle" title="Toggle Dark/Light Mode" style="display: flex !important; align-items: center; justify-content: center;">
