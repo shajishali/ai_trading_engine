@@ -96,7 +96,8 @@
     .signal-table {
         font-size: 0.9rem;
         width: 100%;
-        table-layout: fixed;
+        table-layout: auto;
+        border-collapse: collapse;
     }
     .signal-table thead th {
         position: sticky;
@@ -105,48 +106,77 @@
         white-space: nowrap;
         text-align: center;
         vertical-align: middle;
-        padding: 12px 8px;
+        padding: 15px 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 600;
+        border: none;
+    }
+    .signal-table thead th:first-child {
+        text-align: left;
+        padding-left: 20px;
     }
     .signal-table tbody td {
         vertical-align: middle;
-        padding: 12px 8px;
+        padding: 15px 12px;
         text-align: center;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        white-space: nowrap;
+    }
+    [data-theme="dark"] .signal-table tbody td {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+    .signal-table tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+    [data-theme="dark"] .signal-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.06);
     }
     .signal-table tbody td:first-child {
         text-align: left;
+        padding-left: 20px;
         white-space: nowrap;
     }
-    .signal-table tbody td:nth-child(2),
+    .signal-table tbody td:nth-child(2) {
+        text-align: center;
+        font-weight: 600;
+    }
     .signal-table tbody td:nth-child(3) {
         text-align: center;
     }
     .signal-table tbody td:nth-child(4) {
         text-align: center;
-        min-width: 100px;
+        min-width: 120px;
     }
     .signal-table tbody td:nth-child(5),
     .signal-table tbody td:nth-child(6),
     .signal-table tbody td:nth-child(7) {
         text-align: right;
         font-family: 'Courier New', monospace;
+        font-weight: 600;
         white-space: nowrap;
+        min-width: 100px;
     }
     .signal-table tbody td:nth-child(8) {
         text-align: center;
         font-family: 'Courier New', monospace;
+        white-space: nowrap;
+        min-width: 80px;
     }
-    .signal-table tbody td:nth-child(9) {
-        text-align: center;
-    }
+    .signal-table tbody td:nth-child(9),
     .signal-table tbody td:nth-child(10) {
         text-align: center;
+        min-width: 120px;
     }
     .signal-table tbody td:nth-child(11) {
         text-align: center;
         font-family: 'Courier New', monospace;
+        white-space: nowrap;
+        min-width: 80px;
     }
     .signal-table tbody td:last-child {
         text-align: center;
+        padding-right: 20px;
     }
     /* No results message styling */
     .signal-table tbody td[colspan] {
@@ -169,19 +199,34 @@
         margin: 0;
     }
     .signal-table .confidence-bar {
-        width: 100%;
-        max-width: 80px;
-        margin: 0 auto 4px;
+        width: 80px;
+        height: 6px;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 3px;
+        margin: 4px auto;
+        overflow: hidden;
+    }
+    [data-theme="dark"] .signal-table .confidence-bar {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    .signal-table .confidence-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
     }
     .signal-table .badge {
         display: inline-block;
         white-space: nowrap;
         margin: 2px 0;
+        padding: 4px 8px;
+        font-size: 0.75rem;
     }
     .signal-table small {
         display: block;
-        margin-top: 4px;
-        font-size: 0.75rem;
+        margin-top: 2px;
+        font-size: 0.7rem;
+        white-space: normal;
+        word-wrap: break-word;
     }
     
     /* Signal Card Styles */
@@ -234,9 +279,97 @@
     .signals-container {
         max-height: 600px;
         overflow-y: auto;
+        overflow-x: visible;
+    }
+    .signals-container .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+    /* Mobile responsive table */
+    @media (max-width: 991px) {
+        .signals-container .table-responsive {
+            margin-left: -15px;
+            margin-right: -15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: calc(100% + 30px);
+        }
+        .signal-table {
+            min-width: 1200px;
+        }
+        .signal-table thead th,
+        .signal-table tbody td {
+            padding: 10px 8px;
+            font-size: 0.85rem;
+        }
+        .signal-table thead th:first-child,
+        .signal-table tbody td:first-child {
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            z-index: 5;
+            padding-left: 10px;
+        }
+        .signal-table thead th:first-child {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 15;
+        }
+    }
+    @media (max-width: 576px) {
+        .signals-container .table-responsive {
+            margin-left: -5px;
+            margin-right: -5px;
+            padding-left: 5px;
+            padding-right: 5px;
+            width: calc(100% + 10px);
+        }
+        .signal-table {
+            min-width: 1000px;
+            font-size: 0.8rem;
+        }
+        .signal-table thead th,
+        .signal-table tbody td {
+            padding: 8px 6px;
+        }
     }
     .signal-type-badge {
         font-size: 0.8rem;
+        padding: 6px 10px;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    .confidence-bar {
+        width: 80px;
+        height: 6px;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 3px;
+        margin: 4px auto;
+        overflow: hidden;
+    }
+    [data-theme="dark"] .confidence-bar {
+        background: rgba(255, 255, 255, 0.2);
+    }
+    .confidence-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    .signal-table .badge {
+        display: inline-block;
+        white-space: nowrap;
+        margin: 2px 0;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+    .signal-table small {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.7rem;
+        white-space: normal;
+        word-wrap: break-word;
+    }
         padding: 0.25rem 0.5rem;
     }
     .confidence-bar {
@@ -848,21 +981,21 @@
                     
                     <!-- Enhanced Signal Cards -->
                     <div class="signals-container" id="signalsTable">
-                        <div class="table-responsive">
+                        <div class="table-responsive" style="overflow-x: auto; overflow-y: visible; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                             <table class="table table-hover signal-table" id="signalsDataTable">
-                                <thead class="table-dark">
+                                <thead>
                                     <tr>
-                                        <th style="width: 12%;">Date & Time</th>
-                                        <th style="width: 8%;">Symbol</th>
-                                        <th style="width: 8%;">Type</th>
-                                        <th style="width: 10%;">Confidence</th>
-                                        <th style="width: 12%;">Entry Price</th>
-                                        <th style="width: 10%;">Target</th>
-                                        <th style="width: 10%;">Stop Loss</th>
-                                        <th style="width: 8%;">R/R</th>
-                                        <th style="width: 10%;">Confirmations</th>
-                                        <th style="width: 10%;">Quality</th>
-                                        <th style="width: 12%;">Score</th>
+                                        <th>Date & Time</th>
+                                        <th>Symbol</th>
+                                        <th>Type</th>
+                                        <th>Confidence</th>
+                                        <th>Entry Price</th>
+                                        <th>Target</th>
+                                        <th>Stop Loss</th>
+                                        <th>R/R</th>
+                                        <th>Confirmations</th>
+                                        <th>Quality</th>
+                                        <th>Score</th>
                                     </tr>
                                 </thead>
                                 <tbody id="signalsTableBody">
@@ -1594,36 +1727,45 @@ document.addEventListener('DOMContentLoaded', function() {
             const confidenceLevel = confidencePercent >= 80 ? 'HIGH' : confidencePercent >= 60 ? 'MODERATE' : 'LOW';
             const confidenceClass = confidencePercent >= 80 ? 'success' : confidencePercent >= 60 ? 'warning' : 'danger';
             
+            // Format date properly
+            const dateStr = new Date(signal.created_at).toLocaleString('en-GB', {
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+            
             row.innerHTML = `
-                <td style="white-space: nowrap;">${new Date(signal.created_at).toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</td>
-                <td><strong>${signal.symbol}</strong></td>
-                <td><span class="badge ${badgeClass} signal-type-badge">${signal.signal_type}</span></td>
+                <td style="white-space: nowrap;">${dateStr}</td>
+                <td><strong>${signal.symbol || 'N/A'}</strong></td>
+                <td><span class="badge ${badgeClass} signal-type-badge" style="white-space: nowrap;">${signal.signal_type || 'N/A'}</span></td>
                 <td>
-                    <div class="d-flex flex-column align-items-center">
-                        <span class="badge bg-${confidenceClass} mb-1">${confidenceLevel}</span>
-                        <div class="confidence-bar">
-                            <div class="confidence-fill bg-${confidenceClass}" style="width: ${confidencePercent}%"></div>
+                    <div class="d-flex flex-column align-items-center" style="min-width: 100px;">
+                        <span class="badge bg-${confidenceClass} mb-1" style="white-space: nowrap;">${confidenceLevel}</span>
+                        <div class="confidence-bar" style="width: 80px; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; margin: 4px 0;">
+                            <div class="confidence-fill bg-${confidenceClass}" style="width: ${confidencePercent}%; height: 100%; border-radius: 3px;"></div>
                         </div>
-                        <small class="mt-1">${confidencePercent}%</small>
+                        <small class="mt-1" style="font-size: 0.75rem;">${confidencePercent}%</small>
                     </div>
                 </td>
-                <td style="text-align: right; font-family: 'Courier New', monospace;">${formatPrice(signal.entry_price)}</td>
-                <td style="text-align: right; font-family: 'Courier New', monospace;">${formatPrice(signal.target_price)}</td>
-                <td style="text-align: right; font-family: 'Courier New', monospace;">${formatPrice(signal.stop_loss)}</td>
-                <td style="text-align: center; font-family: 'Courier New', monospace;">${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}</td>
+                <td style="text-align: right; font-family: 'Courier New', monospace; white-space: nowrap;">${formatPrice(signal.entry_price)}</td>
+                <td style="text-align: right; font-family: 'Courier New', monospace; white-space: nowrap;">${formatPrice(signal.target_price)}</td>
+                <td style="text-align: right; font-family: 'Courier New', monospace; white-space: nowrap;">${formatPrice(signal.stop_loss)}</td>
+                <td style="text-align: center; font-family: 'Courier New', monospace; white-space: nowrap;">${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}</td>
                 <td>
-                    <div class="d-flex flex-column align-items-center">
-                        <span class="badge bg-info">${signal.strategy_confirmations || 0}/4</span>
-                        <small class="text-muted mt-1">Confirmations</small>
-                        ${signal.strategy_confirmations >= 2 ? '<small class="text-success">High Quality</small>' : '<small class="text-warning">Low Quality</small>'}
+                    <div class="d-flex flex-column align-items-center" style="min-width: 100px;">
+                        <span class="badge bg-info" style="white-space: nowrap;">${signal.strategy_confirmations || 0}/4</span>
+                        <small class="text-muted mt-1" style="font-size: 0.7rem;">Confirmations</small>
+                        ${signal.strategy_confirmations >= 2 ? '<small class="text-success" style="font-size: 0.7rem;">High Quality</small>' : '<small class="text-warning" style="font-size: 0.7rem;">Low Quality</small>'}
                     </div>
                 </td>
                 <td>
-                    <div class="d-flex flex-column align-items-center">
+                    <div class="d-flex flex-column align-items-center" style="min-width: 100px;">
                         ${getSignalSourceBadge(signal.signal_source || 'NATURAL')}
                     </div>
                 </td>
-                <td style="text-align: center; font-family: 'Courier New', monospace;">${signal.quality_score ? signal.quality_score.toFixed(2) : 'N/A'}</td>
+                <td style="text-align: center; font-family: 'Courier New', monospace; white-space: nowrap;">${signal.quality_score ? signal.quality_score.toFixed(2) : 'N/A'}</td>
             `;
             
             tbody.appendChild(row);
