@@ -246,6 +246,20 @@ def generate_signals_for_all_symbols():
             if len(to_add) >= max_signals_per_hour:
                 break
         generated_signals = to_add
+        # Ensure every signal is persisted and has an id (avoid NULL trading_signal_id in HourlyBestSignal)
+        for s in generated_signals:
+            if s.pk is None:
+                s.save()
+        generated_signals = [s for s in generated_signals if s.pk is not None]
+        if not generated_signals:
+            logger.warning("[Signal Queue] No signals with valid id to store in HourlyBestSignal; skipping.")
+            return {
+                'total_signals': 0,
+                'symbols_processed': eligible_count,
+                'signals_generated': 0,
+                'best_signals_selected': 0,
+                'binance_futures_filter_active': bool(valid_base_assets),
+            }
         generated_symbols = [s.symbol.symbol for s in generated_signals]
 
         # Invalidate any other signals from this run that were not selected
@@ -260,12 +274,16 @@ def generate_signals_for_all_symbols():
         try:
             with transaction.atomic():
                 for rank_one_based, s in enumerate(generated_signals, start=1):
+                    signal_id = s.pk
+                    if signal_id is None:
+                        logger.warning(f"[Signal Queue] Skipping HourlyBestSignal for {s.symbol.symbol}: signal has no id.")
+                        continue
                     HourlyBestSignal.objects.update_or_create(
                         signal_date=today,
                         signal_hour=hour,
                         symbol_id=s.symbol_id,
                         defaults={
-                            "trading_signal_id": s.id,
+                            "trading_signal_id": signal_id,
                             "rank": rank_one_based,
                             "quality_score": float(s.quality_score) if s.quality_score is not None else None,
                         },
@@ -274,7 +292,7 @@ def generate_signals_for_all_symbols():
                     s.signal_hour = hour
                     s.save(update_fields=['signal_date', 'signal_hour'])
         except IntegrityError as e:
-            logger.warning(f"[Signal Queue] Unique constraint hit (duplicate coin/hour): {e}. Hour may have been filled by another run.")
+            logger.warning(f"[Signal Queue] DB constraint error (HourlyBestSignal): {e}. Hour may have been filled by another run.")
             return {
                 'total_signals': 0,
                 'skipped': 'constraint',
