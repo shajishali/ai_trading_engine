@@ -842,8 +842,7 @@
                                         <th style="width: 8%;">R/R</th>
                                         <th style="width: 10%;">Confirmations</th>
                                         <th style="width: 10%;">Quality</th>
-                                        <th style="width: 8%;">Score</th>
-                                        <th style="width: 4%;">View</th>
+                                        <th style="width: 12%;">Score</th>
                                     </tr>
                                 </thead>
                                 <tbody id="signalsTableBody">
@@ -1519,11 +1518,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </td>
                 <td style="text-align: center; font-family: 'Courier New', monospace;">${signal.quality_score ? signal.quality_score.toFixed(2) : 'N/A'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="viewSignalDetails(${signal.id})" title="View Details">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
             `;
             
             tbody.appendChild(row);
