@@ -15,7 +15,7 @@
                 </button>
             </div>
         </div>
-        <div class="card-body p-3">
+        <div class="card-body p-3 p-md-3 p-sm-2">
             <!-- Horizontal Scrollable Container for All Coins -->
             <div class="crypto-prices-scroll-container" id="crypto-scroll" data-total="{% if global_crypto_prices %}{{ global_crypto_prices|length }}{% else %}0{% endif %}">
                 <div class="crypto-prices-row" id="crypto-prices-row">
@@ -47,15 +47,18 @@
             </div>
             
             <!-- Scroll Navigation -->
-            <div class="crypto-scroll-controls mt-3 text-center" id="crypto-scroll-controls" style="{% if not global_crypto_prices %}display: none;{% endif %}">
+            <div class="crypto-scroll-controls mt-3 text-center d-flex align-items-center justify-content-center flex-wrap" id="crypto-scroll-controls" style="{% if not global_crypto_prices %}display: none;{% endif %}">
                 <button class="btn btn-sm btn-outline-primary me-2" onclick="scrollCryptoLeft()" id="scroll-left-btn">
-                    <i class="fas fa-chevron-left"></i> Previous
+                    <i class="fas fa-chevron-left"></i> <span class="d-none d-sm-inline">Previous</span>
                 </button>
-                <span class="text-muted small me-2">
+                <span class="text-muted small me-2 d-none d-md-inline">
                     <i class="fas fa-info-circle"></i> <span id="crypto-scroll-hint">Scroll or use arrows to see all coins</span>
                 </span>
+                <span class="text-muted small me-2 d-md-none">
+                    <i class="fas fa-info-circle"></i>
+                </span>
                 <button class="btn btn-sm btn-outline-primary" onclick="scrollCryptoRight()" id="scroll-right-btn">
-                    Next <i class="fas fa-chevron-right"></i>
+                    <span class="d-none d-sm-inline">Next </span><i class="fas fa-chevron-right"></i>
                 </button>
             </div>
             
@@ -163,6 +166,9 @@
     scrollbar-color: var(--scrollbar-thumb, #007bff) var(--scrollbar-track, #f8f9fa);
     -webkit-overflow-scrolling: touch;
     overflow-anchor: none; /* Prevent "scroll anchoring disabled" console warning on price updates */
+    /* Better touch scrolling on mobile */
+    touch-action: pan-x;
+    scroll-behavior: smooth;
 }
 
 .crypto-prices-scroll-container::-webkit-scrollbar {
@@ -312,12 +318,153 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .crypto-price-card-wrapper {
-        width: 160px;
-        min-width: 160px;
+        width: 140px;
+        min-width: 140px;
     }
     
     .crypto-prices-row {
         gap: 10px;
+        padding: 5px 10px;
+    }
+    
+    .crypto-price-card {
+        padding: 0.75rem 0.5rem !important;
+        font-size: 0.85rem;
+    }
+    
+    .crypto-price-card .crypto-symbol {
+        font-size: 0.9rem;
+    }
+    
+    .crypto-price-card .crypto-price {
+        font-size: 1rem;
+    }
+    
+    .crypto-scroll-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+    
+    .crypto-scroll-controls .btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .crypto-scroll-controls .text-muted {
+        font-size: 0.7rem;
+        width: 100%;
+        order: 3;
+        margin-top: 8px;
+    }
+    
+    .scroll-progress-container {
+        padding: 0 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .live-crypto-prices-component .card-body {
+        padding: 0.75rem !important;
+    }
+    
+    .crypto-price-card-wrapper {
+        width: 130px;
+        min-width: 130px;
+    }
+    
+    .crypto-prices-row {
+        gap: 8px;
+        padding: 5px;
+    }
+    
+    .crypto-price-card {
+        padding: 0.6rem 0.4rem !important;
+        font-size: 0.8rem;
+    }
+    
+    .crypto-price-card .crypto-symbol {
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .crypto-price-card .crypto-price {
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .crypto-price-card .crypto-change .badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .crypto-price-card .crypto-volume,
+    .crypto-price-card .crypto-source {
+        font-size: 0.7rem;
+    }
+    
+    .crypto-scroll-controls {
+        padding-top: 10px;
+        margin-top: 0.75rem !important;
+    }
+    
+    .crypto-scroll-controls .btn {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .crypto-scroll-controls .btn i {
+        font-size: 0.7rem;
+    }
+    
+    .crypto-scroll-controls .text-muted span {
+        display: none;
+    }
+    
+    .crypto-scroll-controls .text-muted i {
+        display: inline;
+    }
+    
+    .card-header {
+        padding: 0.75rem !important;
+    }
+    
+    .card-header h6 {
+        font-size: 0.9rem;
+    }
+    
+    .card-header .badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .card-header .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8rem;
+    }
+    
+    .scroll-progress-container {
+        padding: 0 5px;
+        margin-top: 0.5rem !important;
+    }
+    
+    .scroll-position-text {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .crypto-price-card-wrapper {
+        width: 120px;
+        min-width: 120px;
+    }
+    
+    .crypto-prices-row {
+        gap: 6px;
+    }
+    
+    .crypto-price-card {
+        padding: 0.5rem 0.3rem !important;
     }
 }
 </style>
@@ -331,13 +478,19 @@ function refreshGlobalCryptoPrices() {
 
 function scrollCryptoLeft() {
     const container = document.querySelector('.crypto-prices-scroll-container');
-    container.scrollBy({ left: -400, behavior: 'smooth' });
+    if (!container) return;
+    // Scroll by viewport width on mobile, fixed amount on desktop
+    const scrollAmount = window.innerWidth < 576 ? container.clientWidth * 0.8 : 400;
+    container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     setTimeout(updateScrollProgress, 500); // Update after scroll animation
 }
 
 function scrollCryptoRight() {
     const container = document.querySelector('.crypto-prices-scroll-container');
-    container.scrollBy({ left: 400, behavior: 'smooth' });
+    if (!container) return;
+    // Scroll by viewport width on mobile, fixed amount on desktop
+    const scrollAmount = window.innerWidth < 576 ? container.clientWidth * 0.8 : 400;
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     setTimeout(updateScrollProgress, 500); // Update after scroll animation
 }
 
@@ -367,8 +520,9 @@ function updateScrollProgress() {
         
         progressFill.style.width = progress + '%';
         
-        // Calculate visible range
-        const cardWidth = 215; // 200px card + 15px gap
+        // Calculate visible range - responsive card width
+        const isMobile = window.innerWidth < 576;
+        const cardWidth = isMobile ? (window.innerWidth < 400 ? 126 : 138) : (window.innerWidth < 768 ? 150 : 215);
         const visibleCards = Math.floor(container.clientWidth / cardWidth);
         const startCard = Math.floor(scrollLeft / cardWidth) + 1;
         const totalCoins = parseInt((document.getElementById('crypto-scroll') || {}).dataset?.total || '0', 10);
