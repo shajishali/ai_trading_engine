@@ -31,6 +31,9 @@ class SignalGenerationService:
         self.timeframe_service = TimeframeAnalysisService()  # 50% minimum confidence
         self.min_risk_reward_ratio = 1.0     # Lowered from 1.5 for better signal generation
         self.signal_expiry_hours = 48        # Signal expires in 48 hours for better coverage
+        # Fixed target/stop for 10x: $10 margin → $5 profit at +5% price, $2.5 loss at -2.5% price (2:1 R:R)
+        self.target_percent = Decimal('0.05')   # 5% price move = $5 profit on $100 notional
+        self.stop_loss_percent = Decimal('0.025')  # 2.5% price move = $2.5 loss on $100 notional
         
         # Unified rule-based engine for futures trading
         self.engine = StrategyEngine()
@@ -116,8 +119,14 @@ class SignalGenerationService:
                 strength = 'VERY_STRONG' if confidence >= 0.9 else 'STRONG' if confidence >= 0.75 else 'MODERATE'
                 confidence_level = 'VERY_HIGH' if confidence >= 0.85 else 'HIGH' if confidence >= 0.7 else 'MEDIUM'
                 quality_score = min(1.0, max(0.0, confidence))
-                stop = final_rec.get('stop_loss', current_price * 0.95)
-                target = final_rec.get('target', current_price * 1.05)
+                entry = Decimal(str(current_price))
+                # Fixed 10x target/stop: +5% = $5 profit, -2.5% = $2.5 loss on $10 margin
+                if signal_type_name == 'SELL':
+                    target = entry * (Decimal('1') - self.target_percent)
+                    stop = entry * (Decimal('1') + self.stop_loss_percent)
+                else:
+                    target = entry * (Decimal('1') + self.target_percent)
+                    stop = entry * (Decimal('1') - self.stop_loss_percent)
                 signal = TradingSignal.objects.create(
                     symbol=symbol,
                     signal_type=signal_type,
@@ -125,9 +134,9 @@ class SignalGenerationService:
                     confidence_score=confidence,
                     confidence_level=confidence_level,
                     quality_score=quality_score,
-                    entry_price=Decimal(str(current_price)),
-                    stop_loss=Decimal(str(stop)) if stop is not None else None,
-                    target_price=Decimal(str(target)) if target is not None else None,
+                    entry_price=entry,
+                    stop_loss=stop,
+                    target_price=target,
                     timeframe='4H',  # MULTI not in choices; use 4H as representative
                     notes=final_rec.get('reason', 'Multi-timeframe confluence analysis') or '',
                     expires_at=timezone.now() + timedelta(hours=self.signal_expiry_hours),
@@ -1025,30 +1034,19 @@ class SignalGenerationService:
                 return None
             
 
-            # Calculate realistic target price and stop loss based on signal type
+            # Fixed target/stop for 10x: $10 margin → $5 profit at +5%, $2.5 loss at -2.5% (2:1 R:R)
             if signal_type_name in ['BUY', 'STRONG_BUY']:
-                # For buy signals: target above entry, stop loss below entry
-                profit_percentage = Decimal('0.15')  # 15% profit target (3:1 risk-reward)
-                stop_loss_percentage = Decimal('0.05')  # 5% stop loss (smaller risk)
-                
-                target_price = entry_price * (Decimal('1.0') + profit_percentage)
-                stop_loss = entry_price * (Decimal('1.0') - stop_loss_percentage)
-                logger.info(f"BUY signal targets: entry={entry_price}, target={target_price} (+15%), stop={stop_loss} (-5%)")
-                
+                target_price = entry_price * (Decimal('1.0') + self.target_percent)
+                stop_loss = entry_price * (Decimal('1.0') - self.stop_loss_percent)
+                logger.info(f"BUY signal targets: entry={entry_price}, target={target_price} (+5%), stop={stop_loss} (-2.5%)")
             elif signal_type_name in ['SELL', 'STRONG_SELL']:
-                # For sell signals: target below entry, stop loss above entry
-                profit_percentage = Decimal('0.15')  # 15% profit target for sells (3:1 risk-reward)
-                stop_loss_percentage = Decimal('0.05')  # 5% stop loss for sells (smaller risk)
-                
-                target_price = entry_price * (Decimal('1.0') - profit_percentage)  # Lower price for profit
-                stop_loss = entry_price * (Decimal('1.0') + stop_loss_percentage)  # Higher price for stop loss
-                logger.info(f"SELL signal targets: entry={entry_price}, target={target_price} (-15%), stop={stop_loss} (+5%)")
-                
-            else:  # HOLD signals
-                # For hold signals, set conservative targets
-                target_price = entry_price * Decimal('1.05')  # 5% target
-                stop_loss = entry_price * Decimal('0.95')     # 5% stop loss
-                logger.info(f"HOLD signal targets: entry={entry_price}, target={target_price} (+5%), stop={stop_loss} (-5%)")
+                target_price = entry_price * (Decimal('1.0') - self.target_percent)
+                stop_loss = entry_price * (Decimal('1.0') + self.stop_loss_percent)
+                logger.info(f"SELL signal targets: entry={entry_price}, target={target_price} (-5%), stop={stop_loss} (+2.5%)")
+            else:  # HOLD
+                target_price = entry_price * (Decimal('1.0') + self.target_percent)
+                stop_loss = entry_price * (Decimal('1.0') - self.stop_loss_percent)
+                logger.info(f"HOLD signal targets: entry={entry_price}, target={target_price} (+5%), stop={stop_loss} (-2.5%)")
             
             # Calculate risk-reward ratio
             risk = abs(float(entry_price - stop_loss))
@@ -3888,18 +3886,14 @@ class HistoricalSignalService:
         return default_prices.get(symbol_obj.symbol, 1.0)  # Default to $1 for unknown symbols
     
     def _calculate_target_and_stop_loss(self, entry_price, signal_type_name):
-        """Calculate target price and stop loss based on entry price and signal type"""
+        """Calculate target and stop for 10x: +5% = $5 profit, -2.5% = $2.5 loss on $10 margin."""
         entry_decimal = Decimal(str(entry_price))
-        
         if signal_type_name in ['BUY', 'STRONG_BUY']:
-            # For buy signals: 60% profit target, 40% stop loss
-            target_price = entry_decimal * Decimal('1.60')  # 60% profit
-            stop_loss = entry_decimal * Decimal('0.60')     # 40% stop loss
+            target_price = entry_decimal * (Decimal('1') + self.target_percent)
+            stop_loss = entry_decimal * (Decimal('1') - self.stop_loss_percent)
         else:
-            # For sell signals: 60% profit target, 40% stop loss
-            target_price = entry_decimal * Decimal('0.40')  # 60% profit for sell (lower price)
-            stop_loss = entry_decimal * Decimal('1.40')     # 40% stop loss for sell (higher price)
-        
+            target_price = entry_decimal * (Decimal('1') - self.target_percent)
+            stop_loss = entry_decimal * (Decimal('1') + self.stop_loss_percent)
         return target_price, stop_loss
     def _get_historical_data(self, symbol: Symbol, start_date: datetime, end_date: datetime):
         """Get historical market data for the symbol and date range (real-data-only)."""
