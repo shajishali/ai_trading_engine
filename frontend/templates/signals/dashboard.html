@@ -143,8 +143,9 @@
     
     #signals-table tbody td:nth-child(10) { /* Created At */
         text-align: center;
-        color: #6c757d;
+        color: var(--text-color);
         font-size: 0.9rem;
+        opacity: 0.9;
     }
     
     /* Badge styling */
@@ -225,14 +226,14 @@
     .price-value {
         font-family: 'Courier New', monospace;
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-color);
     }
     
     .entry-price {
         font-family: 'Courier New', monospace;
         font-weight: 600;
-        color: #2c3e50;
-        background-color: #f8f9fa;
+        color: var(--text-color);
+        background-color: rgba(0, 123, 255, 0.08);
         padding: 8px;
         border-radius: 4px;
         border-left: 3px solid #007bff;
@@ -241,7 +242,7 @@
     .current-price {
         font-family: 'Courier New', monospace;
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-color);
         padding: 8px;
         border-radius: 4px;
     }
@@ -357,7 +358,8 @@
     .empty-state {
         text-align: center;
         padding: 40px 20px;
-        color: #6c757d;
+        color: var(--text-color);
+        opacity: 0.9;
     }
     
     .empty-state i {
@@ -370,7 +372,8 @@
     .loading-state {
         text-align: center;
         padding: 40px 20px;
-        color: #6c757d;
+        color: var(--text-color);
+        opacity: 0.9;
     }
     
     .spinner-border {
