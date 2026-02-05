@@ -7,9 +7,50 @@
     /* Trading Signals Table Styling */
     .table-responsive {
         border-radius: 8px;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: visible;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         overflow-anchor: none; /* Prevent scroll-anchoring warning when live prices update */
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        display: block;
+    }
+    
+    /* Make table scrollable on mobile */
+    @media (max-width: 991px) {
+        .table-responsive {
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            /* Extend beyond container to prevent cut-off */
+            margin-left: -15px;
+            margin-right: -15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: calc(100% + 30px);
+            /* Show scrollbar for better UX */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(102, 126, 234, 0.5) transparent;
+        }
+        
+        .table-responsive::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
     }
     
     #signals-table {
@@ -18,6 +59,21 @@
         color: var(--text-color);
         border-collapse: collapse;
         width: 100%;
+        min-width: 1200px; /* Ensure table doesn't shrink too much */
+        table-layout: auto;
+    }
+    
+    /* Mobile: allow table to be wider than viewport for scrolling */
+    @media (max-width: 991px) {
+        #signals-table {
+            min-width: 1000px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        #signals-table {
+            min-width: 900px;
+        }
     }
     
     #signals-table thead th {
@@ -274,83 +330,202 @@
     }
     
     /* Responsive table - Enhanced Mobile Support */
-    @media (max-width: 576px) {
+    @media (max-width: 991px) {
         .table-responsive {
-            font-size: 0.75rem;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            overflow-anchor: none; /* Avoid "scroll anchoring disabled" console warning on frequent price updates */
+            font-size: 0.85rem;
+            margin-left: -15px;
+            margin-right: -15px;
+            padding-left: 15px;
+            padding-right: 15px;
+            width: calc(100% + 30px);
         }
         
         #signals-table {
-            min-width: 800px; /* Force horizontal scroll on very small screens */
+            font-size: 0.85rem;
         }
         
-        #signals-table thead th {
-            padding: 10px 6px !important;
-            font-size: 0.7rem;
-        }
-        
+        #signals-table thead th,
         #signals-table tbody td {
-            padding: 10px 6px !important;
-            font-size: 0.75rem;
+            padding: 10px 6px;
+            white-space: nowrap;
+        }
+        
+        #signals-table thead th:first-child,
+        #signals-table tbody td:first-child {
+            padding-left: 10px;
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            z-index: 5;
+        }
+        
+        #signals-table thead th:first-child {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 15;
+        }
+        
+        #signals-table thead th:last-child,
+        #signals-table tbody td:last-child {
+            padding-right: 10px;
+        }
+        
+        /* Reduce column widths on mobile */
+        #signals-table thead th,
+        #signals-table tbody td {
+            width: auto !important;
+            min-width: 80px;
+        }
+        
+        #signals-table thead th:nth-child(1),
+        #signals-table tbody td:nth-child(1) {
+            min-width: 70px;
+        }
+        
+        #signals-table thead th:nth-child(2),
+        #signals-table tbody td:nth-child(2) {
+            min-width: 90px;
+        }
+        
+        #signals-table thead th:nth-child(3),
+        #signals-table tbody td:nth-child(3) {
+            min-width: 80px;
+        }
+        
+        #signals-table thead th:nth-child(4),
+        #signals-table tbody td:nth-child(4) {
+            min-width: 100px;
+        }
+        
+        #signals-table thead th:nth-child(5),
+        #signals-table tbody td:nth-child(5) {
+            min-width: 110px;
+        }
+        
+        #signals-table thead th:nth-child(6),
+        #signals-table tbody td:nth-child(6) {
+            min-width: 90px;
+        }
+        
+        #signals-table thead th:nth-child(7),
+        #signals-table tbody td:nth-child(7) {
+            min-width: 90px;
+        }
+        
+        #signals-table thead th:nth-child(8),
+        #signals-table tbody td:nth-child(8) {
+            min-width: 80px;
+        }
+        
+        #signals-table thead th:nth-child(9),
+        #signals-table tbody td:nth-child(9) {
+            min-width: 120px;
+        }
+        
+        #signals-table thead th:nth-child(10),
+        #signals-table tbody td:nth-child(10) {
+            min-width: 140px;
         }
         
         .badge {
             padding: 4px 8px;
+            font-size: 0.7rem;
+            min-width: 60px;
+        }
+        
+        .btn-group .btn {
+            padding: 4px 6px;
+            font-size: 0.7rem;
+            min-width: 28px;
+            height: 28px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding-left: 5px;
+            padding-right: 5px;
+            overflow-x: visible;
+        }
+        
+        .table-responsive {
+            margin-left: -5px;
+            margin-right: -5px;
+            padding-left: 5px;
+            padding-right: 5px;
+            width: calc(100% + 10px);
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        #signals-table {
+            font-size: 0.8rem;
+            min-width: 900px;
+        }
+        
+        #signals-table thead th,
+        #signals-table tbody td {
+            padding: 8px 4px;
+            white-space: nowrap;
+        }
+        
+        #signals-table thead th:first-child,
+        #signals-table tbody td:first-child {
+            padding-left: 8px;
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            z-index: 5;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        
+        #signals-table thead th:first-child {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 15;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+        }
+        
+        [data-theme="dark"] #signals-table tbody td:first-child {
+            background: var(--dark-card-bg, #1a2a3a);
+        }
+        
+        .badge {
+            padding: 3px 6px;
             font-size: 0.65rem;
+            min-width: 50px;
+        }
+        
+        .card {
+            margin-left: 0;
+            margin-right: 0;
+            overflow: visible;
+        }
+        
+        .card-body {
+            padding: 0.5rem !important;
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        
+        .row {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        
+        .col-12 {
+            padding-left: 5px;
+            padding-right: 5px;
+            overflow-x: visible;
         }
         
         /* Stack filter controls on mobile */
         .filter-controls {
             flex-direction: column;
+            padding: 15px 10px !important;
         }
         
         .filter-controls .form-control,
         .filter-controls .btn {
             width: 100%;
             margin-bottom: 10px;
-        }
-    }
-    
-    @media (max-width: 768px) {
-        .table-responsive {
-            font-size: 0.9rem;
-        }
-        
-        #signals-table thead th,
-        #signals-table tbody td {
-            padding: 10px 8px;
-        }
-        
-        #signals-table thead th:first-child,
-        #signals-table tbody td:first-child {
-            padding-left: 15px;
-        }
-        
-        #signals-table thead th:last-child,
-        #signals-table tbody td:last-child {
-            padding-right: 15px;
-        }
-        
-        /* Ensure current price column is visible on mobile */
-        #signals-table tbody td:nth-child(4) {
-            background-color: rgba(52, 152, 219, 0.1);
-            border-left: 2px solid #3498db;
-            border-right: 2px solid #3498db;
-        }
-        
-        .badge {
-            padding: 6px 10px;
-            font-size: 0.75rem;
-            min-width: 70px;
-        }
-        
-        .btn-group .btn {
-            padding: 5px 8px;
-            font-size: 0.75rem;
-            min-width: 30px;
-            height: 30px;
         }
     }
     
@@ -931,7 +1106,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4" style="overflow-x: visible;">
     {% if error %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         <strong><i class="fas fa-exclamation-triangle me-2"></i>Error</strong>
@@ -941,15 +1116,15 @@
     {% endif %}
 
     <div class="row">
-        <div class="col-12">
-            <div class="card">
+        <div class="col-12" style="overflow-x: visible;">
+            <div class="card" style="overflow: visible;">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="card-title mb-0 text-white">Trading Signals</h5>
                     <a href="{% url 'signals:signal_history' %}" class="btn btn-outline-light btn-sm">
                         <i class="fas fa-history me-1"></i>Signal History
                     </a>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="overflow-x: auto; padding-left: 0; padding-right: 0; overflow-y: visible;">
                     <!-- Filter Controls -->
                     <div class="filter-controls mb-4">
                         <div class="row align-items-end">
@@ -983,20 +1158,24 @@
                         </div>
                     </div>
                     
-                    <div class="table-responsive">
+                    <div class="table-responsive" style="overflow-x: auto; overflow-y: visible; position: relative;">
+                        <!-- Mobile scroll hint -->
+                        <div class="d-md-none text-center mb-2" style="color: var(--text-color); opacity: 0.7; font-size: 0.85rem;">
+                            <i class="fas fa-arrows-alt-h me-1"></i>Scroll horizontally to see all columns
+                        </div>
                         <table class="table table-hover" id="signals-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 8%;">Symbol</th>
-                                    <th style="width: 10%;">Signal Type</th>
-                                    <th style="width: 8%;">Confidence</th>
-                                    <th style="width: 12%;">Entry Price</th>
-                                    <th style="width: 12%;">Current Price</th>
-                                    <th style="width: 10%;">Target</th>
-                                    <th style="width: 10%;">Stop Loss</th>
-                                    <th style="width: 8%;">Timeframe</th>
-                                    <th style="width: 10%;">Entry Strategy</th>
-                                    <th style="width: 10%;">Created At</th>
+                                    <th style="width: 8%; min-width: 70px;">Symbol</th>
+                                    <th style="width: 10%; min-width: 90px;">Signal Type</th>
+                                    <th style="width: 8%; min-width: 80px;">Confidence</th>
+                                    <th style="width: 12%; min-width: 100px;">Entry Price</th>
+                                    <th style="width: 12%; min-width: 110px;">Current Price</th>
+                                    <th style="width: 10%; min-width: 90px;">Target</th>
+                                    <th style="width: 10%; min-width: 90px;">Stop Loss</th>
+                                    <th style="width: 8%; min-width: 80px;">Timeframe</th>
+                                    <th style="width: 10%; min-width: 120px;">Entry Strategy</th>
+                                    <th style="width: 10%; min-width: 140px;">Created At</th>
                                 </tr>
                             </thead>
                             <tbody id="signals-tbody">
