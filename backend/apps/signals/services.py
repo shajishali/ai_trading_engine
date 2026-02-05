@@ -112,21 +112,27 @@ class SignalGenerationService:
                         'is_active': True
                     }
                 )
-                
-                signal = TradingSignal(
+                # Map confidence to required fields (persist so hourly task can use for HourlyBestSignal)
+                strength = 'VERY_STRONG' if confidence >= 0.9 else 'STRONG' if confidence >= 0.75 else 'MODERATE'
+                confidence_level = 'VERY_HIGH' if confidence >= 0.85 else 'HIGH' if confidence >= 0.7 else 'MEDIUM'
+                quality_score = min(1.0, max(0.0, confidence))
+                stop = final_rec.get('stop_loss', current_price * 0.95)
+                target = final_rec.get('target', current_price * 1.05)
+                signal = TradingSignal.objects.create(
                     symbol=symbol,
                     signal_type=signal_type,
+                    strength=strength,
                     confidence_score=confidence,
-                    entry_price=current_price,
-                    stop_loss=final_rec.get('stop_loss', current_price * 0.95),
-                    target_price=final_rec.get('target', current_price * 1.05),
-                    timeframe='MULTI',
-                    notes=final_rec.get('reason', 'Multi-timeframe confluence analysis'),
+                    confidence_level=confidence_level,
+                    quality_score=quality_score,
+                    entry_price=Decimal(str(current_price)),
+                    stop_loss=Decimal(str(stop)) if stop is not None else None,
+                    target_price=Decimal(str(target)) if target is not None else None,
+                    timeframe='4H',  # MULTI not in choices; use 4H as representative
+                    notes=final_rec.get('reason', 'Multi-timeframe confluence analysis') or '',
                     expires_at=timezone.now() + timedelta(hours=self.signal_expiry_hours),
-                    metadata={'strategy': 'MULTI_TIMEFRAME_CONFLUENCE'},
-                    is_best_of_day=False
+                    is_best_of_day=False,
                 )
-                
                 signals.append(signal)
                 logger.info(f"Generated multi-timeframe {action} signal for {symbol.symbol} with confidence {confidence:.2f}")
             
