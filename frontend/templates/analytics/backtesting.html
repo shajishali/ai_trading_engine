@@ -738,31 +738,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadSymbols() {
+        const summaryDiv = document.getElementById('symbolsSummary');
+        
         fetch('{% url "signals:backtest_available_symbols" %}')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
-                    availableSymbols = data.symbols;
+                    availableSymbols = data.symbols || [];
                     populateSymbolDropdown();
                     
                     // Show summary
-                    const summaryDiv = document.getElementById('symbolsSummary');
+                    if (summaryDiv) {
+                        if (availableSymbols.length > 0) {
+                            const realDataCount = availableSymbols.filter(s => s.is_real_data).length;
+                            summaryDiv.innerHTML = `
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>${data.total_available} cryptocurrencies</strong> available for backtesting
+                                    ${realDataCount > 0 ? `(${realDataCount} with historical data)` : '(using symbol list)'}
+                                </div>
+                            `;
+                        } else {
+                            summaryDiv.innerHTML = `
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>No symbols found.</strong> Please check database configuration or contact support.
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    console.log(`Loaded ${data.total_available} symbols for backtesting`);
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    console.error('Failed to load symbols:', errorMsg);
                     if (summaryDiv) {
                         summaryDiv.innerHTML = `
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>${data.total_available} cryptocurrencies</strong> with real historical data available for backtesting using YOUR strategy
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                <strong>Error loading symbols:</strong> ${errorMsg}
                             </div>
                         `;
                     }
-                    
-                    console.log(`Loaded ${data.total_available} symbols with real data for backtesting`);
-                } else {
-                    console.error('Failed to load symbols:', data.error);
                 }
             })
             .catch(error => {
                 console.error('Error loading symbols:', error);
+                if (summaryDiv) {
+                    summaryDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>Network error:</strong> Failed to load symbols. Please check your connection and try again.
+                            <br><small>Error: ${error.message}</small>
+                        </div>
+                    `;
+                }
             });
     }
     

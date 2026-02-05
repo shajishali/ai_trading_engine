@@ -1381,68 +1381,136 @@ class AvailableSymbolsAPIView(View):
     def get(self, request):
         """Get symbols that have real historical data for backtesting"""
         try:
-            # Define popular cryptocurrencies
-            popular_symbols = [
-                'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT', 'AAVEUSDT',
-                'XRPUSDT', 'DOGEUSDT', 'MATICUSDT', 'DOTUSDT', 'AVAXUSDT', 'LINKUSDT',
-                'UNIUSDT', 'ATOMUSDT', 'FTMUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT',
-                'THETAUSDT', 'FILUSDT', 'TRXUSDT', 'XLMUSDT', 'LTCUSDT', 'BCHUSDT',
-                'ETCUSDT', 'XMRUSDT', 'ZECUSDT', 'DASHUSDT', 'NEOUSDT', 'QTUMUSDT'
-            ]
-            
-            # Filter to only symbols that have substantial real data
-            symbols_with_data = MarketData.objects.filter(
-                symbol__symbol__in=popular_symbols,
-                close_price__gt=1.0  # Ensure real prices (not fallback)
-            ).values_list('symbol__symbol', flat=True).distinct()
-            
-            # Get symbol details with data quality info
             symbols_info = []
-            for symbol_name in symbols_with_data:
-                try:
-                    symbol = Symbol.objects.get(symbol=symbol_name)
-                    data_count = MarketData.objects.filter(symbol=symbol).count()
-                    
-                    # Check data quality (price range)
-                    price_stats = MarketData.objects.filter(symbol=symbol).aggregate(
-                        min_price=Min('close_price'),
-                        max_price=Max('close_price'),
-                        avg_price=Avg('close_price')
-                    )
-                    
-                    # Determine if data looks realistic
-                    is_real_data = (
-                        price_stats['min_price'] and 
-                        price_stats['min_price'] > 0.01 and  # Not too low
-                        price_stats['max_price'] and 
-                        price_stats['max_price'] < 1000000   # Not too high
-                    )
-                    
-                    symbols_info.append({
-                        'symbol': symbol_name,
-                        'name': symbol.name,
-                        'data_count': data_count,
-                        'is_available': True,
-                        'is_real_data': is_real_data,
-                        'price_range': {
-                            'min': float(price_stats['min_price']) if price_stats['min_price'] else 0,
-                            'max': float(price_stats['max_price']) if price_stats['max_price'] else 0,
-                            'avg': float(price_stats['avg_price']) if price_stats['avg_price'] else 0
-                        }
-                    })
-                except Symbol.DoesNotExist:
-                    continue
             
-            # Sort by data count (most data first)
-            symbols_info.sort(key=lambda x: x['data_count'], reverse=True)
+            # Strategy 1: Try to get symbols from MarketData (if historical data exists)
+            try:
+                # Define popular cryptocurrencies (support both USDT and base formats)
+                popular_symbols_usdt = [
+                    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT', 'AAVEUSDT',
+                    'XRPUSDT', 'DOGEUSDT', 'MATICUSDT', 'DOTUSDT', 'AVAXUSDT', 'LINKUSDT',
+                    'UNIUSDT', 'ATOMUSDT', 'FTMUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT',
+                    'THETAUSDT', 'FILUSDT', 'TRXUSDT', 'XLMUSDT', 'LTCUSDT', 'BCHUSDT',
+                    'ETCUSDT', 'XMRUSDT', 'ZECUSDT', 'DASHUSDT', 'NEOUSDT', 'QTUMUSDT'
+                ]
+                # Also try base symbols (BTC, ETH, etc.)
+                popular_symbols_base = [
+                    'BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'AAVE', 'XRP', 'DOGE', 'MATIC',
+                    'DOT', 'AVAX', 'LINK', 'UNI', 'ATOM', 'FTM', 'ALGO', 'VET', 'ICP',
+                    'THETA', 'FIL', 'TRX', 'XLM', 'LTC', 'BCH', 'ETC', 'XMR', 'ZEC',
+                    'DASH', 'NEO', 'QTUM'
+                ]
+                all_popular = popular_symbols_usdt + popular_symbols_base
+                
+                # Get symbols that have MarketData
+                symbols_with_data = MarketData.objects.filter(
+                    symbol__symbol__in=all_popular,
+                    close_price__gt=0  # Any positive price
+                ).values_list('symbol__symbol', flat=True).distinct()
+                
+                if symbols_with_data:
+                    for symbol_name in symbols_with_data:
+                        try:
+                            symbol = Symbol.objects.get(symbol=symbol_name)
+                            data_count = MarketData.objects.filter(symbol=symbol).count()
+                            
+                            # Check data quality (price range)
+                            price_stats = MarketData.objects.filter(symbol=symbol).aggregate(
+                                min_price=Min('close_price'),
+                                max_price=Max('close_price'),
+                                avg_price=Avg('close_price')
+                            )
+                            
+                            # Determine if data looks realistic
+                            is_real_data = (
+                                price_stats['min_price'] and 
+                                price_stats['min_price'] > 0.001 and  # Not too low
+                                price_stats['max_price'] and 
+                                price_stats['max_price'] < 1000000   # Not too high
+                            )
+                            
+                            symbols_info.append({
+                                'symbol': symbol_name,
+                                'name': symbol.name or symbol_name,
+                                'data_count': data_count,
+                                'is_available': True,
+                                'is_real_data': is_real_data,
+                                'price_range': {
+                                    'min': float(price_stats['min_price']) if price_stats['min_price'] else 0,
+                                    'max': float(price_stats['max_price']) if price_stats['max_price'] else 0,
+                                    'avg': float(price_stats['avg_price']) if price_stats['avg_price'] else 0
+                                }
+                            })
+                        except Symbol.DoesNotExist:
+                            continue
+            except Exception as e:
+                logger.warning(f"Error getting symbols from MarketData: {e}")
+            
+            # Strategy 2: Fallback to Symbol table (all active crypto symbols)
+            if not symbols_info:
+                logger.info("No symbols found in MarketData, falling back to Symbol table")
+                try:
+                    active_symbols = Symbol.objects.filter(
+                        is_crypto_symbol=True,
+                        is_active=True
+                    ).order_by('symbol')[:100]  # Limit to top 100
+                    
+                    for symbol in active_symbols:
+                        # Try to get MarketData count if available
+                        try:
+                            data_count = MarketData.objects.filter(symbol=symbol).count()
+                            price_stats = MarketData.objects.filter(symbol=symbol).aggregate(
+                                min_price=Min('close_price'),
+                                max_price=Max('close_price'),
+                                avg_price=Avg('close_price')
+                            )
+                            is_real_data = data_count > 0 and (
+                                price_stats['min_price'] and price_stats['min_price'] > 0.001
+                            )
+                        except:
+                            data_count = 0
+                            price_stats = {'min_price': None, 'max_price': None, 'avg_price': None}
+                            is_real_data = False
+                        
+                        symbols_info.append({
+                            'symbol': symbol.symbol,
+                            'name': symbol.name or symbol.symbol,
+                            'data_count': data_count,
+                            'is_available': True,
+                            'is_real_data': is_real_data,
+                            'price_range': {
+                                'min': float(price_stats['min_price']) if price_stats['min_price'] else 0,
+                                'max': float(price_stats['max_price']) if price_stats['max_price'] else 0,
+                                'avg': float(price_stats['avg_price']) if price_stats['avg_price'] else 0
+                            }
+                        })
+                except Exception as e:
+                    logger.error(f"Error getting symbols from Symbol table: {e}")
+            
+            # Sort by data count (most data first), then by symbol name
+            symbols_info.sort(key=lambda x: (x['data_count'], x['symbol']), reverse=True)
+            
+            if not symbols_info:
+                logger.warning("No symbols available for backtesting")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No symbols found. Please ensure symbols are configured in the database.',
+                    'symbols': [],
+                    'total_available': 0
+                })
             
             return JsonResponse({
                 'success': True,
                 'symbols': symbols_info,
                 'total_available': len(symbols_info),
-                'message': f'Found {len(symbols_info)} symbols with real historical data for backtesting'
+                'message': f'Found {len(symbols_info)} symbols available for backtesting'
             })
             
         except Exception as e:
-            logger.error(f"Error getting available symbols: {e}")
-            return JsonResponse({'success': False, 'error': str(e)})
+            logger.error(f"Error getting available symbols: {e}", exc_info=True)
+            return JsonResponse({
+                'success': False,
+                'error': f'Error loading symbols: {str(e)}',
+                'symbols': [],
+                'total_available': 0
+            })
