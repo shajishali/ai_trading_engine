@@ -51,9 +51,23 @@ class BacktestAPIView(View):
             end_date_str = data.get('end_date')
             action = data.get('action', 'generate_signals')
             
-            # Parse dates
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else datetime.now() - timedelta(days=365)
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else datetime.now()
+            # Parse dates and make timezone-aware
+            from django.utils import timezone as tz
+            if start_date_str:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                if start_date.tzinfo is None:
+                    start_date = tz.make_aware(start_date)
+            else:
+                start_date = tz.now() - timedelta(days=365)
+            
+            if end_date_str:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                # Set to end of day
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                if end_date.tzinfo is None:
+                    end_date = tz.make_aware(end_date)
+            else:
+                end_date = tz.now()
             
             # Get or create symbol
             symbol = self._get_or_create_symbol(symbol_str)

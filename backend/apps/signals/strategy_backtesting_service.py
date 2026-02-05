@@ -75,8 +75,19 @@ class StrategyBacktestingService:
             
             # Get historical data for the symbol
             historical_data = self._get_historical_data(symbol, start_date, end_date)
+            
+            # Debug logging
+            logger.info(f"Historical data retrieved: {len(historical_data)} rows")
+            if not historical_data.empty:
+                logger.info(f"Data columns: {list(historical_data.columns)}")
+                logger.info(f"Data date range: {historical_data.index.min()} to {historical_data.index.max()}")
+                if 'close' in historical_data.columns:
+                    logger.info(f"Price range: ${historical_data['close'].min():.2f} - ${historical_data['close'].max():.2f}")
+            
             if historical_data.empty or not self._validate_historical_data(historical_data):
                 logger.warning(f"No valid historical data found for {symbol.symbol}")
+                if not historical_data.empty:
+                    logger.warning(f"Data exists but failed validation. Rows: {len(historical_data)}, Columns: {list(historical_data.columns)}")
                 # Don't generate fallback signals - return empty list
                 signals = []
                 logger.info(f"No valid data available for {symbol.symbol}, skipping signal generation")
@@ -152,36 +163,72 @@ class StrategyBacktestingService:
     def _validate_historical_data(self, df: pd.DataFrame) -> bool:
         """Validate that historical data has realistic prices"""
         if df.empty:
+            logger.debug("DataFrame is empty")
+            return False
+        
+        # Check if 'close' column exists (it should after _calculate_technical_indicators)
+        if 'close' not in df.columns:
+            logger.warning(f"'close' column not found in DataFrame. Available columns: {list(df.columns)}")
             return False
         
         # Check if prices are realistic (not fallback prices)
         close_prices = df['close'].values
         if len(close_prices) == 0:
+            logger.debug("No close prices in DataFrame")
             return False
         
         # Check if prices are too low (likely fallback data)
+        # For BTC, prices should be > $1000 in 2021, but we'll be more lenient
         min_price = close_prices.min()
-        if min_price < 1.0:  # Most crypto prices should be > $1
-            logger.warning(f"Prices too low ({min_price}), likely fallback data")
+        if min_price < 0.01:  # Very low threshold - most crypto should be > $0.01
+            logger.warning(f"Prices too low ({min_price:.6f}), likely fallback data")
             return False
         
         # Check if prices are reasonable
         max_price = close_prices.max()
-        if max_price > 1000000:  # Sanity check
-            logger.warning(f"Prices too high ({max_price}), likely invalid data")
+        if max_price > 10000000:  # Sanity check (BTC could be $100k+)
+            logger.warning(f"Prices too high ({max_price:.2f}), likely invalid data")
             return False
         
+        # Check if we have enough data points
+        if len(df) < 10:
+            logger.warning(f"Not enough data points ({len(df)}), need at least 10")
+            return False
+        
+        logger.debug(f"Data validation passed: {len(df)} rows, price range ${min_price:.2f} - ${max_price:.2f}")
         return True
 
     def _get_historical_data(self, symbol: Symbol, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Get historical market data for the symbol"""
         try:
-            # Get market data
+            # Get market data - try daily first, then hourly, then any timeframe
             market_data = MarketData.objects.filter(
                 symbol=symbol,
                 timestamp__gte=start_date,
-                timestamp__lte=end_date
+                timestamp__lte=end_date,
+                timeframe='1d'  # Prefer daily data for backtesting
             ).order_by('timestamp')
+            
+            # If no daily data, try hourly
+            if not market_data.exists():
+                logger.info(f"No daily data found for {symbol.symbol}, trying hourly data...")
+                market_data = MarketData.objects.filter(
+                    symbol=symbol,
+                    timestamp__gte=start_date,
+                    timestamp__lte=end_date,
+                    timeframe='1h'
+                ).order_by('timestamp')
+            
+            # If still no data, try any timeframe
+            if not market_data.exists():
+                logger.info(f"No hourly data found for {symbol.symbol}, trying any timeframe...")
+                market_data = MarketData.objects.filter(
+                    symbol=symbol,
+                    timestamp__gte=start_date,
+                    timestamp__lte=end_date
+                ).order_by('timestamp')
+            
+            logger.info(f"Found {market_data.count()} market data records for {symbol.symbol} in date range")
             
             if not market_data.exists():
                 return pd.DataFrame()
@@ -199,15 +246,36 @@ class StrategyBacktestingService:
                 })
             
             df = pd.DataFrame(data_list)
+            if df.empty:
+                logger.warning(f"No data points created for {symbol.symbol}")
+                return pd.DataFrame()
+            
             df.set_index('timestamp', inplace=True)
             
+            # Ensure 'close' column exists before calculating indicators
+            if 'close' not in df.columns:
+                logger.error(f"'close' column missing after DataFrame creation. Columns: {list(df.columns)}")
+                return pd.DataFrame()
+            
+            logger.debug(f"DataFrame created with {len(df)} rows, columns: {list(df.columns)}")
+            
             # Calculate technical indicators
-            df = self._calculate_technical_indicators(df)
+            try:
+                df = self._calculate_technical_indicators(df)
+                logger.debug(f"Technical indicators calculated. Final columns: {list(df.columns)}")
+            except Exception as e:
+                logger.error(f"Error calculating technical indicators: {e}")
+                import traceback
+                traceback.print_exc()
+                # Return DataFrame without indicators rather than empty
+                return df
             
             return df
             
         except Exception as e:
             logger.error(f"Error getting historical data: {e}")
+            import traceback
+            traceback.print_exc()
             return pd.DataFrame()
     
     def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
