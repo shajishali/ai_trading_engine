@@ -74,32 +74,60 @@
 </div>
 
 <style>
+    /* Login page: use website theme colours */
     body {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
         min-height: 100vh;
+        color: var(--text-color);
     }
     
     .card {
-        border: none;
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%) !important;
+        color: white !important;
+        border-radius: 15px 15px 0 0 !important;
+        border: none;
+    }
+    
+    .form-label {
+        color: var(--text-color);
     }
     
     .form-control {
+        background: var(--card-bg);
+        color: var(--text-color);
         border-radius: 8px;
-        border: 2px solid #e9ecef;
+        border: 2px solid rgba(0, 0, 0, 0.15);
         padding: 12px 15px;
+    }
+    
+    [data-theme="dark"] .form-control {
+        border-color: rgba(255, 255, 255, 0.25);
     }
     
     .form-control:focus {
         border-color: var(--secondary-color);
-        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
     }
     
     .btn-primary {
+        background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+        border: none;
         padding: 12px;
         font-weight: bold;
         border-radius: 8px;
+    }
+    
+    .text-muted {
+        color: var(--text-color) !important;
+        opacity: 0.85;
     }
 </style>
 
