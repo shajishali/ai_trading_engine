@@ -341,24 +341,99 @@ class BacktestAPIView(View):
                 created_at__lte=end_date
             ).order_by('created_at')
             
+            # If no signals exist, generate them first
             if not signals.exists():
-                logger.info(f"No signals found for {symbol.symbol} in date range")
-                return JsonResponse({
-                    'success': True,
-                    'action': 'backtest',
-                    'result': {
-                        'total_signals': 0,
-                        'executed_signals': 0,
-                        'expired_signals': 0,
-                        'profit_signals': 0,
-                        'loss_signals': 0,
-                        'not_opened_signals': 0,
-                        'total_profit_loss': 0.0,
-                        'total_capital_used': 0.0,
-                        'win_rate': 0.0,
-                        'individual_signals': []
-                    }
-                })
+                logger.info(f"No signals found for {symbol.symbol} in date range. Generating signals first...")
+                
+                # Generate signals using the same method as generate_signals action
+                try:
+                    # Import the strategy backtesting service
+                    from apps.signals.strategy_backtesting_service import StrategyBacktestingService
+                    
+                    # Create strategy backtesting service
+                    strategy_service = StrategyBacktestingService()
+                    
+                    # Generate signals based on YOUR actual strategy
+                    generated_signals = strategy_service.generate_historical_signals(symbol, start_date, end_date)
+                    
+                    if not generated_signals:
+                        logger.warning(f"No signals could be generated for {symbol.symbol} in date range")
+                        return JsonResponse({
+                            'success': True,
+                            'action': 'backtest',
+                            'result': {
+                                'total_signals': 0,
+                                'executed_signals': 0,
+                                'expired_signals': 0,
+                                'profit_signals': 0,
+                                'loss_signals': 0,
+                                'not_opened_signals': 0,
+                                'total_profit_loss': 0.0,
+                                'total_capital_used': 0.0,
+                                'win_rate': 0.0,
+                                'individual_signals': []
+                            }
+                        })
+                    
+                    # Convert generated signals to TradingSignal format for backtesting
+                    # We'll use the formatted signals directly for backtesting
+                    formatted_signals = []
+                    for signal in generated_signals:
+                        # Format created_at properly (handle both datetime objects and strings)
+                        created_at = signal.get('created_at')
+                        if hasattr(created_at, 'isoformat'):
+                            # It's a datetime object
+                            created_at_str = created_at.isoformat()
+                        elif isinstance(created_at, str):
+                            # Already a string
+                            created_at_str = created_at
+                        else:
+                            # Fallback: convert to string
+                            created_at_str = str(created_at)
+                        
+                        formatted_signals.append({
+                            'id': signal.get('id', f"strategy_{hash(created_at_str)}"),
+                            'symbol': str(signal['symbol']),
+                            'signal_type': str(signal['signal_type']),
+                            'strength': str(signal['strength']),
+                            'confidence_score': float(signal['confidence_score']),
+                            'entry_price': float(signal['entry_price']),
+                            'target_price': float(signal['target_price']),
+                            'stop_loss': float(signal['stop_loss']),
+                            'risk_reward_ratio': float(signal['risk_reward_ratio']),
+                            'timeframe': str(signal['timeframe']),
+                            'quality_score': float(signal['quality_score']),
+                            'created_at': created_at_str,
+                            'is_executed': False,
+                            'executed_at': None,
+                            'strategy_confirmations': int(signal.get('strategy_confirmations', 0)),
+                            'strategy_details': signal.get('strategy_details', {})
+                        })
+                    
+                    logger.info(f"Generated {len(formatted_signals)} signals for backtesting {symbol.symbol}")
+                    
+                    # Use generated signals for backtesting
+                    signals_to_backtest = formatted_signals
+                except Exception as e:
+                    logger.error(f"Error generating signals for backtest: {e}")
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Failed to generate signals for backtesting: {str(e)}'
+                    })
+            else:
+                # Convert database signals to format needed for backtesting
+                signals_to_backtest = []
+                for signal in signals:
+                    signals_to_backtest.append({
+                        'id': signal.id,
+                        'created_at': signal.created_at.isoformat(),
+                        'entry_price': str(signal.entry_price),
+                        'target_price': str(signal.target_price),
+                        'stop_loss': str(signal.stop_loss),
+                        'signal_type': signal.signal_type.name if signal.signal_type else 'BUY',
+                        'confidence_score': float(signal.confidence_score),
+                        'risk_reward_ratio': float(signal.risk_reward_ratio)
+                    })
             
             # Get historical data for backtesting
             historical_data = self._get_historical_data(symbol, start_date, end_date)
@@ -370,27 +445,29 @@ class BacktestAPIView(View):
                     'error': f'No historical data available for {symbol.symbol}'
                 })
             
-            # Simulate signal execution
+            # Simulate signal execution for all signals
             executed_signals = []
-            for signal in signals:
-                # Convert TradingSignal object to dictionary format
+            for signal_data in signals_to_backtest:
+                # signal_data is already in dictionary format
+                # Ensure it has all required fields
                 signal_dict = {
-                    'id': signal.id,
-                    'created_at': signal.created_at.isoformat(),
-                    'entry_price': str(signal.entry_price),
-                    'target_price': str(signal.target_price),
-                    'stop_loss': str(signal.stop_loss),
-                    'signal_type': signal.signal_type.name if signal.signal_type else 'BUY',
-                    'confidence_score': float(signal.confidence_score),
-                    'risk_reward_ratio': float(signal.risk_reward_ratio)
+                    'id': signal_data.get('id'),
+                    'created_at': signal_data.get('created_at'),
+                    'entry_price': str(signal_data.get('entry_price', 0)),
+                    'target_price': str(signal_data.get('target_price', 0)),
+                    'stop_loss': str(signal_data.get('stop_loss', 0)),
+                    'signal_type': signal_data.get('signal_type', 'BUY'),
+                    'confidence_score': float(signal_data.get('confidence_score', 0)),
+                    'risk_reward_ratio': float(signal_data.get('risk_reward_ratio', 0))
                 }
                 
+                # Simulate execution
                 execution_result = self._simulate_single_signal_execution(signal_dict, historical_data, symbol)
-                if execution_result['is_executed']:
-                    executed_signals.append({
-                        'signal': signal_dict,
-                        'execution_result': execution_result
-                    })
+                
+                # Merge execution result into signal_dict for analysis
+                # Include all signals (both executed and not executed) for proper analysis
+                signal_dict.update(execution_result)
+                executed_signals.append(signal_dict)
             
             # Analyze executed signals
             analysis_result = self._analyze_executed_signals(executed_signals, symbol, start_date, end_date)

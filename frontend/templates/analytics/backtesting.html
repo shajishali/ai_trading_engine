@@ -1142,12 +1142,48 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayBacktestResult(result) {
         console.log('Displaying backtest result:', result);
         
+        // Handle empty results
+        if (!result || result.total_signals === 0) {
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('noSignalsMessage').style.display = 'block';
+            document.getElementById('signalsTable').style.display = 'none';
+            const summaryEl = document.getElementById('signalSummary');
+            if (summaryEl) summaryEl.style.display = 'none';
+            const exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) exportBtn.style.display = 'none';
+            
+            // Update no signals message
+            const noSignalsDiv = document.getElementById('noSignalsMessage');
+            if (noSignalsDiv) {
+                noSignalsDiv.innerHTML = `
+                    <i class="fas fa-info-circle fa-3x mb-3 text-info"></i>
+                    <h5>No backtest results available</h5>
+                    <p class="mb-3">No signals were found or generated for the selected period.</p>
+                    <div class="alert alert-info text-start">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Suggestions:</h6>
+                        <ul class="mb-0">
+                            <li>Try selecting a different cryptocurrency (BTC, ETH, XRP work best)</li>
+                            <li>Use a wider date range (e.g., 2021-2024)</li>
+                            <li>Check if historical data is available for the selected symbol</li>
+                        </ul>
+                    </div>
+                `;
+            }
+            return;
+        }
+        
         // Show results section
-        document.getElementById('resultsSection').style.display = 'block';
-        document.getElementById('noSignalsMessage').style.display = 'none';
-        document.getElementById('signalsTable').style.display = 'block';
-        document.getElementById('signalSummary').style.display = 'flex';
-        document.getElementById('exportBtn').style.display = 'inline-block';
+        const resultsSection = document.getElementById('resultsSection');
+        const noSignalsMessage = document.getElementById('noSignalsMessage');
+        const signalsTable = document.getElementById('signalsTable');
+        const signalSummary = document.getElementById('signalSummary');
+        const exportBtn = document.getElementById('exportBtn');
+        
+        if (resultsSection) resultsSection.style.display = 'block';
+        if (noSignalsMessage) noSignalsMessage.style.display = 'none';
+        if (signalsTable) signalsTable.style.display = 'block';
+        if (signalSummary) signalSummary.style.display = 'flex';
+        if (exportBtn) exportBtn.style.display = 'inline-block';
         
         // Update summary with backtest results
         updateBacktestSummary(result);
@@ -1454,16 +1490,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateSignalSummary(signals) {
-        const totalSignals = signals.length;
-        const buySignals = signals.filter(s => s.signal_type.includes('BUY')).length;
-        const sellSignals = signals.filter(s => s.signal_type.includes('SELL')).length;
-        const avgConfidence = signals.reduce((sum, s) => sum + s.confidence_score, 0) / totalSignals;
+        // Add null checks for all elements
+        const totalSignalsEl = document.getElementById('totalSignals');
+        const buySignalsEl = document.getElementById('buySignals');
+        const sellSignalsEl = document.getElementById('sellSignals');
+        const avgConfidenceEl = document.getElementById('avgConfidence');
+        const totalSignalsBadgeEl = document.getElementById('totalSignalsBadge');
         
-        document.getElementById('totalSignals').textContent = totalSignals;
-        document.getElementById('buySignals').textContent = buySignals;
-        document.getElementById('sellSignals').textContent = sellSignals;
-        document.getElementById('avgConfidence').textContent = Math.round(avgConfidence * 100) + '%';
-        document.getElementById('totalSignalsBadge').textContent = totalSignals + ' signals';
+        // Return early if elements don't exist
+        if (!totalSignalsEl && !buySignalsEl && !sellSignalsEl && !avgConfidenceEl && !totalSignalsBadgeEl) {
+            return; // Elements don't exist, skip update
+        }
+        
+        const totalSignals = signals ? signals.length : 0;
+        const buySignals = signals ? signals.filter(s => s.signal_type && s.signal_type.includes('BUY')).length : 0;
+        const sellSignals = signals ? signals.filter(s => s.signal_type && s.signal_type.includes('SELL')).length : 0;
+        const avgConfidence = totalSignals > 0 && signals ? signals.reduce((sum, s) => sum + (s.confidence_score || 0), 0) / totalSignals : 0;
+        
+        if (totalSignalsEl) totalSignalsEl.textContent = totalSignals;
+        if (buySignalsEl) buySignalsEl.textContent = buySignals;
+        if (sellSignalsEl) sellSignalsEl.textContent = sellSignals;
+        if (avgConfidenceEl) avgConfidenceEl.textContent = Math.round(avgConfidence * 100) + '%';
+        if (totalSignalsBadgeEl) totalSignalsBadgeEl.textContent = totalSignals + ' signals';
     }
     
     // Helper function to format prices
