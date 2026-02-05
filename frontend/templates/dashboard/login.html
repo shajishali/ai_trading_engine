@@ -74,9 +74,10 @@
 </div>
 
 <style>
-    /* Login page: use website theme colours */
+    /* Login page: use website theme colour #113E80 */
     body {
-        background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%) !important;
+        background-color: #113E80 !important;
         min-height: 100vh;
         color: var(--text-color);
     }
@@ -90,7 +91,7 @@
     }
     
     .card-header {
-        background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%) !important;
+        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%) !important;
         color: white !important;
         border-radius: 15px 15px 0 0 !important;
         border: none;
@@ -118,7 +119,7 @@
     }
     
     .btn-primary {
-        background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%);
         border: none;
         padding: 12px;
         font-weight: bold;
