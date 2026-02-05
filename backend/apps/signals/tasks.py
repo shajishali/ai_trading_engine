@@ -93,6 +93,19 @@ def _symbol_ids_in_hourly_best_for_hour(signal_date: date, signal_hour: int) -> 
     )
 
 
+# Signal type groups for balanced hourly selection (ensure both buy and sell in each batch)
+BUY_TYPE_NAMES = {'BUY', 'STRONG_BUY'}
+SELL_TYPE_NAMES = {'SELL', 'STRONG_SELL'}
+
+
+def _is_buy_type(signal: TradingSignal) -> bool:
+    return signal.signal_type.name in BUY_TYPE_NAMES
+
+
+def _is_sell_type(signal: TradingSignal) -> bool:
+    return signal.signal_type.name in SELL_TYPE_NAMES
+
+
 def _symbol_ids_with_signal_in_last_hour() -> List[int]:
     """
     Return symbol IDs that have a signal created in the last hour.
@@ -237,6 +250,7 @@ def generate_signals_for_all_symbols():
         # Sort by score descending; then take only symbols not already in this hour's best (no duplicate coin per hour/day)
         candidates.sort(key=lambda x: x[0], reverse=True)
         existing_in_hour = _symbol_ids_in_hourly_best_for_hour(today, hour)
+        score_by_id = {s.id: sc for sc, s in candidates}
         to_add: List[TradingSignal] = []
         for _, s in candidates:
             if s.symbol_id in existing_in_hour:
@@ -245,6 +259,29 @@ def generate_signals_for_all_symbols():
             existing_in_hour.add(s.symbol_id)
             if len(to_add) >= max_signals_per_hour:
                 break
+        # Balanced mix: ensure at least one BUY-type and one SELL-type in the batch when both exist in candidates
+        if len(to_add) == max_signals_per_hour:
+            has_buy = any(_is_buy_type(s) for s in to_add)
+            has_sell = any(_is_sell_type(s) for s in to_add)
+            if not (has_buy and has_sell):
+                other_type_is_buy = not has_buy
+                other_candidates = [
+                    (sc, s) for sc, s in candidates
+                    if (_is_buy_type(s) if other_type_is_buy else _is_sell_type(s))
+                ]
+                to_add_symbol_ids = {s.symbol_id for s in to_add}
+                if other_candidates:
+                    worst_in_to_add = min(to_add, key=lambda s: score_by_id.get(s.id, 0))
+                    to_add.remove(worst_in_to_add)
+                    to_add_symbol_ids.discard(worst_in_to_add.symbol_id)
+                    for _, s in other_candidates:
+                        if s.symbol_id in to_add_symbol_ids or s.symbol_id in existing_in_hour:
+                            continue
+                        to_add.append(s)
+                        to_add_symbol_ids.add(s.symbol_id)
+                        break
+                    if len(to_add) < max_signals_per_hour:
+                        to_add.append(worst_in_to_add)
         generated_signals = to_add
         # Only use signals that are already persisted with valid id (do not save unsaved signals;
         # they may have NULL required fields like quality_score and would cause IntegrityError)

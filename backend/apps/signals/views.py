@@ -27,6 +27,40 @@ from apps.trading.models import Symbol
 
 logger = logging.getLogger(__name__)
 
+# For balanced top5 display: ensure batch includes both buy- and sell-type when possible
+_BUY_TYPE_NAMES = {'BUY', 'STRONG_BUY'}
+_SELL_TYPE_NAMES = {'SELL', 'STRONG_SELL'}
+
+
+def _ensure_balanced_batch(batch: List, signal_date, signal_hour: int):
+    """If batch has 5 signals but only one direction (all BUY or all SELL), try to replace the
+    lowest-quality one with the best signal of the other type for the same hour (if any).
+    Modifies batch in place; used for API response only (no DB change)."""
+    if len(batch) != 5:
+        return
+    has_buy = any(s.signal_type.name in _BUY_TYPE_NAMES for s in batch)
+    has_sell = any(s.signal_type.name in _SELL_TYPE_NAMES for s in batch)
+    if has_buy and has_sell:
+        return
+    other_type_names = _BUY_TYPE_NAMES if not has_buy else _SELL_TYPE_NAMES
+    batch_symbol_ids = {s.symbol_id for s in batch}
+    other_signal = (
+        TradingSignal.objects.select_related('symbol', 'signal_type')
+        .filter(
+            signal_date=signal_date,
+            signal_hour=signal_hour,
+            signal_type__name__in=other_type_names,
+        )
+        .exclude(symbol_id__in=batch_symbol_ids)
+        .order_by('-quality_score', '-confidence_score')
+        .first()
+    )
+    if not other_signal:
+        return
+    worst = min(batch, key=lambda s: (float(s.quality_score or 0), float(s.confidence_score or 0)))
+    batch.remove(worst)
+    batch.append(other_signal)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 @method_decorator(login_required, name='dispatch')
@@ -380,6 +414,9 @@ class SignalAPIView(View):
                     if key not in seen:
                         seen.add(key)
                         batch.append(signal)
+
+        # Ensure batch includes both buy- and sell-type when possible (for balanced analysis)
+        _ensure_balanced_batch(batch, today, current_hour)
 
         signal_data = []
         for signal in batch:
