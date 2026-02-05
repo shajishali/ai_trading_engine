@@ -5,6 +5,63 @@
 
 {% block extra_css %}
 <style>
+    /* Theme-aware backtesting (dark/light) */
+    [data-theme="dark"] .card.bg-light,
+    [data-theme="dark"] .bg-light {
+        background: var(--card-bg) !important;
+        color: var(--text-color);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+    [data-theme="dark"] .card.bg-light .text-muted,
+    [data-theme="dark"] .bg-light .text-muted {
+        color: var(--text-color) !important;
+        opacity: 0.85;
+    }
+    .backtest-perf-card {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border-radius: 0.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    [data-theme="dark"] .backtest-perf-card {
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    .backtest-perf-card small {
+        color: var(--text-color);
+        opacity: 0.85;
+    }
+    [data-theme="dark"] .badge.bg-light {
+        background: rgba(255, 255, 255, 0.15) !important;
+        color: var(--text-color) !important;
+    }
+    [data-theme="dark"] #resultsSection .card,
+    [data-theme="dark"] .signal-card {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+    [data-theme="dark"] .signal-detail strong {
+        color: var(--text-color);
+        opacity: 0.9;
+    }
+    [data-theme="dark"] .search-history-item:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
+    [data-theme="dark"] .confidence-bar {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    .backtest-chart-wrap {
+        max-width: 350px;
+        margin: 0 auto;
+        background: var(--card-bg);
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    [data-theme="dark"] .backtest-chart-wrap {
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
     .search-history-card {
         max-height: 400px;
         overflow-y: auto;
@@ -1867,7 +1924,7 @@ Average Confidence: ${stats.avgConfidence}%`);
             <div id="signalDistributionSection" class="mt-4 mb-4" style="display: none;">
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
                     <h6 class="text-center mb-3 text-white"><i class="fas fa-chart-pie me-2"></i>Signal Distribution for <span id="pieChartSymbol" class="fw-bold"></span></h6>
-                    <div style="max-width: 350px; margin: 0 auto; background: white; padding: 15px; border-radius: 10px;">
+                    <div class="backtest-chart-wrap">
                         <canvas id="signalDistributionChart"></canvas>
                     </div>
                     <div class="text-center mt-3" id="pieChartStats">
@@ -2731,27 +2788,27 @@ Average Confidence: ${stats.avgConfidence}%`);
                                 <h6 class="text-primary mb-3"><i class="fas fa-chart-bar me-2"></i>Performance Summary</h6>
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="text-center p-3 bg-light rounded">
+                                        <div class="text-center p-3 backtest-perf-card">
                                             <h5 class="${signal.profit_loss_percentage >= 0 ? 'text-success' : 'text-danger'} mb-1">
                                                 ${signal.profit_loss_percentage ? signal.profit_loss_percentage.toFixed(2) + '%' : 'N/A'}
                                             </h5>
-                                            <small class="text-muted">P/L Percentage</small>
+                                            <small>P/L Percentage</small>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="text-center p-3 bg-light rounded">
+                                        <div class="text-center p-3 backtest-perf-card">
                                             <h5 class="${signal.profit_loss_amount >= 0 ? 'text-success' : 'text-danger'} mb-1">
                                                 ${signal.profit_loss_amount ? '$' + signal.profit_loss_amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}
                                             </h5>
-                                            <small class="text-muted">P/L Amount</small>
+                                            <small>P/L Amount</small>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="text-center p-3 bg-light rounded">
+                                        <div class="text-center p-3 backtest-perf-card">
                                             <h5 class="text-info mb-1">
                                                 ${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}
                                             </h5>
-                                            <small class="text-muted">Risk/Reward Ratio</small>
+                                            <small>Risk/Reward Ratio</small>
                                         </div>
                                     </div>
                                 </div>
