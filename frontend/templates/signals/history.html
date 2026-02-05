@@ -14,7 +14,8 @@
     
     #history-table {
         margin-bottom: 0;
-        background: white;
+        background: var(--card-bg);
+        color: var(--text-color);
         border-collapse: collapse;
         width: 100%;
     }
@@ -45,28 +46,32 @@
     }
     
     #history-table tbody tr {
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
         transition: all 0.2s ease;
     }
-    
+    [data-theme="dark"] #history-table tbody tr {
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
     #history-table tbody tr:hover {
-        background-color: #f8f9fa;
+        background-color: rgba(0, 0, 0, 0.04);
         transform: translateY(-1px);
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    
+    [data-theme="dark"] #history-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.06);
+    }
     #history-table tbody td {
         padding: 15px 12px;
         vertical-align: middle;
         border: none;
         text-align: center;
+        color: var(--text-color);
     }
-    
     #history-table tbody td:first-child {
         text-align: left;
         padding-left: 20px;
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-color);
     }
     
     #history-table tbody td:last-child {
@@ -291,31 +296,58 @@
         color: white;
     }
     
-    /* Filter controls */
+    /* Filter controls - theme-aware for dark/light mode */
     .filter-controls {
-        background: #f8f9fa;
+        background: var(--card-bg);
+        color: var(--text-color);
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
-        border: 1px solid #e9ecef;
+        border: 1px solid rgba(0, 0, 0, 0.1);
     }
-    
+    [data-theme="dark"] .filter-controls {
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    .filter-controls .form-label {
+        color: var(--text-color);
+    }
     .filter-controls .form-control {
+        background: var(--card-bg);
+        color: var(--text-color);
         border-radius: 6px;
-        border: 1px solid #ced4da;
+        border: 1px solid rgba(0, 0, 0, 0.15);
         transition: all 0.2s ease;
     }
-    
+    [data-theme="dark"] .filter-controls .form-control {
+        border-color: rgba(255, 255, 255, 0.25);
+    }
     .filter-controls .form-control:focus {
         border-color: #667eea;
         box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .filter-controls .btn-outline-secondary {
+        color: var(--text-color);
+        border-color: rgba(0, 0, 0, 0.2);
+    }
+    [data-theme="dark"] .filter-controls .btn-outline-secondary {
+        border-color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.9);
+    }
+    .filter-controls .btn-outline-secondary:hover {
+        background: rgba(0, 0, 0, 0.05);
+        color: var(--text-color);
+    }
+    [data-theme="dark"] .filter-controls .btn-outline-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
     }
     
     /* Empty state styling */
     .empty-state {
         text-align: center;
         padding: 40px 20px;
-        color: #6c757d;
+        color: var(--text-color);
+        opacity: 0.8;
     }
     
     .empty-state i {
@@ -324,25 +356,31 @@
         opacity: 0.5;
     }
     
-    /* Statistics cards */
+    /* Statistics cards - theme-aware */
     .stat-card {
-        background: white;
+        background: var(--card-bg);
+        color: var(--text-color);
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         border-left: 4px solid #667eea;
     }
-    
+    [data-theme="dark"] .stat-card {
+        border-left-color: rgba(165, 180, 252, 0.8);
+    }
     .stat-card h3 {
-        color: #667eea;
+        color: var(--text-color);
         font-weight: 700;
         margin-bottom: 5px;
     }
-    
+    [data-theme="dark"] .stat-card h3 {
+        color: #a5b4fc;
+    }
     .stat-card p {
-        color: #6c757d;
+        color: var(--text-color);
         margin-bottom: 0;
         font-size: 0.9rem;
+        opacity: 0.85;
     }
     
     /* Responsive adjustments */
