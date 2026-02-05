@@ -23,6 +23,21 @@ def home(request):
             'title': 'AI-Enhanced Trading Signal Engine',
             'description': 'Advanced trading platform powered by artificial intelligence',
         }
+        # Fetch live crypto prices for the horizontal scroll section (under Quick Access)
+        try:
+            from apps.data.real_price_service import get_live_prices
+            live_prices = get_live_prices()
+            if live_prices:
+                context['global_crypto_prices'] = live_prices
+                context['has_live_prices'] = True
+            else:
+                context['global_crypto_prices'] = {}
+                context['has_live_prices'] = False
+        except Exception as e:
+            logger.warning("Could not load live prices for home page: %s", e)
+            context['global_crypto_prices'] = {}
+            context['has_live_prices'] = False
+
         response = render(request, 'dashboard/home.html', context)
         # Ensure we always return a response
         if response is None:
