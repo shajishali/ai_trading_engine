@@ -88,12 +88,6 @@
         margin: 0 auto;
     }
     
-    /* Fix Call to Action button spacing */
-    .bg-primary .btn {
-        margin: 10px;
-        min-width: 220px;
-    }
-    
     /* Hero section button spacing */
     .hero-buttons .btn {
         margin: 0 10px;
@@ -388,25 +382,6 @@
         </div>
     </div>
 
-    <!-- Call to Action -->
-    <div class="row">
-        <div class="col-12 text-center">
-            <div class="card bg-primary text-white">
-                <div class="card-body py-5">
-                    <h3 class="mb-4">Ready to Access Your Trading Dashboard?</h3>
-                    <p class="mb-5">Get real-time insights, AI-powered signals, and advanced analytics for your trading strategy.</p>
-                    <div class="d-flex justify-content-center gap-3 gap-md-4 flex-wrap">
-                        <a href="{% url 'dashboard:dashboard' %}" class="btn btn-light btn-lg px-4 px-md-5 py-3">
-                            <i class="fas fa-tachometer-alt me-2"></i><span class="d-none d-sm-inline">Go to </span>Dashboard
-                        </a>
-                        <a href="{% url 'dashboard:signals' %}" class="btn btn-success btn-lg px-4 px-md-5 py-3">
-                            <i class="fas fa-signal me-2"></i>View Signals
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Footer Section -->
