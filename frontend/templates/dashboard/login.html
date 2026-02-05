@@ -4,79 +4,14 @@
 
 {% block content %}
 <style>
-    /* Login page: blurred background with home page preview */
+    /* Login page: plain theme background */
     body {
-        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%);
-        background-color: #113E80;
+        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%) !important;
+        background-color: #113E80 !important;
         min-height: 100vh;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    /* Blurred background layer */
-    body::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%);
-        background-image: 
-            radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
-            radial-gradient(circle at 40% 20%, rgba(255,255,255,0.05) 0%, transparent 50%);
-        filter: blur(20px);
-        transform: scale(1.1);
-        z-index: -1;
-    }
-    
-    .main-content-wrap {
-        filter: blur(8px);
-        pointer-events: none;
-        opacity: 0.6;
+        color: var(--text-color);
     }
 </style>
-
-<!-- Blurred background content (home page preview) -->
-<div class="main-content-wrap login-blurred" id="main-content-wrap">
-    <div class="container mt-5">
-        <div class="row mb-5">
-            <div class="col-12 text-center">
-                <h1 class="display-4 fw-bold text-white mb-3">
-                    <i class="fas fa-chart-line me-3"></i>
-                    Welcome to AI Trading Engine
-                </h1>
-                <p class="lead text-white-50 mb-4">
-                    Your advanced trading platform with AI-powered signals, real-time analytics, and machine learning insights.
-                </p>
-            </div>
-        </div>
-        <div class="row mb-5">
-            <div class="col-md-4 mb-4">
-                <div class="card bg-white bg-opacity-10 text-white border-0">
-                    <div class="card-body text-center">
-                        <i class="fas fa-tachometer-alt fa-3x mb-3"></i>
-                        <h5>Trading Dashboard</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card bg-white bg-opacity-10 text-white border-0">
-                    <div class="card-body text-center">
-                        <i class="fas fa-signal fa-3x mb-3"></i>
-                        <h5>Trading Signals</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card bg-white bg-opacity-10 text-white border-0">
-                    <div class="card-body text-center">
-                        <i class="fas fa-history fa-3x mb-3"></i>
-                        <h5>Backtesting</h5>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Login modal overlay (auto-opened) -->
 <div class="login-modal-overlay show" id="login-modal-overlay" aria-hidden="false">
@@ -143,21 +78,18 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var overlay = document.getElementById('login-modal-overlay');
-    var mainWrap = document.getElementById('main-content-wrap');
     var closeBtn = document.getElementById('login-modal-close');
     var form = document.getElementById('login-modal-form');
     var errorEl = document.getElementById('login-modal-error');
     var submitBtn = document.getElementById('login-modal-btn');
     
-    // Ensure modal is open and background is blurred
+    // Ensure modal is open
     if (overlay) overlay.classList.add('show');
-    if (mainWrap) mainWrap.classList.add('login-blurred');
     document.body.style.overflow = 'hidden';
     
     function closeLoginModal() {
         if (overlay) overlay.classList.remove('show');
         if (overlay) overlay.setAttribute('aria-hidden', 'true');
-        if (mainWrap) mainWrap.classList.remove('login-blurred');
         document.body.style.overflow = '';
         // Redirect to home if closing from /login/ page
         if (window.location.pathname === '/login/' || window.location.pathname.includes('/login')) {
