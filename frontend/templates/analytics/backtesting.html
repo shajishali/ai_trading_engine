@@ -1098,10 +1098,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         displayNoSignalsMessage(result.no_signals_reason);
                     }
                 } else {
-                    displayBacktestResult(result.result);
+                    // Handle backtest action
+                    if (result.result) {
+                        displayBacktestResult(result.result);
+                    } else {
+                        console.error('Backtest result missing:', result);
+                        alert('Error: Backtest completed but no result data received. Please try again.');
+                        showLoading(false);
+                    }
                 }
             } else {
-                alert('Error: ' + result.error);
+                const errorMsg = result.error || 'Unknown error occurred';
+                console.error('Backtest API error:', errorMsg);
+                alert('Error: ' + errorMsg);
+                showLoading(false);
             }
         })
         .catch(error => {
@@ -1142,8 +1152,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayBacktestResult(result) {
         console.log('Displaying backtest result:', result);
         
-        // Handle empty results
-        if (!result || result.total_signals === 0) {
+        // Validate result structure
+        if (!result || typeof result !== 'object') {
+            console.error('Invalid backtest result:', result);
+            alert('Error: Invalid backtest result received from server');
+            showLoading(false);
+            return;
+        }
+        
+        // Handle empty results - use safe property access
+        const totalSignals = result.total_signals || 0;
+        if (totalSignals === 0) {
             document.getElementById('resultsSection').style.display = 'block';
             document.getElementById('noSignalsMessage').style.display = 'block';
             document.getElementById('signalsTable').style.display = 'none';
@@ -1199,27 +1218,40 @@ document.addEventListener('DOMContentLoaded', function() {
         const summaryElement = document.getElementById('signalSummary');
         if (!summaryElement) return;
         
+        // Safe property access with defaults
+        if (!result || typeof result !== 'object') {
+            console.error('Invalid result passed to updateBacktestSummary:', result);
+            return;
+        }
+        
         const totalSignals = result.total_signals || 0;
         const executedSignals = result.executed_signals || 0;
+        const profitSignals = result.profit_signals || 0;
+        const lossSignals = result.loss_signals || 0;
         const notOpenedSignals = result.not_opened_signals || 0;
-        const totalInvestment = result.total_investment || 0;
+        const totalInvestment = result.total_investment || result.total_capital_used || 0;
         const totalProfitLoss = result.total_profit_loss || 0;
-        const profitPercentage = result.profit_percentage || 0;
+        const profitPercentage = result.profit_percentage || (totalSignals > 0 ? (totalProfitLoss / totalInvestment * 100) : 0);
         const qualityScore = result.quality_score || 0;
         const qualityRating = result.quality_rating || 'Unknown';
+        
+        // Calculate percentages safely (avoid division by zero)
+        const profitPct = totalSignals > 0 ? ((profitSignals / totalSignals) * 100).toFixed(1) : '0.0';
+        const lossPct = totalSignals > 0 ? ((lossSignals / totalSignals) * 100).toFixed(1) : '0.0';
+        const notOpenedPct = totalSignals > 0 ? ((notOpenedSignals / totalSignals) * 100).toFixed(1) : '0.0';
         
         summaryElement.innerHTML = `
             <div class="summary-item">
                 <span class="summary-label">Profit Signals:</span>
-                <span class="summary-value profit">${result.profit_signals || 0} (${((result.profit_signals || 0) / totalSignals * 100).toFixed(1)}%)</span>
+                <span class="summary-value profit">${profitSignals} (${profitPct}%)</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">Loss Signals:</span>
-                <span class="summary-value loss">${result.loss_signals || 0} (${((result.loss_signals || 0) / totalSignals * 100).toFixed(1)}%)</span>
+                <span class="summary-value loss">${lossSignals} (${lossPct}%)</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">Not Opened:</span>
-                <span class="summary-value not-opened">${notOpenedSignals} (${(notOpenedSignals / totalSignals * 100).toFixed(1)}%)</span>
+                <span class="summary-value not-opened">${notOpenedSignals} (${notOpenedPct}%)</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">Total Investment:</span>
@@ -1384,6 +1416,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function showBacktestSuccessMessage(result) {
+        // Safe property access
+        if (!result || typeof result !== 'object') {
+            console.log('Backtest completed (no result data)');
+            return;
+        }
+        
         const totalSignals = result.total_signals || 0;
         const executedSignals = result.executed_signals || 0;
         const profitSignals = result.profit_signals || 0;
