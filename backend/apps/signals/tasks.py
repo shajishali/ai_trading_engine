@@ -246,10 +246,8 @@ def generate_signals_for_all_symbols():
             if len(to_add) >= max_signals_per_hour:
                 break
         generated_signals = to_add
-        # Ensure every signal is persisted and has an id (avoid NULL trading_signal_id in HourlyBestSignal)
-        for s in generated_signals:
-            if s.pk is None:
-                s.save()
+        # Only use signals that are already persisted with valid id (do not save unsaved signals;
+        # they may have NULL required fields like quality_score and would cause IntegrityError)
         generated_signals = [s for s in generated_signals if s.pk is not None]
         if not generated_signals:
             logger.warning("[Signal Queue] No signals with valid id to store in HourlyBestSignal; skipping.")
