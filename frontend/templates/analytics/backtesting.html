@@ -148,6 +148,26 @@
     .signal-table tbody td:last-child {
         text-align: center;
     }
+    /* No results message styling */
+    .signal-table tbody td[colspan] {
+        white-space: normal !important;
+        word-wrap: break-word;
+        text-align: center !important;
+        padding: 40px 20px !important;
+    }
+    .signal-table tbody td[colspan] .d-flex {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .signal-table tbody td[colspan] h5,
+    .signal-table tbody td[colspan] p {
+        white-space: normal !important;
+        word-wrap: break-word;
+        text-align: center;
+        margin: 0;
+    }
     .signal-table .confidence-bar {
         width: 100%;
         max-width: 80px;
@@ -1312,18 +1332,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.appendChild(card);
             });
         } else {
-            const noResultsCard = document.createElement('div');
-            noResultsCard.className = 'text-center py-5';
-            noResultsCard.innerHTML = `
-                <div class="card">
-                    <div class="card-body">
+            // Create a proper table row for the "no results" message
+            const noResultsRow = document.createElement('tr');
+            noResultsRow.innerHTML = `
+                <td colspan="11" class="text-center py-5" style="white-space: normal; word-wrap: break-word;">
+                    <div class="d-flex flex-column align-items-center justify-content-center">
                         <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">No backtest results available</h5>
-                        <p class="text-muted">Run a backtest to see signal analysis results.</p>
+                        <h5 class="text-muted mb-2">No backtest results available</h5>
+                        <p class="text-muted mb-0">Run a backtest to see signal analysis results.</p>
                     </div>
-                </div>
+                </td>
             `;
-            container.appendChild(noResultsCard);
+            container.appendChild(noResultsRow);
         }
     }
     
