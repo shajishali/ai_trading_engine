@@ -902,216 +902,19 @@
 <div class="container-fluid py-4">
     {% if error %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <strong><i class="fas fa-exclamation-triangle me-2"></i>Signal page error</strong>
+        <strong><i class="fas fa-exclamation-triangle me-2"></i>Error</strong>
         <p class="mb-0 mt-2">{{ error }}</p>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="mb-0">Trading Signals</h2>
-        <div class="d-flex gap-2">
-            <a href="{% url 'signals:signal_history' %}" class="btn btn-outline-primary btn-sm">Signal History</a>
-        </div>
-    </div>
-    
-    <!-- Login Required Notice -->
-    {% if not user.is_authenticated %}
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="alert alert-info" role="alert">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Authentication required.</strong> Log in to view trading signals and advanced timeframe/entry analysis.
-                <a href="/login/" class="alert-link ms-2">Log in</a>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <h1 class="h3 mb-4 text-white">Trading Signals - AI Trading Engine</h1>
-                <div class="user-controls">
-                    <a href="/logout/" class="btn btn-outline-light btn-sm">
-                        <i class="fas fa-sign-out-alt me-2"></i>Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Signal Statistics -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Active Signals</h5>
-                    <h2 class="mb-0" id="active-signals-count">0</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Win Rate</h5>
-                    <h2 class="mb-0" id="win-rate">0%</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Profit Factor</h5>
-                    <h2 class="mb-0" id="profit-factor">0.0</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Avg Risk:Reward</h5>
-                    <h2 class="mb-0" id="avg-rr-ratio">0.0</h2>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Spot Signals button moved into Market Signals header -->
-
-    <!-- Trading Signals Table -->
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="card-title mb-0 text-white">Market Signals</h5>
-                            <small class="text-white fw-semibold">
-                                <i class="fas fa-mouse-pointer me-1"></i>
-                                Click any row to view details, including timeframe and entry strategy.
-                            </small>
-                        </div>
-                        <div>
-                            <a href="/signals/spot/" class="btn btn-success btn-sm">
-                                <i class="fas fa-coins"></i> Spot Signals
-                            </a>
-                        </div>
-                    </div>
+                    <h5 class="card-title mb-0 text-white">Trading Signals</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Signal Chart Section -->
-        <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card chart-card">
-                                <div class="card-header chart-header">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-0 text-white">
-                                                <i class="fas fa-chart-pie me-2"></i>Signals Overview Dashboard
-                                            </h5>
-                                <small class="text-light">Real-time analysis of trading signals by timeframe and strategy</small>
-                                        </div>
-                                        <div class="chart-controls">
-                                            <button class="btn btn-sm btn-outline-light" onclick="refreshChart()">
-                                                <i class="fas fa-sync-alt"></i> Refresh
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card-body chart-body">
-                                    <!-- Summary Statistics Row -->
-                                    <div class="row mb-4">
-                                        <div class="col-lg-3 col-md-6 mb-3">
-                                            <div class="stat-card stat-primary">
-                                                <div class="stat-icon">
-                                                    <i class="fas fa-clock"></i>
-                                                </div>
-                                                <div class="stat-content">
-                                                    <h6 class="stat-label">Most Common Timeframe</h6>
-                                                    <div class="stat-value" id="most-common-timeframe">--</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-3 col-md-6 mb-3">
-                                            <div class="stat-card stat-success">
-                                                <div class="stat-icon">
-                                                    <i class="fas fa-bullseye"></i>
-                                                </div>
-                                                <div class="stat-content">
-                                                    <h6 class="stat-label">Most Common Entry Strategy</h6>
-                                                    <div class="stat-value" id="most-common-entry-point">--</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-3 col-md-6 mb-3">
-                                            <div class="stat-card stat-info">
-                                                <div class="stat-icon">
-                                                    <i class="fas fa-chart-line"></i>
-                                                </div>
-                                                <div class="stat-content">
-                                                    <h6 class="stat-label">Average Entry Confidence</h6>
-                                                    <div class="stat-value" id="avg-entry-confidence">--</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-3 col-md-6 mb-3">
-                                            <div class="stat-card stat-warning">
-                                                <div class="stat-icon">
-                                                    <i class="fas fa-signal"></i>
-                                                </div>
-                                                <div class="stat-content">
-                                                    <h6 class="stat-label">Total Signals</h6>
-                                                    <div class="stat-value" id="total-signals-count">--</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Chart Row -->
-                                    <div class="row">
-                                        <div class="col-lg-8 col-md-7">
-                                            <div class="chart-container">
-                                                <canvas id="signalsChart"></canvas>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-5">
-                                            <div class="chart-sidebar">
-                                                <div class="chart-legend">
-                                                    <h6 class="legend-title">
-                                                        <i class="fas fa-list me-2"></i>Signal Distribution
-                                                    </h6>
-                                                    <div id="chart-legend-content">
-                                                        <div class="legend-placeholder">
-                                                            <i class="fas fa-chart-pie text-muted"></i>
-                                                            <p class="text-muted">Chart will show signal distribution here</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="chart-info mt-4">
-                                                    <h6 class="info-title">
-                                                        <i class="fas fa-info-circle me-2"></i>Chart information
-                                                    </h6>
-                                                    <div class="info-content">
-                                                        <p class="mb-2">
-                                                            <strong>Timeframe Distribution:</strong> Shows how signals are distributed across different time periods (1M, 5M, 15M, 1H, 4H, 1D, etc.)
-                                                        </p>
-                                                        <p class="mb-2">
-                                                            <strong>Entry strategies:</strong> Displays the variety of entry methods used (Support Break, Resistance Break, Trend Following, etc.)
-                                                        </p>
-                                                        <p class="mb-0">
-                                                            <strong>Click any table row</strong> to view detailed timeframe and entry strategy analysis for that signal.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <!-- Filter Controls -->
                     <div class="filter-controls mb-4">
                         <div class="row align-items-end">
@@ -1179,25 +982,6 @@
     </div>
 </div>
 
-<!-- Signal Details Modal -->
-<div class="modal fade" id="signalModal" tabindex="-1" role="dialog" aria-labelledby="signalModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="signalModalLabel">Signal Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="signalModalBody">
-                <!-- Signal details will be loaded here -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="executeSignalBtn">Execute Signal</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Notifications Container -->
 <div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
 
@@ -1205,10 +989,7 @@
 // Global variables
 let signalsData = [];
 let symbols = [];
-let currentSignalId = null;
-let testMode = true; // Enable test mode by default
-let signalsChart = null; // Chart instance
-let signalsAutoRefreshInterval = null; // Auto-refresh interval for signals
+let signalsAutoRefreshInterval = null;
 
 // Safely parse JSON from fetch response (avoids JSON.parse error when server returns HTML e.g. 302/401/500)
 function parseJsonResponse(response) {
@@ -1221,228 +1002,15 @@ function parseJsonResponse(response) {
     return response.json();
 }
 
-// Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing dashboard...'); // Debug log
-    
-    // Load initial data (existing signals will show immediately)
     loadSignals();
-    loadStatistics();
     loadSymbols();
-    
-    // Initialize chart
-    initializeSignalsChart();
-    
-    // Start auto-refresh for signals (check for new signals every 30 seconds)
     startSignalsAutoRefresh();
-    
-    // Setup execute button event listener
-    const executeBtn = document.getElementById('executeSignalBtn');
-    if (executeBtn) {
-        executeBtn.addEventListener('click', function() {
-            console.log('Execute button clicked!'); // Debug log
-            if (currentSignalId) {
-                console.log('Current signal ID:', currentSignalId); // Debug log
-                executeSignal(currentSignalId);
-            } else {
-                console.log('No current signal ID!'); // Debug log
-                showNotification('No signal selected to execute', 'warning');
-            }
-        });
-    }
-    
-    // Add filter event listeners (only if elements exist)
     const symbolFilter = document.getElementById('symbol-filter');
     const timeframeFilter = document.getElementById('timeframe-filter');
-    if (symbolFilter) {
-        symbolFilter.addEventListener('change', filterSignals);
-    }
-    if (timeframeFilter) {
-        timeframeFilter.addEventListener('change', filterSignals);
-    }
-    
-    console.log('Dashboard initialization complete!'); // Debug log
+    if (symbolFilter) symbolFilter.addEventListener('change', filterSignals);
+    if (timeframeFilter) timeframeFilter.addEventListener('change', filterSignals);
 });
-
-// Initialize signals chart
-function initializeSignalsChart() {
-    const ctx = document.getElementById('signalsChart');
-    if (!ctx) {
-        console.log('Signals chart canvas not found');
-        return;
-    }
-    
-    signalsChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['No Data'],
-            datasets: [{
-                data: [1],
-                backgroundColor: ['#6c757d'],
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} (${percentage}%)`;
-                        }
-                    }
-                }
-            },
-            cutout: '60%'
-        }
-    });
-}
-
-// Update signals chart with data
-function updateSignalsChart(signals) {
-    if (!signalsChart || !signals || signals.length === 0) {
-        return;
-    }
-    
-    // Count signals by timeframe
-    const timeframeCounts = {};
-    const signalTypeCounts = {};
-    const entryPointCounts = {};
-    let totalEntryConfidence = 0;
-    let signalsWithConfidence = 0;
-    
-    signals.forEach(signal => {
-        const timeframe = signal.timeframe || 'Unknown';
-        const signalType = signal.signal_type || 'Unknown';
-        const entryPoint = signal.entry_point_type || 'Unknown';
-        
-        timeframeCounts[timeframe] = (timeframeCounts[timeframe] || 0) + 1;
-        signalTypeCounts[signalType] = (signalTypeCounts[signalType] || 0) + 1;
-        entryPointCounts[entryPoint] = (entryPointCounts[entryPoint] || 0) + 1;
-        
-        if (signal.entry_confidence) {
-            totalEntryConfidence += signal.entry_confidence;
-            signalsWithConfidence++;
-        }
-    });
-    
-    // Update summary statistics
-    updateSummaryStatistics(timeframeCounts, entryPointCounts, totalEntryConfidence, signalsWithConfidence, signals.length);
-    
-    // Create chart data for timeframe distribution
-    const labels = Object.keys(timeframeCounts);
-    const data = Object.values(timeframeCounts);
-    const colors = [
-        '#007bff', '#28a745', '#ffc107', '#dc3545', 
-        '#6f42c1', '#fd7e14', '#20c997', '#6c757d'
-    ];
-    
-    // Update chart
-    signalsChart.data.labels = labels;
-    signalsChart.data.datasets[0].data = data;
-    signalsChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
-    signalsChart.update();
-    
-    // Update legend
-    updateChartLegend(signalTypeCounts);
-}
-
-// Update summary statistics
-function updateSummaryStatistics(timeframeCounts, entryPointCounts, totalEntryConfidence, signalsWithConfidence, totalSignals) {
-    // Most common timeframe
-    const mostCommonTimeframe = Object.keys(timeframeCounts).reduce((a, b) => 
-        timeframeCounts[a] > timeframeCounts[b] ? a : b, Object.keys(timeframeCounts)[0]
-    );
-    
-    // Most common entry point
-    const mostCommonEntryPoint = Object.keys(entryPointCounts).reduce((a, b) => 
-        entryPointCounts[a] > entryPointCounts[b] ? a : b, Object.keys(entryPointCounts)[0]
-    );
-    
-    // Average entry confidence
-    const avgEntryConfidence = signalsWithConfidence > 0 ? (totalEntryConfidence / signalsWithConfidence * 100).toFixed(0) : 0;
-    
-    // Update DOM elements
-    const timeframeElement = document.getElementById('most-common-timeframe');
-    const entryPointElement = document.getElementById('most-common-entry-point');
-    const confidenceElement = document.getElementById('avg-entry-confidence');
-    const totalElement = document.getElementById('total-signals-count');
-    
-    if (timeframeElement) timeframeElement.textContent = mostCommonTimeframe || '--';
-    if (entryPointElement) entryPointElement.textContent = formatEntryPointType(mostCommonEntryPoint) || '--';
-    if (confidenceElement) confidenceElement.textContent = avgEntryConfidence + '%';
-    if (totalElement) totalElement.textContent = totalSignals;
-}
-
-// Update chart legend with signal type distribution
-function updateChartLegend(signalTypeCounts) {
-    const legendContainer = document.getElementById('chart-legend-content');
-    if (!legendContainer) return;
-    
-    if (!signalTypeCounts || Object.keys(signalTypeCounts).length === 0) {
-        legendContainer.innerHTML = `
-            <div class="legend-placeholder">
-                <i class="fas fa-chart-pie text-muted"></i>
-                <p class="text-muted">No signals available</p>
-            </div>
-        `;
-        return;
-    }
-    
-    const legendItems = Object.entries(signalTypeCounts).map(([type, count]) => {
-        const badgeClass = getSignalTypeBadge(type);
-        const totalSignals = Object.values(signalTypeCounts).reduce((a, b) => a + b, 0);
-        const percentage = ((count / totalSignals) * 100).toFixed(1);
-        
-        return `
-            <div class="legend-item mb-3">
-                <div class="d-flex align-items-center">
-                    <span class="legend-color ${badgeClass}"></span>
-                    <div class="legend-text ms-3">
-                        <div class="legend-label">${formatSignalType(type)}</div>
-                        <div class="legend-count">${count} signals (${percentage}%)</div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    legendContainer.innerHTML = `
-        ${legendItems}
-        <hr class="my-3">
-        <div class="text-center">
-            <div class="total-signals">
-                <strong>Total: ${Object.values(signalTypeCounts).reduce((a, b) => a + b, 0)} signals</strong>
-            </div>
-        </div>
-    `;
-}
-
-// Refresh chart function
-function refreshChart() {
-    showNotification('Refreshing chart data...', 'info');
-    loadSignals();
-    setTimeout(() => {
-        showNotification('Chart refreshed successfully!', 'success');
-    }, 1000);
-}
-
-// Fallback initialization in case DOMContentLoaded doesn't fire
-setTimeout(function() {
-    if (typeof signalsData === 'undefined' || signalsData.length === 0) {
-        console.log('Fallback: Loading signals...'); // Debug log
-        loadSignals();
-    }
-}, 2000);
 
 // Load signals
 function loadSignals(showNotificationOnNew = false) {
@@ -1484,8 +1052,6 @@ function loadSignals(showNotificationOnNew = false) {
                 }
                 
                 displaySignals(signalsData);
-                updateSignalCount(data.count || 0);
-                updateSignalsChart(signalsData); // Update chart after data is loaded
             } else {
                 console.error('Error loading signals:', data.error);
                 // Don't show error notification on initial load if no signals exist
@@ -1506,9 +1072,8 @@ function loadSignals(showNotificationOnNew = false) {
 // Display signals in table
 function displaySignals(signals) {
     const tbody = document.getElementById('signals-tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
-    
-    console.log('Displaying signals:', signals.length); // Debug log
     
     if (!signals || signals.length === 0) {
         tbody.innerHTML = `
@@ -1516,48 +1081,22 @@ function displaySignals(signals) {
                 <td colspan="10" class="empty-state">
                     <i class="fas fa-chart-line"></i>
                     <h5>No Trading Signals Available</h5>
-                    <p>Generate new signals to get started with your trading strategy.</p>
+                    <p>Signals are generated hourly. Check back later.</p>
                 </td>
             </tr>
         `;
         return;
     }
     
-    signals.forEach((signal, index) => {
-        console.log(`Processing signal ${index + 1}:`, signal); // Debug log
-        console.log('Signal fields - isValid:', signal.is_valid, 'isExecuted:', signal.is_executed); // Debug log
-        console.log('Signal timeframe:', signal.timeframe); // Debug log
-        console.log('Signal entry_point_type:', signal.entry_point_type); // Debug log
-        
+    signals.forEach((signal) => {
         const row = document.createElement('tr');
         row.setAttribute('data-signal-id', signal.id);
-        
-        // Add price warning class if there's a significant discrepancy
         if (signal.price_discrepancy_percent && signal.price_discrepancy_percent > 5) {
             row.classList.add('price-warning');
         }
-        
-        // Add price status class
         if (signal.price_status) {
             row.classList.add(`price-${signal.price_status}`);
         }
-        
-        // Make row clickable to view signal details
-        row.style.cursor = 'pointer';
-        row.classList.add('clickable');
-        row.addEventListener('click', function(e) {
-            viewSignal(signal.id);
-        });
-        
-        // Add hover effect
-        row.addEventListener('mouseenter', function() {
-            this.style.backgroundColor = '#f8f9fa';
-        });
-        
-        row.addEventListener('mouseleave', function() {
-            this.style.backgroundColor = '';
-        });
-        
         row.innerHTML = `
             <td><strong>${signal.symbol || 'N/A'}</strong></td>
             <td>
@@ -1611,9 +1150,6 @@ function displaySignals(signals) {
         `;
         tbody.appendChild(row);
     });
-    
-    // Update chart after displaying signals
-    updateSignalsChart(signals);
 }
 
 // Get signal type badge class
@@ -1681,329 +1217,6 @@ function formatEntryPointType(type) {
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
-// View signal details
-function viewSignal(signalId) {
-    console.log('Viewing signal:', signalId); // Debug log
-    currentSignalId = signalId;
-    
-    // Wait for Bootstrap to be available (with retry)
-    function waitForBootstrap(retries = 10) {
-        if (typeof bootstrap !== 'undefined') {
-            proceedWithSignal();
-            return;
-        }
-        
-        if (retries > 0) {
-            console.log(`Waiting for Bootstrap... (${retries} retries left)`);
-            setTimeout(() => waitForBootstrap(retries - 1), 100);
-        } else {
-            console.error('Bootstrap failed to load after waiting');
-            showNotification('Error: Required resources not loaded. Please refresh the page.', 'danger');
-        }
-    }
-    
-    function proceedWithSignal() {
-        // Load signal details via AJAX to get complete information including detailed_explanation
-        fetch(`/signals/api/signals/${signalId}/`)
-        .then(function(response) { return parseJsonResponse(response); })
-        .then(function(data) {
-            if (!data.success || !data.signal) {
-                console.log('Signal not found in API!'); // Debug log
-                showNotification('Signal not found', 'danger');
-                return;
-            }
-            
-            const signal = data.signal;
-            console.log('Signal data from API:', signal); // Debug log
-            console.log('Signal detailed_explanation:', signal.detailed_explanation); // Debug log
-    
-            // Ensure we have default values for missing data
-            const timeframe = signal.timeframe || '1H';
-            const entryPointType = signal.entry_point_type || 'TREND_FOLLOWING';
-            const entryConfidence = signal.entry_confidence || 0.8;
-    
-    // Populate modal with signal data
-    document.getElementById('signalModalBody').innerHTML = `
-        <!-- Timeframe and Entry Point Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Timeframe & Entry Strategy Analysis</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h5 class="text-primary mb-2">Timeframe</h5>
-                                    <span class="badge bg-info fs-5 px-3 py-2">${timeframe}</span>
-                                    <p class="text-muted mt-2 mb-0">Analysis Period</p>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h5 class="text-primary mb-2">Entry Strategy</h5>
-                                    <span class="badge ${getEntryPointBadge(entryPointType)} fs-5 px-3 py-2">${formatEntryPointType(entryPointType)}</span>
-                                    <p class="text-muted mt-2 mb-0">Entry Strategy</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h6 class="text-muted mb-2">Entry Confidence</h6>
-                                    <div class="progress" style="height: 25px;">
-                                        <div class="progress-bar ${entryConfidence >= 0.8 ? 'bg-success' : entryConfidence >= 0.6 ? 'bg-warning' : 'bg-danger'}" 
-                                             role="progressbar" 
-                                             style="width: ${entryConfidence * 100}%"
-                                             aria-valuenow="${entryConfidence * 100}" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                            ${(entryConfidence * 100).toFixed(0)}%
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h6 class="text-muted mb-2">Entry Zone</h6>
-                                    ${signal.entry_zone_low && signal.entry_zone_high ? `
-                                        <div class="border rounded p-2">
-                                            <span class="text-success">$${signal.entry_zone_low.toFixed(2)}</span>
-                                            <span class="text-muted mx-2">to</span>
-                                            <span class="text-success">$${signal.entry_zone_high.toFixed(2)}</span>
-                                        </div>
-                                    ` : '<span class="text-muted">Not specified</span>'}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Signal Information</h6>
-                <p><strong>Symbol:</strong> ${signal.symbol}</p>
-                <p><strong>Type:</strong> ${signal.signal_type}</p>
-                <p><strong>Confidence:</strong> ${(signal.confidence_score * 100).toFixed(0)}%</p>
-                <p><strong>Created:</strong> ${new Date(signal.created_at).toLocaleString()}</p>
-                <p><strong>Analyzed:</strong> ${new Date(signal.analyzed_at || signal.created_at).toLocaleString('en-US', {timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'})} (SL Time)</p>
-            </div>
-            <div class="col-md-6">
-                <h6>Trading Parameters</h6>
-                <p><strong>Price Target:</strong> $${signal.target_price ? signal.target_price.toFixed(2) : 'N/A'}</p>
-                <p><strong>Stop Loss:</strong> $${signal.stop_loss ? signal.stop_loss.toFixed(2) : 'N/A'}</p>
-                <p><strong>Risk/Reward:</strong> ${signal.risk_reward_ratio ? signal.risk_reward_ratio.toFixed(2) : 'N/A'}</p>
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-12">
-                <h6>Detailed Signal Explanation</h6>
-                <div class="card bg-light">
-                    <div class="card-body">
-                        ${signal.detailed_explanation ? signal.detailed_explanation : 'No detailed explanation available.'}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-md-6">
-                <h6>Multi-timeframe analysis</h6>
-                <p><strong>Timeframe:</strong> <span class="badge bg-info">${timeframe}</span></p>
-                <p><strong>Entry Strategy:</strong> <span class="badge ${getEntryPointBadge(entryPointType)}">${formatEntryPointType(entryPointType)}</span></p>
-                <p><strong>Entry Confidence:</strong> ${(entryConfidence * 100).toFixed(0)}%</p>
-                ${signal.entry_zone_low && signal.entry_zone_high ? `
-                    <p><strong>Entry Zone:</strong> $${signal.entry_zone_low.toFixed(2)} - $${signal.entry_zone_high.toFixed(2)}</p>
-                ` : ''}
-            </div>
-            <div class="col-md-6">
-                <h6>Technical Analysis</h6>
-                <p>${signal.technical_score ? `Technical Score: ${signal.technical_score.toFixed(2)}` : 'No technical analysis available.'}</p>
-                <p>${signal.sentiment_score ? `Sentiment Score: ${signal.sentiment_score.toFixed(2)}` : 'No sentiment analysis available.'}</p>
-                <p>${signal.volume_score ? `Volume Score: ${signal.volume_score.toFixed(2)}` : 'No volume analysis available.'}</p>
-                <p>${signal.pattern_score ? `Pattern Score: ${signal.pattern_score.toFixed(2)}` : 'No pattern analysis available.'}</p>
-            </div>
-        </div>
-        ${signal.entry_point_details && Object.keys(signal.entry_point_details).length > 0 ? `
-        <div class="row mt-3">
-            <div class="col-12">
-                <h6>Entry strategy analysis details</h6>
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <p><strong>Analysis Summary:</strong> ${signal.entry_point_details.analysis_summary || 'N/A'}</p>
-                        <p><strong>Timeframe Used:</strong> ${signal.entry_point_details.timeframe_used || 'N/A'}</p>
-                        <p><strong>Entry Strategy:</strong> ${signal.entry_point_details.entry_point_type || 'N/A'}</p>
-                        <p><strong>Confidence:</strong> ${signal.entry_point_details.confidence ? (signal.entry_point_details.confidence * 100).toFixed(0) + '%' : 'N/A'}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        ` : ''}
-    `;
-    
-    // Show/hide execute button based on signal status
-    const executeBtn = document.getElementById('executeSignalBtn');
-    console.log('Signal status - isValid:', signal.is_valid, 'isExecuted:', signal.is_executed); // Debug log
-    
-    if (testMode || (signal.is_valid && !signal.is_executed)) {
-        executeBtn.style.display = 'block';
-        executeBtn.disabled = false;
-        executeBtn.textContent = 'Execute Signal';
-        console.log('Execute button should be visible'); // Debug log
-    } else {
-        executeBtn.style.display = 'none';
-        console.log('Execute button hidden'); // Debug log
-    }
-    
-            // Show modal using Bootstrap 5
-            console.log('Showing modal...'); // Debug log
-            const modal = new bootstrap.Modal(document.getElementById('signalModal'));
-            modal.show();
-            console.log('Modal shown!'); // Debug log
-        })
-        .catch(error => {
-            console.error('Error loading signal details:', error);
-            showNotification('Error loading signal details', 'danger');
-        });
-    }
-    
-    // Start by waiting for Bootstrap
-    waitForBootstrap();
-}
-
-// Execute signal
-function executeSignal(signalId) {
-    console.log('Executing signal:', signalId); // Debug log
-    
-    if (confirm('Are you sure you want to execute this signal?')) {
-        showNotification('Executing signal...', 'info');
-        
-        const csrfToken = getCookie('csrftoken');
-        console.log('CSRF Token:', csrfToken); // Debug log
-        
-        if (!csrfToken) {
-            showNotification('CSRF token not found. Please refresh the page.', 'danger');
-            return;
-        }
-        
-        fetch(`/signals/api/signals/${signalId}/execute/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken,
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => {
-            console.log('Response status:', response.status); // Debug log
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Response data:', data); // Debug log
-            if (data.success) {
-                showNotification('Signal executed successfully!', 'success');
-                // Close modal using Bootstrap 5
-                const modal = bootstrap.Modal.getInstance(document.getElementById('signalModal'));
-                if (modal) {
-                    modal.hide();
-                }
-                // Reload signals after a short delay
-                setTimeout(() => {
-                    loadSignals();
-                    loadStatistics();
-                }, 1500);
-            } else {
-                showNotification('Error executing signal: ' + (data.error || 'Unknown error'), 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error executing signal:', error);
-            showNotification('Error executing signal: ' + error.message, 'danger');
-        });
-    }
-}
-
-// Edit signal (placeholder)
-function editSignal(signalId) {
-    showNotification('Edit functionality coming soon!', 'info');
-}
-
-// Share signal (placeholder)
-function shareSignal(signalId) {
-    showNotification('Share functionality coming soon!', 'info');
-}
-
-// Update signal count
-function updateSignalCount(count) {
-    document.getElementById('active-signals-count').textContent = count;
-}
-
-// Load statistics
-function loadStatistics() {
-    fetch('/signals/api/performance/')
-        .then(function(response) { return parseJsonResponse(response); })
-        .then(function(data) {
-            if (data.success && data.current_metrics) {
-                const metrics = data.current_metrics;
-                const winRateEl = document.getElementById('win-rate');
-                const profitFactorEl = document.getElementById('profit-factor');
-                const avgRREl = document.getElementById('avg-rr-ratio');
-                
-                // Handle win rate
-                if (winRateEl) {
-                    const winRate = metrics.win_rate;
-                    if (winRate !== null && winRate !== undefined && !isNaN(winRate)) {
-                        winRateEl.textContent = `${(winRate * 100).toFixed(1)}%`;
-                    } else {
-                        winRateEl.textContent = 'N/A';
-                    }
-                }
-                
-                // Handle profit factor
-                if (profitFactorEl) {
-                    const profitFactor = metrics.profit_factor;
-                    if (profitFactor !== null && profitFactor !== undefined && !isNaN(profitFactor)) {
-                        profitFactorEl.textContent = profitFactor.toFixed(2);
-                    } else {
-                        profitFactorEl.textContent = 'N/A';
-                    }
-                }
-                
-                // Handle average risk/reward ratio
-                if (avgRREl) {
-                    const avgRR = metrics.avg_risk_reward_ratio;
-                    if (avgRR !== null && avgRR !== undefined && !isNaN(avgRR)) {
-                        avgRREl.textContent = avgRR.toFixed(2);
-                    } else {
-                        avgRREl.textContent = 'N/A';
-                    }
-                }
-            } else {
-                // Set defaults if API doesn't return expected format
-                const winRateEl = document.getElementById('win-rate');
-                const profitFactorEl = document.getElementById('profit-factor');
-                const avgRREl = document.getElementById('avg-rr-ratio');
-                if (winRateEl) winRateEl.textContent = 'N/A';
-                if (profitFactorEl) profitFactorEl.textContent = 'N/A';
-                if (avgRREl) avgRREl.textContent = 'N/A';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading statistics:', error);
-            // Set defaults on error
-            const winRateEl = document.getElementById('win-rate');
-            const profitFactorEl = document.getElementById('profit-factor');
-            const avgRREl = document.getElementById('avg-rr-ratio');
-            if (winRateEl) winRateEl.textContent = 'N/A';
-            if (profitFactorEl) profitFactorEl.textContent = 'N/A';
-            if (avgRREl) avgRREl.textContent = 'N/A';
-        });
-}
-
 // Load symbols for filter
 function loadSymbols() {
     fetch('/data/api/symbols/')
@@ -2029,94 +1242,6 @@ function loadSymbols() {
             console.error('Error loading symbols:', error);
             // Silently fail - symbols filter is optional
         });
-}
-
-// Generate signals
-function generateSignals() {
-    if (confirm('Generate new trading signals?')) {
-        showNotification('Generating signals...', 'info');
-        
-        // Get the selected symbol from the filter, or use a default
-        const symbolFilterEl = document.getElementById('symbol-filter');
-        let symbol = 'BTC'; // Default fallback
-        if (symbolFilterEl && symbolFilterEl.value) {
-            symbol = symbolFilterEl.value;
-        }
-        
-        fetch('/signals/api/generate/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                symbol: symbol
-            })
-        })
-        .then(function(response) { return parseJsonResponse(response); })
-        .then(function(data) {
-            if (data.success) {
-                showNotification(`Successfully generated ${data.signals_generated} signals for ${data.symbol}!`, 'success');
-                setTimeout(loadSignals, 2000);
-            } else {
-                showNotification('Error generating signals: ' + (data.error || 'Unknown error'), 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error generating signals. Please try again.', 'danger');
-        });
-    }
-}
-
-// Refresh signals
-function refreshSignals() {
-    loadSignals();
-    loadStatistics();
-}
-
-// Sync prices for all signals
-function syncPrices() {
-    showNotification('Synchronizing prices...', 'info');
-    
-    fetch('/signals/api/sync-prices/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(function(response) { return parseJsonResponse(response); })
-    .then(function(data) {
-        if (data.success) {
-            showNotification(`Successfully synchronized prices for ${data.synced_count} signals!`, 'success');
-            setTimeout(loadSignals, 1000); // Reload signals to show updated prices
-        } else {
-            showNotification('Error synchronizing prices: ' + (data.error || 'Unknown error'), 'danger');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('Error synchronizing prices. Please try again.', 'danger');
-    });
-}
-
-// Filter signals by symbol (only if element exists)
-const symbolFilterElement = document.getElementById('symbol-filter');
-if (symbolFilterElement) {
-    symbolFilterElement.addEventListener('change', function() {
-        const selectedSymbol = this.value;
-        if (selectedSymbol) {
-            const filteredSignals = signalsData.filter(signal => 
-                signal.symbol === selectedSymbol
-            );
-            displaySignals(filteredSignals);
-            updateSignalCount(filteredSignals.length);
-        } else {
-            displaySignals(signalsData);
-            updateSignalCount(signalsData.length);
-        }
-    });
 }
 
 // Show notification
@@ -2206,234 +1331,6 @@ function formatDate(dateString) {
     });
 }
 
-// Test Modal Functionality
-function testModal() {
-    showNotification('Testing modal functionality...', 'info');
-    // Example: Populate modal with dummy data
-    document.getElementById('signalModalBody').innerHTML = `
-        <!-- Timeframe and Entry Point Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Timeframe & Entry Point Analysis</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h5 class="text-primary mb-2">Timeframe</h5>
-                                    <span class="badge bg-info fs-5 px-3 py-2">4H</span>
-                                    <p class="text-muted mt-2 mb-0">Analysis Period</p>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h5 class="text-primary mb-2">Entry Point Type</h5>
-                                    <span class="badge bg-success fs-5 px-3 py-2">Support Break</span>
-                                    <p class="text-muted mt-2 mb-0">Entry Strategy</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h6 class="text-muted mb-2">Entry Confidence</h6>
-                                    <div class="progress" style="height: 25px;">
-                                        <div class="progress-bar bg-success" 
-                                             role="progressbar" 
-                                             style="width: 85%"
-                                             aria-valuenow="85" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                            85%
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h6 class="text-muted mb-2">Entry Zone</h6>
-                                    <div class="border rounded p-2">
-                                        <span class="text-success">$45,000.00</span>
-                                        <span class="text-muted mx-2">to</span>
-                                        <span class="text-success">$47,000.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Test Signal Information</h6>
-                <p><strong>Symbol:</strong> BTC</p>
-                <p><strong>Type:</strong> BUY</p>
-                <p><strong>Confidence:</strong> 95%</p>
-                <p><strong>Created:</strong> 2023-10-27 10:00 AM</p>
-            </div>
-            <div class="col-md-6">
-                <h6>Trading Parameters</h6>
-                <p><strong>Price Target:</strong> $50,000.00</p>
-                <p><strong>Stop Loss:</strong> $45,000.00</p>
-                <p><strong>Risk/Reward:</strong> 1.20</p>
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-12">
-                <h6>Analysis</h6>
-                <p>Technical Score: 0.92</p>
-                <p>Sentiment Score: 0.88</p>
-                <p><strong>Timeframe:</strong> <span class="badge bg-info">4H</span></p>
-                <p><strong>Entry Point Type:</strong> <span class="badge bg-success">Support Break</span></p>
-                <p><strong>Entry Confidence:</strong> 85%</p>
-            </div>
-        </div>
-    `;
-    const modal = new bootstrap.Modal(document.getElementById('signalModal'));
-    modal.show();
-}
-
-// Test Timeframe Modal Functionality
-function testTimeframeModal() {
-    showNotification('Testing timeframe modal functionality...', 'info');
-    // Example: Populate modal with dummy data
-    document.getElementById('signalModalBody').innerHTML = `
-        <!-- Timeframe and Entry Point Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Timeframe & Entry Point Analysis</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h5 class="text-primary mb-2">Timeframe</h5>
-                                    <span class="badge bg-info fs-5 px-3 py-2">4H</span>
-                                    <p class="text-muted mt-2 mb-0">Analysis Period</p>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h5 class="text-primary mb-2">Entry Point Type</h5>
-                                    <span class="badge bg-success fs-5 px-3 py-2">Support Break</span>
-                                    <p class="text-muted mt-2 mb-0">Entry Strategy</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h6 class="text-muted mb-2">Entry Confidence</h6>
-                                    <div class="progress" style="height: 25px;">
-                                        <div class="progress-bar bg-success" 
-                                             role="progressbar" 
-                                             style="width: 85%"
-                                             aria-valuenow="85" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                            85%
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="text-center">
-                                    <h6 class="text-muted mb-2">Entry Zone</h6>
-                                    <div class="border rounded p-2">
-                                        <span class="text-success">$45,000.00</span>
-                                        <span class="text-muted mx-2">to</span>
-                                        <span class="text-success">$47,000.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Test Signal Information</h6>
-                <p><strong>Symbol:</strong> BTC</p>
-                <p><strong>Type:</strong> BUY</p>
-                <p><strong>Confidence:</strong> 95%</p>
-                <p><strong>Created:</strong> 2023-10-27 10:00 AM</p>
-            </div>
-            <div class="col-md-6">
-                <h6>Trading Parameters</h6>
-                <p><strong>Price Target:</strong> $50,000.00</p>
-                <p><strong>Stop Loss:</strong> $45,000.00</p>
-                <p><strong>Risk/Reward:</strong> 1.20</p>
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-12">
-                <h6>Analysis</h6>
-                <p>Technical Score: 0.92</p>
-                <p>Sentiment Score: 0.88</p>
-                <p><strong>Timeframe:</strong> <span class="badge bg-info">4H</span></p>
-                <p><strong>Entry Point Type:</strong> <span class="badge bg-success">Support Break</span></p>
-                <p><strong>Entry Confidence:</strong> 85%</p>
-            </div>
-        </div>
-    `;
-    const modal = new bootstrap.Modal(document.getElementById('signalModal'));
-    modal.show();
-}
-
-// Reset signals for testing (sets is_executed to false for all signals)
-function resetSignalsForTesting() {
-    if (confirm('Are you sure you want to reset all signals to "Active" status for testing?')) {
-        showNotification('Resetting signals...', 'warning');
-        const csrfToken = getCookie('csrftoken');
-        if (!csrfToken) {
-            showNotification('CSRF token not found. Please refresh the page.', 'danger');
-            return;
-        }
-
-        fetch('/signals/api/reset-testing/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken,
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                showNotification('Signals reset successfully for testing!', 'success');
-                setTimeout(loadSignals, 2000); // Reload signals to reflect changes
-                loadStatistics(); // Reload statistics
-            } else {
-                showNotification('Error resetting signals: ' + (data.error || 'Unknown error'), 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error resetting signals:', error);
-            showNotification('Error resetting signals: ' + error.message, 'danger');
-        });
-    }
-}
-
-// Toggle test mode
-function toggleTestMode() {
-    testMode = !testMode;
-    const statusSpan = document.getElementById('test-mode-status');
-    statusSpan.textContent = testMode ? 'ON' : 'OFF';
-}
-
 // Reset all filters and reload hourly top 5
 function resetFilters() {
     const symbolFilterEl = document.getElementById('symbol-filter');
@@ -2444,49 +1341,6 @@ function resetFilters() {
     showNotification('Filters reset. Showing top 5 signals for current hour.', 'info');
 }
 
-
-// Search/filter signals based on symbol and timeframe (hourly view only)
-function searchSignals() {
-    try {
-        const symbolFilterEl = document.getElementById('symbol-filter');
-        const timeframeFilterEl = document.getElementById('timeframe-filter');
-        const symbolFilter = symbolFilterEl ? symbolFilterEl.value : '';
-        const timeframeFilter = timeframeFilterEl ? timeframeFilterEl.value : '';
-        const params = new URLSearchParams();
-        if (symbolFilter) params.append('symbol', symbolFilter);
-        if (timeframeFilter) params.append('timeframe', timeframeFilter);
-        params.append('limit', 100);
-        let apiUrl = '/signals/api/signals/';
-        if (params.toString()) apiUrl += '?' + params.toString();
-        showNotification('Searching signals...', 'info');
-        fetch(apiUrl)
-            .then(function(response) { return parseJsonResponse(response); })
-            .then(function(data) {
-                if (data.success) {
-                    let filteredSignals = data.signals || [];
-                    if (timeframeFilter && (!data.signals || !data.signals.find(s => s.timeframe === timeframeFilter))) {
-                        filteredSignals = (filteredSignals || []).filter(signal => !timeframeFilter || signal.timeframe === timeframeFilter);
-                    }
-                    displaySignals(filteredSignals);
-                    updateSignalCount(filteredSignals.length);
-                    updateSignalsChart(filteredSignals);
-                    const filterCount = [symbolFilter, timeframeFilter].filter(f => f).length;
-                    showNotification(filterCount > 0 ? `Found ${filteredSignals.length} signal(s).` : `Showing ${filteredSignals.length} signals.`, filterCount > 0 ? 'success' : 'info');
-                } else {
-                    showNotification('Error searching signals: ' + (data.error || 'Unknown error'), 'danger');
-                }
-            })
-            .catch(error => {
-                console.error('Error searching signals:', error);
-                showNotification('Error searching signals. Please try again.', 'danger');
-                filterSignals();
-            });
-    } catch (error) {
-        console.error('Error in searchSignals:', error);
-        showNotification('Error searching signals. Please try again.', 'danger');
-        filterSignals();
-    }
-}
 
 // Filter signals by symbol and timeframe (client-side on current hourly data)
 function filterSignals() {
@@ -2511,14 +1365,7 @@ function filterSignals() {
         );
     }
     
-    // Display filtered signals
     displaySignals(filteredSignals);
-    
-    // Update count
-    updateSignalCount(filteredSignals.length);
-    
-    // Update chart with filtered data
-    updateSignalsChart(filteredSignals);
 }
 
 // Note: Event listeners are now set up in the main DOMContentLoaded event listener above
@@ -2540,14 +1387,6 @@ function startSignalsAutoRefresh() {
     }, 30000); // Check every 30 seconds
     
     console.log('Signals auto-refresh started (every 30 seconds)');
-}
-
-function stopSignalsAutoRefresh() {
-    if (signalsAutoRefreshInterval) {
-        clearInterval(signalsAutoRefreshInterval);
-        signalsAutoRefreshInterval = null;
-        console.log('Signals auto-refresh stopped');
-    }
 }
 
 // Function to refresh live prices without reloading entire signals

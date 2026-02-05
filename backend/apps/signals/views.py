@@ -1014,68 +1014,18 @@ class AvailableDatesView(View):
 
 
 def _signal_dashboard_safe_context(error=None):
-    """Build a minimal safe context for the signal dashboard (used on error or as defaults)."""
-    return {
-        'recent_signals': [],
-        'daily_metrics': {},
-        'active_alerts': [],
-        'recent_regimes': [],
-        'total_signals': 0,
-        'active_signals': 0,
-        'executed_signals': 0,
-        'profitable_signals': 0,
-        'win_rate': 0.0,
-        'error': error,
-    }
+    """Build minimal context for the signals dashboard (table-only page; data loaded via API)."""
+    return {'error': error}
 
 
 @login_required
 def signal_dashboard(request):
-    """Signal dashboard view. On error, still renders page with safe context and shows error message."""
+    """Signals dashboard view: table only; signals loaded client-side via API."""
     try:
-        # Get recent signals
-        recent_signals = TradingSignal.objects.select_related(
-            'symbol', 'signal_type'
-        ).filter(is_valid=True).order_by('-created_at')[:10]
-        
-        # Get performance metrics
-        performance_service = SignalPerformanceService()
-        daily_metrics = performance_service.calculate_performance_metrics('1D')
-        
-        # Get active alerts
-        active_alerts = SignalAlert.objects.filter(is_read=False).order_by('-created_at')[:5]
-        
-        # Get market regimes
-        recent_regimes = MarketRegime.objects.order_by('-created_at')[:5]
-        
-        # Calculate statistics
-        total_signals = TradingSignal.objects.count()
-        active_signals = TradingSignal.objects.filter(is_valid=True).count()
-        executed_signals = TradingSignal.objects.filter(is_executed=True).count()
-        profitable_signals = TradingSignal.objects.filter(
-            is_executed=True, is_profitable=True
-        ).count()
-        
-        win_rate = profitable_signals / executed_signals if executed_signals > 0 else 0.0
-        
-        context = {
-            'recent_signals': recent_signals,
-            'daily_metrics': daily_metrics,
-            'active_alerts': active_alerts,
-            'recent_regimes': recent_regimes,
-            'total_signals': total_signals,
-            'active_signals': active_signals,
-            'executed_signals': executed_signals,
-            'profitable_signals': profitable_signals,
-            'win_rate': win_rate,
-            'error': None,
-        }
-        return render(request, 'signals/dashboard.html', context)
-        
+        return render(request, 'signals/dashboard.html', {'error': None})
     except Exception as e:
         logger.exception("Error rendering signal dashboard: %s", e)
-        context = _signal_dashboard_safe_context(error=str(e))
-        return render(request, 'signals/dashboard.html', context)
+        return render(request, 'signals/dashboard.html', _signal_dashboard_safe_context(error=str(e)))
 
 
 @login_required
