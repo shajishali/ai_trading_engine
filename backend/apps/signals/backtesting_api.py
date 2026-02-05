@@ -472,7 +472,11 @@ class BacktestAPIView(View):
             # Analyze executed signals
             analysis_result = self._analyze_executed_signals(executed_signals, symbol, start_date, end_date)
             
-            logger.info(f"Backtest completed: {analysis_result['total_signals']} signals, {analysis_result['executed_signals']} executed")
+            # Safe access to total_signals (could be in total_summary or top level)
+            total_signals = analysis_result.get('total_signals') or analysis_result.get('total_summary', {}).get('total_signals', 0)
+            executed_count = analysis_result.get('executed_signals', 0)
+            
+            logger.info(f"Backtest completed: {total_signals} signals, {executed_count} executed")
             
             return JsonResponse({
                 'success': True,
@@ -1050,6 +1054,18 @@ class BacktestAPIView(View):
                 'symbol': symbol.symbol,
                 'symbol_name': symbol.name,
                 'analysis_date': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'total_signals': total_signals,  # Add at top level for compatibility
+                'executed_signals': profit_signals + loss_signals,  # Add executed count
+                'expired_signals': 0,  # Not tracking expired separately
+                'profit_signals': profit_signals,
+                'loss_signals': loss_signals,
+                'not_opened_signals': not_opened_signals,
+                'total_investment': total_investment,
+                'total_profit_loss': total_profit_loss,
+                'profit_percentage': round(total_profit_percentage, 2),
+                'win_rate': ((profit_signals / (profit_signals + loss_signals)) * 100) if (profit_signals + loss_signals) > 0 else 0.0,
+                'quality_score': quality_score.get('quality_score', 0),
+                'quality_rating': quality_score.get('quality_rating', 'Unknown'),
                 'period': {
                     'start_date': start_date.strftime('%Y-%m-%d'),
                     'end_date': end_date.strftime('%Y-%m-%d'),
@@ -1146,6 +1162,18 @@ class BacktestAPIView(View):
             'symbol': symbol.symbol,
             'symbol_name': symbol.name,
             'analysis_date': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'total_signals': 0,  # Add at top level for compatibility
+            'executed_signals': 0,
+            'expired_signals': 0,
+            'profit_signals': 0,
+            'loss_signals': 0,
+            'not_opened_signals': 0,
+            'total_investment': 0,
+            'total_profit_loss': 0,
+            'profit_percentage': 0,
+            'win_rate': 0.0,
+            'quality_score': 0,
+            'quality_rating': 'No Data',
             'period': {
                 'start_date': start_date.strftime('%Y-%m-%d'),
                 'end_date': end_date.strftime('%Y-%m-%d'),
