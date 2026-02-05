@@ -158,6 +158,23 @@
     --dark-scrollbar-thumb: #3182ce;
 }
 
+.live-crypto-prices-component {
+    margin-bottom: 1.5rem;
+    /* Ensure component doesn't get cut off by sidebars */
+    position: relative;
+    width: 100%;
+    overflow: visible;
+}
+
+.live-crypto-prices-component .card {
+    overflow: visible;
+}
+
+.live-crypto-prices-component .card-body {
+    overflow: visible;
+    position: relative;
+}
+
 .crypto-prices-scroll-container {
     overflow-x: auto;
     overflow-y: hidden;
@@ -169,6 +186,12 @@
     /* Better touch scrolling on mobile */
     touch-action: pan-x;
     scroll-behavior: smooth;
+    /* Prevent content from being cut off at edges - extend beyond container */
+    padding: 0 20px;
+    margin: 0 -20px;
+    width: calc(100% + 40px);
+    /* Ensure scrollbar doesn't overlap content */
+    padding-bottom: 10px;
 }
 
 .crypto-prices-scroll-container::-webkit-scrollbar {
@@ -192,8 +215,11 @@
 .crypto-prices-row {
     display: flex;
     gap: 15px;
-    padding: 5px;
+    padding: 5px 0;
     min-width: max-content;
+    /* Ensure first and last cards are fully visible with proper spacing */
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
 .crypto-price-card-wrapper {
@@ -317,6 +343,18 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .crypto-prices-scroll-container {
+        padding: 0 15px;
+        margin: 0 -15px;
+        width: calc(100% + 30px);
+        padding-bottom: 10px;
+    }
+    
+    .crypto-prices-row {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    
     .crypto-price-card-wrapper {
         width: 140px;
         min-width: 140px;
@@ -324,7 +362,7 @@
     
     .crypto-prices-row {
         gap: 10px;
-        padding: 5px 10px;
+        padding: 5px 5px;
     }
     
     .crypto-price-card {
@@ -364,8 +402,28 @@
 }
 
 @media (max-width: 576px) {
+    .live-crypto-prices-component {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+    }
+    
+    .live-crypto-prices-component .card {
+        margin-left: 0;
+        margin-right: 0;
+        border-radius: 0.5rem;
+    }
+    
     .live-crypto-prices-component .card-body {
         padding: 0.75rem !important;
+        overflow: visible;
+    }
+    
+    .crypto-prices-scroll-container {
+        padding: 0 10px;
+        margin: 0 -10px;
+        width: calc(100% + 20px);
+        padding-bottom: 10px;
     }
     
     .crypto-price-card-wrapper {
@@ -375,7 +433,9 @@
     
     .crypto-prices-row {
         gap: 8px;
-        padding: 5px;
+        padding: 5px 5px;
+        padding-left: 5px;
+        padding-right: 5px;
     }
     
     .crypto-price-card {
@@ -454,6 +514,13 @@
 }
 
 @media (max-width: 400px) {
+    .crypto-prices-scroll-container {
+        padding: 0 10px;
+        margin: 0 -10px;
+        width: calc(100% + 20px);
+        padding-bottom: 10px;
+    }
+    
     .crypto-price-card-wrapper {
         width: 120px;
         min-width: 120px;
@@ -461,10 +528,30 @@
     
     .crypto-prices-row {
         gap: 6px;
+        padding: 5px 5px;
+        padding-left: 5px;
+        padding-right: 5px;
     }
     
     .crypto-price-card {
         padding: 0.5rem 0.3rem !important;
+    }
+    
+    /* Ensure full visibility on very small screens - extend to edges */
+    .live-crypto-prices-component {
+        margin-left: -15px;
+        margin-right: -15px;
+        width: calc(100% + 30px);
+    }
+    
+    .live-crypto-prices-component .card {
+        border-radius: 0.5rem;
+        margin: 0;
+    }
+    
+    .live-crypto-prices-component .card-body {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
     }
 }
 </style>
