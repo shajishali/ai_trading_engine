@@ -3,69 +3,74 @@
 {% block title %}Login - AI Trading Engine{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card">
-                <div class="card-header text-center">
-                    <h4><i class="fas fa-sign-in-alt"></i> Login</h4>
+<style>
+    /* Login page: blurred background with home page preview */
+    body {
+        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%);
+        background-color: #113E80;
+        min-height: 100vh;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Blurred background layer */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%);
+        background-image: 
+            radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 20%, rgba(255,255,255,0.05) 0%, transparent 50%);
+        filter: blur(20px);
+        transform: scale(1.1);
+        z-index: -1;
+    }
+    
+    .main-content-wrap {
+        filter: blur(8px);
+        pointer-events: none;
+        opacity: 0.6;
+    }
+</style>
+
+<!-- Blurred background content (home page preview) -->
+<div class="main-content-wrap login-blurred" id="main-content-wrap">
+    <div class="container mt-5">
+        <div class="row mb-5">
+            <div class="col-12 text-center">
+                <h1 class="display-4 fw-bold text-white mb-3">
+                    <i class="fas fa-chart-line me-3"></i>
+                    Welcome to AI Trading Engine
+                </h1>
+                <p class="lead text-white-50 mb-4">
+                    Your advanced trading platform with AI-powered signals, real-time analytics, and machine learning insights.
+                </p>
+            </div>
+        </div>
+        <div class="row mb-5">
+            <div class="col-md-4 mb-4">
+                <div class="card bg-white bg-opacity-10 text-white border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-tachometer-alt fa-3x mb-3"></i>
+                        <h5>Trading Dashboard</h5>
+                    </div>
                 </div>
-                <div class="card-body">
-                    {% if error %}
-                    <div class="alert alert-danger" role="alert">
-                        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card bg-white bg-opacity-10 text-white border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-signal fa-3x mb-3"></i>
+                        <h5>Trading Signals</h5>
                     </div>
-                    {% endif %}
-                    
-                    {% if email_not_verified %}
-                    <div class="alert alert-warning" role="alert">
-                        <h6><i class="fas fa-envelope"></i> Email Verification Required</h6>
-                        <p class="mb-2">Your email address ({{ user_email }}) has not been verified yet.</p>
-                        <p class="mb-3">Please check your inbox for the verification email, or click below to resend it.</p>
-                        <form method="post" action="{% url 'subscription:resend_verification' %}" style="margin: 0;">
-                            {% csrf_token %}
-                            <input type="hidden" name="email" value="{{ user_email }}">
-                            <button type="submit" class="btn btn-warning btn-sm">
-                                <i class="fas fa-paper-plane"></i> Resend Verification Email
-                            </button>
-                        </form>
-                        <hr class="my-3">
-                        <p class="mb-0">
-                            <small>
-                                <a href="{% url 'subscription:verification_pending' %}" class="text-decoration-none">
-                                    <i class="fas fa-info-circle"></i> Need help?
-                                </a>
-                            </small>
-                        </p>
-                    </div>
-                    {% endif %}
-                    
-                    <form method="post" id="login-form">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="username" class="form-label">
-                                <i class="fas fa-user"></i> Username
-                            </label>
-                            <input type="text" class="form-control" id="username" name="username" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">
-                                <i class="fas fa-lock"></i> Password
-                            </label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary" id="login-btn">
-                                <i class="fas fa-sign-in-alt"></i> Login
-                            </button>
-                        </div>
-                    </form>
-                    
-                    <div class="text-center mt-3">
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle"></i> 
-                            Don't have an account? Contact your administrator.
-                        </small>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card bg-white bg-opacity-10 text-white border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-history fa-3x mb-3"></i>
+                        <h5>Backtesting</h5>
                     </div>
                 </div>
             </div>
@@ -73,115 +78,151 @@
     </div>
 </div>
 
-<style>
-    /* Login page: use website theme colour #113E80 */
-    body {
-        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%) !important;
-        background-color: #113E80 !important;
-        min-height: 100vh;
-        color: var(--text-color);
-    }
-    
-    .card {
-        background: var(--card-bg);
-        color: var(--text-color);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-    }
-    
-    .card-header {
-        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%) !important;
-        color: white !important;
-        border-radius: 15px 15px 0 0 !important;
-        border: none;
-    }
-    
-    .form-label {
-        color: var(--text-color);
-    }
-    
-    .form-control {
-        background: var(--card-bg);
-        color: var(--text-color);
-        border-radius: 8px;
-        border: 2px solid rgba(0, 0, 0, 0.15);
-        padding: 12px 15px;
-    }
-    
-    [data-theme="dark"] .form-control {
-        border-color: rgba(255, 255, 255, 0.25);
-    }
-    
-    .form-control:focus {
-        border-color: var(--secondary-color);
-        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, var(--primary-gradient-start, #113E80) 0%, var(--primary-gradient-end, #1a5bb8) 100%);
-        border: none;
-        padding: 12px;
-        font-weight: bold;
-        border-radius: 8px;
-    }
-    
-    .text-muted {
-        color: var(--text-color) !important;
-        opacity: 0.85;
-    }
-</style>
+<!-- Login modal overlay (auto-opened) -->
+<div class="login-modal-overlay show" id="login-modal-overlay" aria-hidden="false">
+    <div class="login-modal-dialog card shadow" role="dialog" aria-labelledby="login-modal-title">
+        <div class="card-header position-relative">
+            <h5 class="mb-0" id="login-modal-title"><i class="fas fa-sign-in-alt me-2"></i>Login</h5>
+            <button type="button" class="login-modal-close" id="login-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="card-body">
+            {% if error %}
+            <div class="alert alert-danger" role="alert" id="login-modal-error">
+                <i class="fas fa-exclamation-triangle"></i> {{ error }}
+            </div>
+            {% else %}
+            <div id="login-modal-error" class="alert alert-danger d-none" role="alert"></div>
+            {% endif %}
+            
+            {% if email_not_verified %}
+            <div class="alert alert-warning" role="alert">
+                <h6><i class="fas fa-envelope"></i> Email Verification Required</h6>
+                <p class="mb-2">Your email address ({{ user_email }}) has not been verified yet.</p>
+                <p class="mb-3">Please check your inbox for the verification email, or click below to resend it.</p>
+                <form method="post" action="{% url 'subscription:resend_verification' %}" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="email" value="{{ user_email }}">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="fas fa-paper-plane"></i> Resend Verification Email
+                    </button>
+                </form>
+                <hr class="my-3">
+                <p class="mb-0">
+                    <small>
+                        <a href="{% url 'subscription:verification_pending' %}" class="text-decoration-none">
+                            <i class="fas fa-info-circle"></i> Need help?
+                        </a>
+                    </small>
+                </p>
+            </div>
+            {% endif %}
+            
+            <form id="login-modal-form" method="post">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <div class="mb-3">
+                    <label for="login-username" class="form-label"><i class="fas fa-user me-1"></i>Username</label>
+                    <input type="text" class="form-control" id="login-username" name="username" required autocomplete="username">
+                </div>
+                <div class="mb-3">
+                    <label for="login-password" class="form-label"><i class="fas fa-lock me-1"></i>Password</label>
+                    <input type="password" class="form-control" id="login-password" name="password" required autocomplete="current-password">
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary" id="login-modal-btn">
+                        <i class="fas fa-sign-in-alt me-1"></i>Login
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-muted small mt-3 mb-0">
+                <i class="fas fa-info-circle me-1"></i>Don't have an account? Contact your administrator.
+            </p>
+        </div>
+    </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const loginForm = document.getElementById('login-form');
-    const loginBtn = document.getElementById('login-btn');
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
+    var overlay = document.getElementById('login-modal-overlay');
+    var mainWrap = document.getElementById('main-content-wrap');
+    var closeBtn = document.getElementById('login-modal-close');
+    var form = document.getElementById('login-modal-form');
+    var errorEl = document.getElementById('login-modal-error');
+    var submitBtn = document.getElementById('login-modal-btn');
     
-    // Add form submission handling
-    loginForm.addEventListener('submit', function(e) {
-        console.log('Login form submitted');
-        
-        // Validate form
-        if (!usernameInput.value.trim()) {
-            e.preventDefault();
-            alert('Please enter a username');
-            usernameInput.focus();
-            return false;
+    // Ensure modal is open and background is blurred
+    if (overlay) overlay.classList.add('show');
+    if (mainWrap) mainWrap.classList.add('login-blurred');
+    document.body.style.overflow = 'hidden';
+    
+    function closeLoginModal() {
+        if (overlay) overlay.classList.remove('show');
+        if (overlay) overlay.setAttribute('aria-hidden', 'true');
+        if (mainWrap) mainWrap.classList.remove('login-blurred');
+        document.body.style.overflow = '';
+        // Redirect to home if closing from /login/ page
+        if (window.location.pathname === '/login/' || window.location.pathname.includes('/login')) {
+            window.location.href = '{% url "dashboard:home" %}';
         }
-        
-        if (!passwordInput.value.trim()) {
-            e.preventDefault();
-            alert('Please enter a password');
-            passwordInput.focus();
-            return false;
-        }
-        
-        // Show loading state
-        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
-        loginBtn.disabled = true;
-        
-        console.log('Form validation passed, submitting...');
-    });
+    }
     
-    // Add input validation
-    usernameInput.addEventListener('input', function() {
-        this.classList.remove('is-invalid');
+    if (closeBtn) closeBtn.addEventListener('click', closeLoginModal);
+    if (overlay) overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeLoginModal();
     });
-    
-    passwordInput.addEventListener('input', function() {
-        this.classList.remove('is-invalid');
-    });
-    
-    // Add keyboard shortcuts
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && (document.activeElement === usernameInput || document.activeElement === passwordInput)) {
-            loginForm.submit();
-        }
+        if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closeLoginModal();
     });
     
-    console.log('Login form enhanced');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var loginUrl = '{% url "dashboard:login" %}';
+            var next = new URLSearchParams(window.location.search).get('next') || '/dashboard/';
+            var formData = new FormData(form);
+            formData.append('next', next);
+            if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging in...';
+            
+            fetch(loginUrl + '?next=' + encodeURIComponent(next), {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                redirect: 'manual'
+            }).then(function(res) {
+                if (res.status === 302 || res.type === 'opaqueredirect') {
+                    var loc = res.headers.get('Location');
+                    if (loc) { window.location.href = loc; return; }
+                }
+                return res.text().then(function(html) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
+                    if (res.ok) {
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(html, 'text/html');
+                        var alert = doc.querySelector('.alert-danger, .alert-warning, .alert');
+                        var msg = alert ? (alert.textContent || alert.innerText).trim() : 'Invalid username or password. Please try again.';
+                        if (errorEl) {
+                            errorEl.textContent = msg;
+                            errorEl.classList.remove('d-none');
+                        }
+                    } else {
+                        if (errorEl) {
+                            errorEl.textContent = 'Unable to log in. Please try again.';
+                            errorEl.classList.remove('d-none');
+                        }
+                    }
+                });
+            }).catch(function() {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
+                if (errorEl) {
+                    errorEl.textContent = 'Network error. Please try again.';
+                    errorEl.classList.remove('d-none');
+                }
+            });
+        });
+    }
 });
 </script>
 {% endblock %}
