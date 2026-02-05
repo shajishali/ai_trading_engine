@@ -20,7 +20,7 @@ def home(request):
     """Home page view"""
     try:
         context = {
-            'title': 'AI-Enhanced Trading Signal Engine',
+            'title': 'CryptAI',
             'description': 'Advanced trading platform powered by artificial intelligence',
         }
         # Fetch live crypto prices for the horizontal scroll section (under Quick Access)

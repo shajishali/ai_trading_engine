@@ -102,7 +102,7 @@ class DashboardViewsTestCase(TestCase):
         """Test home page loads correctly"""
         response = self.client.get(reverse('dashboard:home'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'AI-Enhanced Trading Signal Engine')
+        self.assertContains(response, 'CryptAI')
         self.assertContains(response, 'advanced trading platform')
     
     def test_login_page_get(self):

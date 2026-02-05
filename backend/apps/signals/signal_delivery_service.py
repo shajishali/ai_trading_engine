@@ -335,11 +335,11 @@ Hybrid Signal Details:
 """
             
             body += """
-This is an automated signal from the AI Trading Engine.
+This is an automated signal from CryptAI.
 Please do your own research before making trading decisions.
 
 Best regards,
-AI Trading Engine Team
+CryptAI Team
 """
             
             return body
@@ -378,7 +378,7 @@ AI Trading Engine Team
             message += """
 ⚠️ <i>Automated signal - please do your own research before trading.</i>
 
-🤖 AI Trading Engine
+🤖 CryptAI
 """
             
             return message

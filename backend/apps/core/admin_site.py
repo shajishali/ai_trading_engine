@@ -20,7 +20,7 @@ class CustomAdminSite(admin.AdminSite):
     """Custom admin site with enhanced features"""
     
     site_header = "AI Trading Signal Engine"
-    site_title = "Trading Engine Admin"
+    site_title = "CryptAI Admin"
     index_title = "Dashboard"
     
     def get_urls(self):

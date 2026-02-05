@@ -505,7 +505,7 @@ class HourlyBestSignalAdmin(admin.ModelAdmin):
 
 # Custom admin site configuration
 admin.site.site_header = "AI Trading Signal Engine"
-admin.site.site_title = "Trading Engine Admin"
+admin.site.site_title = "CryptAI Admin"
 admin.site.index_title = "Dashboard"
 
 # Add custom admin views for statistics

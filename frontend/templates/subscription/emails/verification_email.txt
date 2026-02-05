@@ -1,9 +1,9 @@
-Verify Your Email Address - AI Trading Engine
+Verify Your Email Address - CryptAI
 =============================================
 
 Hello {{ user.username }},
 
-Thank you for signing up for AI Trading Engine! To complete your registration and activate your account, please verify your email address by clicking the link below:
+Thank you for signing up for CryptAI! To complete your registration and activate your account, please verify your email address by clicking the link below:
 
 {{ verification_url }}
 
@@ -14,7 +14,7 @@ If the link above doesn't work, copy and paste it into your browser's address ba
 If you didn't create an account with us, please ignore this email.
 
 Welcome aboard!
-The AI Trading Engine Team
+The CryptAI Team
 
 ---
 This is an automated email. Please do not reply to this message.

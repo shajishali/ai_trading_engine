@@ -525,7 +525,7 @@ class QualityAlertingSystem:
     def _send_email_notification(self, rule: AlertRule, context: AlertContext):
         """Send email notification"""
         try:
-            subject = f"[{rule.severity.value}] {rule.name} - AI Trading Engine"
+            subject = f"[{rule.severity.value}] {rule.name} - CryptAI"
             
             message = f"""
 Alert: {rule.name}
