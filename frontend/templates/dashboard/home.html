@@ -203,7 +203,23 @@
     
     /* Ensure footer text is always white/visible in all themes */
     footer,
-    footer * {
+    footer *,
+    footer h5,
+    footer h5 *,
+    footer p,
+    footer p *,
+    footer .text-light,
+    footer .text-light *,
+    footer li,
+    footer li *,
+    footer a,
+    footer a *,
+    footer a.text-light,
+    footer a.text-white,
+    footer i,
+    footer .fas,
+    footer .fab,
+    footer .fa {
         color: #ffffff !important;
     }
     
@@ -214,10 +230,10 @@
     footer a.text-light,
     footer a.text-white {
         color: #ffffff !important;
-        opacity: 1 !important;
     }
     
-    footer a:hover {
+    footer a:hover,
+    footer a:hover * {
         color: #ffffff !important;
         opacity: 1 !important;
     }
@@ -233,14 +249,23 @@
         background: linear-gradient(135deg, #0a2d5a 0%, #113E80 100%) !important;
     }
     
-    /* Force white text in footer for light mode */
+    /* Force white text in footer for light mode - comprehensive */
     body[data-theme="light"] footer,
     body[data-theme="light"] footer *,
+    body[data-theme="light"] footer h5,
+    body[data-theme="light"] footer h5 *,
     body[data-theme="light"] footer p,
+    body[data-theme="light"] footer p *,
     body[data-theme="light"] footer .text-light,
+    body[data-theme="light"] footer .text-light *,
     body[data-theme="light"] footer li,
+    body[data-theme="light"] footer li *,
     body[data-theme="light"] footer a,
-    body[data-theme="light"] footer h5 {
+    body[data-theme="light"] footer a *,
+    body[data-theme="light"] footer i,
+    body[data-theme="light"] footer .fas,
+    body[data-theme="light"] footer .fab,
+    body[data-theme="light"] footer .fa {
         color: #ffffff !important;
     }
 </style>
@@ -390,45 +415,45 @@
         <div class="row">
             <!-- About Section -->
             <div class="col-md-5 mb-3">
-                <h5 class="mb-2">
-                    <i class="fas fa-chart-line me-2"></i>CryptAI
+                <h5 class="mb-2" style="color: #ffffff !important;">
+                    <i class="fas fa-chart-line me-2" style="color: #ffffff !important;"></i>CryptAI
                 </h5>
                 <p class="text-light" style="color: #ffffff !important; opacity: 0.95; font-size: 0.9rem;">
                     Advanced AI-powered trading platform with real-time signals, machine learning insights, and comprehensive analytics for informed trading decisions.
                 </p>
                 <div class="mt-2">
-                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="Facebook" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
-                        <i class="fab fa-facebook"></i>
+                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9; color: #ffffff !important;" title="Facebook" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-facebook" style="color: #ffffff !important;"></i>
                     </a>
-                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="Twitter" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
-                        <i class="fab fa-twitter"></i>
+                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9; color: #ffffff !important;" title="Twitter" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-twitter" style="color: #ffffff !important;"></i>
                     </a>
-                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="LinkedIn" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
-                        <i class="fab fa-linkedin"></i>
+                    <a href="#" class="text-white me-3" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9; color: #ffffff !important;" title="LinkedIn" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-linkedin" style="color: #ffffff !important;"></i>
                     </a>
-                    <a href="#" class="text-white" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9;" title="GitHub" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
-                        <i class="fab fa-github"></i>
+                    <a href="#" class="text-white" style="font-size: 1.5rem; text-decoration: none; opacity: 0.9; color: #ffffff !important;" title="GitHub" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)'">
+                        <i class="fab fa-github" style="color: #ffffff !important;"></i>
                     </a>
                 </div>
             </div>
             
             <!-- Quick Links -->
             <div class="col-md-3 mb-3">
-                <h5 class="mb-2">Quick Links</h5>
+                <h5 class="mb-2" style="color: #ffffff !important;">Quick Links</h5>
                 <ul class="list-unstyled">
                     <li class="mb-2">
                         <a href="{% url 'dashboard:dashboard' %}" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
-                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Dashboard
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem; color: #ffffff !important;"></i>Dashboard
                         </a>
                     </li>
                     <li class="mb-2">
                         <a href="/signals/" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
-                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Trading Signals
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem; color: #ffffff !important;"></i>Trading Signals
                         </a>
                     </li>
                     <li class="mb-2">
                         <a href="{% url 'analytics:backtesting' %}" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
-                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem;"></i>Backtesting
+                            <i class="fas fa-chevron-right me-2" style="font-size: 0.8rem; color: #ffffff !important;"></i>Backtesting
                         </a>
                     </li>
                 </ul>
@@ -436,20 +461,20 @@
             
             <!-- Contact & Support -->
             <div class="col-md-4 mb-3">
-                <h5 class="mb-2">Contact & Support</h5>
+                <h5 class="mb-2" style="color: #ffffff !important;">Contact & Support</h5>
                 <ul class="list-unstyled">
                     <li class="mb-2 text-light" style="color: #ffffff !important; opacity: 0.95;">
-                        <i class="fas fa-envelope me-2"></i>support@cryptai.com
+                        <i class="fas fa-envelope me-2" style="color: #ffffff !important;"></i>support@cryptai.com
                     </li>
                     <li class="mb-2 text-light" style="color: #ffffff !important; opacity: 0.95;">
-                        <i class="fas fa-phone me-2"></i>+94776696901
+                        <i class="fas fa-phone me-2" style="color: #ffffff !important;"></i>+94776696901
                     </li>
                     <li class="mb-2 text-light" style="color: #ffffff !important; opacity: 0.95;">
-                        <i class="fas fa-clock me-2"></i>24/7 Support Available
+                        <i class="fas fa-clock me-2" style="color: #ffffff !important;"></i>24/7 Support Available
                     </li>
                     <li class="mb-2">
                         <a href="#" class="text-light" style="color: #ffffff !important; text-decoration: none; opacity: 0.95;">
-                            <i class="fas fa-question-circle me-2"></i>Help Center
+                            <i class="fas fa-question-circle me-2" style="color: #ffffff !important;"></i>Help Center
                         </a>
                     </li>
                 </ul>
