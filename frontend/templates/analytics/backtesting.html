@@ -1414,123 +1414,37 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!container) return;
         
         container.innerHTML = '';
+        const symbol = result.symbol || result.coin || 'N/A';
         
         if (result.individual_signals && result.individual_signals.length > 0) {
             result.individual_signals.forEach(signal => {
-                const card = document.createElement('div');
-                card.className = 'signal-card mb-3 p-3 border rounded';
+                const dateTime = [signal.signal_date || '', signal.signal_time || ''].filter(Boolean).join(' ') || 'N/A';
+                const confidence = signal.confidence ?? signal.confidence_score ?? '—';
+                const confidencePct = typeof confidence === 'number' ? confidence + '%' : confidence;
+                const typeBadge = signal.type && String(signal.type).toUpperCase().includes('BUY')
+                    ? '<span class="badge bg-success">BUY</span>'
+                    : '<span class="badge bg-danger">SELL</span>';
+                const statusClass = signal.status === 'PROFIT' ? 'table-success' : signal.status === 'LOSS' ? 'table-danger' : 'table-warning';
+                const scoreText = signal.status === 'PROFIT' || signal.status === 'LOSS'
+                    ? `$${signal.p_l_amount ?? signal.profit_loss_amount ?? '0'} (${signal.p_l_percentage ?? signal.profit_loss_percentage ?? '0'}%)`
+                    : (signal.status === 'NOT_OPENED' ? '—' : (signal.status || '—'));
                 
-                // Determine card color based on status
-                let cardClass = 'border-secondary';
-                if (signal.status === 'PROFIT') cardClass = 'border-success bg-light-success';
-                else if (signal.status === 'LOSS') cardClass = 'border-danger bg-light-danger';
-                else if (signal.status === 'NOT_OPENED') cardClass = 'border-warning bg-light-warning';
-                
-                card.className += ` ${cardClass}`;
-                
-                // Format dates
-                const createdDate = signal.signal_date || 'N/A';
-                const createdTime = signal.signal_time || 'N/A';
-                const openDate = signal.open_date || 'N/A';
-                const openTime = signal.open_time || 'N/A';
-                const closedDate = signal.closing_date || 'N/A';
-                const closedTime = signal.closing_time || 'N/A';
-                
-                // Status badge
-                let statusBadge = '';
-                if (signal.status === 'PROFIT') {
-                    statusBadge = '<span class="badge bg-success"><i class="fas fa-check"></i> PROFIT</span>';
-                } else if (signal.status === 'LOSS') {
-                    statusBadge = '<span class="badge bg-danger"><i class="fas fa-times"></i> LOSS</span>';
-                } else if (signal.status === 'NOT_OPENED') {
-                    statusBadge = '<span class="badge bg-warning"><i class="fas fa-clock"></i> NOT OPENED</span>';
-                }
-                
-                // Type badge
-                const typeBadge = signal.type?.includes('BUY') ? 
-                    '<span class="badge bg-success">BUY</span>' : 
-                    '<span class="badge bg-danger">SELL</span>';
-                
-                card.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="mb-1">${typeBadge} Signal #${signal.signal_id || 'N/A'}</h6>
-                            <small class="text-muted">Created: ${createdDate} ${createdTime}</small>
-                        </div>
-                        <div class="text-end">
-                            ${statusBadge}
-                            <div class="mt-1">
-                                <strong class="text-${signal.status === 'PROFIT' ? 'success' : signal.status === 'LOSS' ? 'danger' : 'warning'}">
-                                    $${signal.p_l_amount ?? signal.profit_loss_amount ?? '0.00'} 
-                                    (${signal.p_l_percentage ?? signal.profit_loss_percentage ?? '0.00'}%)
-                                </strong>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="signal-detail">
-                                <strong>Entry Price:</strong><br>
-                                <span class="text-primary">$${signal.entry_price || 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="signal-detail">
-                                <strong>Target Price:</strong><br>
-                                <span class="text-success">$${signal.target_price || 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="signal-detail">
-                                <strong>Stop Loss:</strong><br>
-                                <span class="text-danger">$${signal.stop_loss || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-2">
-                        <div class="col-md-4">
-                            <div class="signal-detail">
-                                <strong>Signal Open:</strong><br>
-                                <small>${openDate} ${openTime}</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="signal-detail">
-                                <strong>Signal Closed:</strong><br>
-                                <small>${closedDate} ${closedTime}</small>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="signal-detail">
-                                <strong>Execution Price:</strong><br>
-                                <span class="text-info">$${signal.execution_price || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-2">
-                        <div class="col-md-6">
-                            <div class="signal-detail">
-                                <strong>Confidence:</strong>
-                                <div class="progress mt-1" style="height: 8px;">
-                                    <div class="progress-bar bg-${signal.confidence >= 80 ? 'success' : signal.confidence >= 60 ? 'warning' : 'danger'}" 
-                                         style="width: ${signal.confidence ?? signal.confidence_score ?? 0}%"></div>
-                                </div>
-                                <small>${signal.confidence ?? signal.confidence_score ?? 0}%</small>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="signal-detail text-end">
-                                <strong>Risk/Reward:</strong><br>
-                                <span class="text-muted">${signal.risk_reward_ratio || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
+                const row = document.createElement('tr');
+                row.className = statusClass;
+                row.innerHTML = `
+                    <td class="text-nowrap">${dateTime}</td>
+                    <td>${signal.symbol || symbol}</td>
+                    <td>${typeBadge}</td>
+                    <td>${confidencePct}</td>
+                    <td>$${signal.entry_price ?? '—'}</td>
+                    <td>$${signal.target_price ?? '—'}</td>
+                    <td>$${signal.stop_loss ?? '—'}</td>
+                    <td>${signal.risk_reward_ratio ?? '—'}</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td class="text-${signal.status === 'PROFIT' ? 'success' : signal.status === 'LOSS' ? 'danger' : 'secondary'}">${scoreText}</td>
                 `;
-                
-                container.appendChild(card);
+                container.appendChild(row);
             });
         } else {
             // Create a proper table row for the "no results" message
