@@ -664,9 +664,17 @@ class StrategyBacktestingService:
         """Create a BUY signal based on strategy + sentiment + ML."""
         try:
             current_price = current_data.get('close')
-            if current_price is None or (hasattr(current_price, '__float__') and getattr(np, 'isnan', lambda x: False)(current_price)):
+            if current_price is None:
                 return None
-            current_price = float(current_price)
+            try:
+                current_price = float(current_price)
+            except (TypeError, ValueError):
+                return None
+            try:
+                if np.isnan(current_price) or current_price <= 0:
+                    return None
+            except Exception:
+                pass
             stop_loss = current_price * (1 - self.stop_loss_percentage)
             target_price = current_price * (1 + self.take_profit_percentage)
             risk = current_price - stop_loss
@@ -759,9 +767,17 @@ class StrategyBacktestingService:
         """Create a SELL signal based on strategy + sentiment + ML."""
         try:
             current_price = current_data.get('close')
-            if current_price is None or (hasattr(current_price, '__float__') and getattr(np, 'isnan', lambda x: False)(current_price)):
+            if current_price is None:
                 return None
-            current_price = float(current_price)
+            try:
+                current_price = float(current_price)
+            except (TypeError, ValueError):
+                return None
+            try:
+                if np.isnan(current_price) or current_price <= 0:
+                    return None
+            except Exception:
+                pass
             stop_loss = current_price * (1 + self.stop_loss_percentage)
             target_price = current_price * (1 - self.take_profit_percentage)
             risk = stop_loss - current_price

@@ -397,38 +397,39 @@ class BacktestAPIView(View):
                             }
                         })
                     
-                    # Convert generated signals to TradingSignal format for backtesting
-                    # We'll use the formatted signals directly for backtesting
+                    # Convert generated signals to TradingSignal format for backtesting (safe float)
+                    def _safe_float_bt(v, default=0.0):
+                        if v is None:
+                            return default
+                        try:
+                            return float(v)
+                        except (TypeError, ValueError):
+                            return default
                     formatted_signals = []
                     for signal in generated_signals:
-                        # Format created_at properly (handle both datetime objects and strings)
                         created_at = signal.get('created_at')
                         if hasattr(created_at, 'isoformat'):
-                            # It's a datetime object
                             created_at_str = created_at.isoformat()
                         elif isinstance(created_at, str):
-                            # Already a string
                             created_at_str = created_at
                         else:
-                            # Fallback: convert to string
-                            created_at_str = str(created_at)
-                        
+                            created_at_str = str(created_at) if created_at else ''
                         formatted_signals.append({
                             'id': signal.get('id', f"strategy_{hash(created_at_str)}"),
-                            'symbol': str(signal['symbol']),
-                            'signal_type': str(signal['signal_type']),
-                            'strength': str(signal['strength']),
-                            'confidence_score': float(signal['confidence_score']),
-                            'entry_price': float(signal['entry_price']),
-                            'target_price': float(signal['target_price']),
-                            'stop_loss': float(signal['stop_loss']),
-                            'risk_reward_ratio': float(signal['risk_reward_ratio']),
-                            'timeframe': str(signal['timeframe']),
-                            'quality_score': float(signal['quality_score']),
+                            'symbol': str(signal.get('symbol', '')),
+                            'signal_type': str(signal.get('signal_type', '')),
+                            'strength': str(signal.get('strength', '')),
+                            'confidence_score': _safe_float_bt(signal.get('confidence_score'), 0.5),
+                            'entry_price': _safe_float_bt(signal.get('entry_price')),
+                            'target_price': _safe_float_bt(signal.get('target_price')),
+                            'stop_loss': _safe_float_bt(signal.get('stop_loss')),
+                            'risk_reward_ratio': _safe_float_bt(signal.get('risk_reward_ratio'), 0.0),
+                            'timeframe': str(signal.get('timeframe', '1D')),
+                            'quality_score': _safe_float_bt(signal.get('quality_score'), 0.5),
                             'created_at': created_at_str,
                             'is_executed': False,
                             'executed_at': None,
-                            'strategy_confirmations': int(signal.get('strategy_confirmations', 0)),
+                            'strategy_confirmations': int(signal.get('strategy_confirmations') or 0),
                             'strategy_details': signal.get('strategy_details', {})
                         })
                     
