@@ -6,6 +6,7 @@ app_name = 'dashboard'
 urlpatterns = [
     path('', views.home, name='home'),
     path('login/', views.login_view, name='login'),
+    path('api/csrf-token/', views.get_csrf_token, name='csrf_token'),
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard-signals/', views.signals_view, name='signals'),  # Changed from signals/ to dashboard-signals/
