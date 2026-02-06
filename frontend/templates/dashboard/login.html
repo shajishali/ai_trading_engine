@@ -18,7 +18,7 @@
     <div class="login-modal-dialog card shadow" role="dialog" aria-labelledby="login-modal-title">
         <div class="card-header position-relative">
             <h5 class="mb-0" id="login-modal-title"><i class="fas fa-sign-in-alt me-2"></i>Login</h5>
-            <button type="button" class="login-modal-close" id="login-modal-close" aria-label="Close">&times;</button>
+            <button type="button" class="login-modal-close" id="login-modal-close" aria-label="Close" onclick="if(window.closeLoginModal) window.closeLoginModal(); return false;">&times;</button>
         </div>
         <div class="card-body">
             {% if error %}
@@ -88,16 +88,24 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.style.overflow = 'hidden';
     
     function closeLoginModal() {
-        if (overlay) overlay.classList.remove('show');
-        if (overlay) overlay.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
+        console.log('closeLoginModal called');
+        if (overlay) {
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+        if (document.body) {
+            document.body.style.overflow = '';
+        }
         // Redirect to home if closing from /login/ page
         if (window.location.pathname === '/login/' || window.location.pathname.includes('/login')) {
             window.location.href = '{% url "dashboard:home" %}';
         }
     }
     
-    // Use event delegation for close button (more reliable)
+    // Make function globally accessible for onclick fallback
+    window.closeLoginModal = closeLoginModal;
+    
+    // Multiple methods to ensure close button works
     function attachCloseHandler() {
         var btn = document.getElementById('login-modal-close');
         if (btn) {
@@ -105,22 +113,33 @@ document.addEventListener('DOMContentLoaded', function() {
             var newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             
-            // Add click handler
+            // Method 1: addEventListener
             newBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
+                console.log('Close button clicked (addEventListener)');
+                closeLoginModal();
+                return false;
+            }, true); // Use capture phase
+            
+            // Method 2: onclick fallback
+            newBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Close button clicked (onclick)');
+                closeLoginModal();
+                return false;
+            };
+            
+            // Method 3: mousedown as backup
+            newBtn.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                console.log('Close button mousedown');
                 closeLoginModal();
                 return false;
             });
             
-            // Also add onclick as fallback
-            newBtn.onclick = function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                closeLoginModal();
-                return false;
-            };
             return true;
         }
         return false;
@@ -128,17 +147,42 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Try to attach immediately
     if (!attachCloseHandler()) {
-        // Retry after a short delay
+        // Retry multiple times with increasing delays
         setTimeout(function() {
-            attachCloseHandler();
-        }, 100);
+            if (!attachCloseHandler()) {
+                setTimeout(function() {
+                    attachCloseHandler();
+                }, 200);
+            }
+        }, 50);
     }
-    if (overlay) overlay.addEventListener('click', function(e) {
-        // Only close if clicking directly on overlay, not on modal content
-        if (e.target === overlay) {
-            closeLoginModal();
-        }
-    });
+    
+    // Also try after a longer delay as final fallback
+    setTimeout(function() {
+        attachCloseHandler();
+    }, 500);
+    // Event delegation on overlay - handles close button clicks AND clicking outside
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            // Check if click is on close button (including the × symbol)
+            if (e.target && (
+                e.target.id === 'login-modal-close' || 
+                e.target.closest('#login-modal-close') ||
+                e.target.classList.contains('login-modal-close') ||
+                e.target.closest('.login-modal-close')
+            )) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeLoginModal();
+                return false;
+            }
+            // Also close if clicking directly on overlay (outside modal)
+            if (e.target === overlay) {
+                closeLoginModal();
+            }
+        });
+    }
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closeLoginModal();
     });
