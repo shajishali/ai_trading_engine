@@ -900,15 +900,15 @@
                 height: 10px;
             }
             
-            /* Enhanced hover on mobile */
+            /* Enhanced hover on mobile (slightly darker) */
             .nav-link:hover {
-                background: rgba(255, 255, 255, 0.18) !important;
+                background: rgba(0, 0, 0, 0.18) !important;
                 transform: translateY(-1px);
             }
             
             .nav-link.active:hover {
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3)) !important;
-                border-color: rgba(255, 255, 255, 0.6) !important;
+                background: linear-gradient(135deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.22)) !important;
+                border-color: rgba(255, 255, 255, 0.4) !important;
             }
             
             .navbar .container-fluid {
@@ -1134,18 +1134,18 @@
             border-radius: 0 3px 3px 0;
         }
 
-        /* Enhanced hover effect for all navigation items */
+        /* Enhanced hover effect for all navigation items (slightly darker) */
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.15) !important;
+            background: rgba(0, 0, 0, 0.15) !important;
             color: white !important;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
             text-decoration: none !important;
             transition: all 0.2s ease;
         }
         
         .nav-link:hover::before {
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.5);
             width: 4px;
         }
 
@@ -1210,13 +1210,13 @@
             transition: all 0.3s ease;
         }
 
-        /* Enhanced hover for active navigation item */
+        /* Enhanced hover for active navigation item (slightly darker) */
         .nav-link.active:hover {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.25)) !important;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.2)) !important;
             color: white !important;
             transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.35);
         }
 
         .nav-link.active:hover::after {
@@ -1491,8 +1491,8 @@
         }
 
         [data-theme="dark"] .nav-link.active:hover {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.28)) !important;
-            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.22)) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
 
         [data-theme="dark"] .nav-link {
@@ -1503,11 +1503,11 @@
         }
 
         [data-theme="dark"] .nav-link:hover {
-            background: rgba(255, 255, 255, 0.2) !important;
+            background: rgba(0, 0, 0, 0.2) !important;
             color: white !important;
-            border-color: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.2s ease;
         }
 

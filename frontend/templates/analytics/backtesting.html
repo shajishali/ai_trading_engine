@@ -406,6 +406,23 @@
         border-radius: 0.5rem;
         transition: all 0.3s ease;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        white-space: nowrap;
+    }
+    
+    /* Allow text wrapping on smaller screens */
+    @media (max-width: 576px) {
+        .btn-group-custom .btn {
+            white-space: normal !important;
+            word-wrap: break-word;
+            text-align: center;
+            line-height: 1.5;
+            padding: 0.75rem 0.75rem !important;
+        }
+        
+        .btn-group-custom .btn-primary#submitBtn {
+            font-size: 0.85rem !important;
+            padding: 0.75rem 0.5rem !important;
+        }
     }
     
     .btn-group-custom .btn:hover {
@@ -519,6 +536,19 @@
             min-width: auto;
             padding: 0.75rem 1rem;
             font-size: 0.9rem;
+            white-space: normal !important;
+            word-wrap: break-word;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        /* Specific fix for the long "Generate Signals Using YOUR Strategy" button */
+        .btn-group-custom .btn-primary#submitBtn {
+            white-space: normal !important;
+            word-wrap: break-word;
+            padding: 0.75rem 0.75rem !important;
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
         }
         
         /* Signal cards */
@@ -680,6 +710,19 @@
         .btn-group-custom .btn {
             min-width: auto;
             width: 100%;
+            white-space: normal !important;
+            word-wrap: break-word;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        /* Ensure long button text wraps properly */
+        .btn-group-custom .btn-primary#submitBtn {
+            white-space: normal !important;
+            word-wrap: break-word;
+            padding: 0.75rem 0.75rem !important;
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
         }
     }
     
