@@ -704,7 +704,7 @@
             box-shadow: 0 6px 25px rgba(2, 43, 87, 0.4);
             position: relative;
             overflow: visible;
-            z-index: 9997;
+            z-index: 1000;
         }
 
         .navbar .container {
@@ -3556,7 +3556,7 @@
         .login-modal-overlay {
             position: fixed;
             inset: 0;
-            z-index: 1050;
+            z-index: 9999 !important; /* Higher than navbar to appear above it */
             display: none;
             align-items: center;
             justify-content: center;
@@ -3568,6 +3568,18 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             padding: 1rem;
+        }
+        /* Ensure navbar stays below login modal */
+        .login-modal-overlay.show ~ nav.navbar,
+        body:has(.login-modal-overlay.show) nav.navbar {
+            z-index: 1000 !important;
+        }
+        /* Hide navbar collapse when modal is open on mobile */
+        @media (max-width: 576px) {
+            .login-modal-overlay.show ~ nav.navbar .navbar-collapse,
+            body:has(.login-modal-overlay.show) nav.navbar .navbar-collapse {
+                display: none !important;
+            }
         }
         .login-modal-overlay.show {
             display: flex;
@@ -3636,17 +3648,19 @@
             .login-modal-overlay {
                 padding: 0;
                 align-items: flex-start;
-                padding-top: 1rem;
+                padding-top: 80px; /* Space for navbar */
+                z-index: 9999 !important;
             }
             .login-modal-dialog {
                 width: calc(100% - 1rem);
                 max-width: 100%;
                 margin: 0.5rem auto;
-                max-height: calc(100vh - 1rem);
+                max-height: calc(100vh - 90px); /* Account for navbar */
                 border-radius: 12px;
                 position: relative;
                 display: flex;
                 flex-direction: column;
+                z-index: 10000 !important;
             }
             .login-modal-dialog .card-header {
                 padding: 0.875rem 1rem;
@@ -3698,32 +3712,74 @@
                 font-size: 1rem;
                 width: 100%;
             }
-            /* Ensure username field is visible */
-            #login-username {
+            /* Ensure all form fields are visible */
+            #login-username,
+            #login-password {
                 display: block !important;
                 visibility: visible !important;
                 opacity: 1 !important;
                 position: relative !important;
                 width: 100% !important;
+                height: auto !important;
+                min-height: 44px !important; /* Touch target size */
             }
-            #login-username + label,
-            label[for="login-username"] {
+            label[for="login-username"],
+            label[for="login-password"] {
                 display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                width: 100% !important;
+                margin-bottom: 0.5rem !important;
+            }
+            /* Ensure form container shows all fields */
+            .login-modal-dialog .card-body form {
+                min-height: auto !important;
+                overflow: visible !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1rem !important;
+            }
+            .login-modal-dialog .card-body {
+                overflow: visible !important;
+                min-height: auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            /* Force visibility of form groups */
+            .login-modal-dialog .mb-3 {
+                display: flex !important;
+                flex-direction: column !important;
+                width: 100% !important;
+                margin-bottom: 1rem !important;
                 visibility: visible !important;
                 opacity: 1 !important;
             }
         }
         @media (max-width: 375px) {
             .login-modal-overlay {
-                padding-top: 0.5rem;
+                padding-top: 70px; /* Space for navbar on smaller screens */
             }
             .login-modal-dialog {
                 width: calc(100% - 0.5rem);
                 margin: 0.25rem auto;
+                max-height: calc(100vh - 80px);
             }
             .login-modal-dialog .card-body {
                 padding: 1rem 0.75rem;
             }
+        }
+        /* Ensure navbar doesn't cover modal */
+        .login-modal-overlay.show {
+            z-index: 9999 !important;
+        }
+        .login-modal-overlay.show .login-modal-dialog {
+            z-index: 10000 !important;
+            position: relative;
+        }
+        /* Hide navbar dropdown when modal is open */
+        .login-modal-overlay.show ~ nav .navbar-collapse.show,
+        body:has(.login-modal-overlay.show) nav .navbar-collapse.show {
+            display: none !important;
         }
     </style>
     
@@ -3954,16 +4010,27 @@
             // Mobile-specific: Ensure modal is positioned correctly and scrollable
             var isMobile = window.innerWidth <= 576;
             if (isMobile) {
+                // Close navbar collapse if open
+                var navbarCollapse = document.querySelector('.navbar-collapse');
+                if (navbarCollapse && navbarCollapse.classList.contains('show')) {
+                    var bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
+                    if (bsCollapse) {
+                        bsCollapse.hide();
+                    } else {
+                        navbarCollapse.classList.remove('show');
+                    }
+                }
                 // Scroll overlay to top
                 overlay.scrollTop = 0;
                 // Ensure modal dialog is visible
                 var modalDialog = overlay.querySelector('.login-modal-dialog');
                 if (modalDialog) {
                     modalDialog.scrollTop = 0;
-                    // Make sure modal is at the top of viewport
+                    // Position modal below navbar
                     setTimeout(function() {
+                        overlay.scrollTop = 0;
                         modalDialog.scrollIntoView({ behavior: 'instant', block: 'start' });
-                    }, 50);
+                    }, 100);
                 }
             }
             
@@ -3995,34 +4062,44 @@
                 return null;
             });
             
-            // Ensure username field is visible on mobile
+            // Ensure all form fields are visible on mobile
             setTimeout(function() {
                 var usernameInput = document.getElementById('login-username');
+                var passwordInput = document.getElementById('login-password');
                 var usernameLabel = document.querySelector('label[for="login-username"]');
+                var passwordLabel = document.querySelector('label[for="login-password"]');
+                var formFields = [usernameInput, passwordInput, usernameLabel, passwordLabel];
                 
                 if (isMobile) {
-                    // Make sure username field and label are visible
+                    // Make sure all fields and labels are visible
+                    formFields.forEach(function(field) {
+                        if (field) {
+                            field.style.display = 'block';
+                            field.style.visibility = 'visible';
+                            field.style.opacity = '1';
+                            field.style.position = 'relative';
+                            if (field.tagName === 'INPUT') {
+                                field.style.width = '100%';
+                                field.style.height = 'auto';
+                                field.style.minHeight = '44px';
+                            }
+                        }
+                    });
+                    
+                    // Scroll to show the form (username field first)
                     if (usernameInput) {
-                        usernameInput.style.display = 'block';
-                        usernameInput.style.visibility = 'visible';
-                        usernameInput.style.opacity = '1';
-                        usernameInput.style.position = 'relative';
-                        usernameInput.style.width = '100%';
-                        // Scroll username field into view
-                        usernameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(function() {
+                            overlay.scrollTop = 0;
+                            usernameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 200);
                     }
-                    if (usernameLabel) {
-                        usernameLabel.style.display = 'block';
-                        usernameLabel.style.visibility = 'visible';
-                        usernameLabel.style.opacity = '1';
+                } else {
+                    // Focus username field on desktop
+                    if (usernameInput) {
+                        usernameInput.focus();
                     }
                 }
-                
-                // Focus username field (but don't auto-open keyboard on mobile)
-                if (usernameInput && !isMobile) {
-                    usernameInput.focus();
-                }
-            }, 150);
+            }, 200);
         }
         function closeLoginModal() {
             overlay.classList.remove('show');
