@@ -3878,34 +3878,39 @@
         var submitBtn = document.getElementById('login-modal-btn');
         if (!trigger || !overlay || !form) return;
 
+        var csrfTokenRefreshPromise = null;
         function openLoginModal() {
             overlay.classList.add('show');
             overlay.setAttribute('aria-hidden', 'false');
             if (mainWrap) mainWrap.classList.add('login-blurred');
             document.body.style.overflow = 'hidden';
             if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
+            // Disable submit button while refreshing token
+            if (submitBtn) submitBtn.disabled = true;
             // Refresh CSRF token when modal opens to ensure it matches the cookie
-            var loginUrl = trigger.getAttribute('data-login-url') || '/login/';
-            fetch(loginUrl, {
+            csrfTokenRefreshPromise = fetch('/api/csrf-token/', {
                 method: 'GET',
                 credentials: 'same-origin',
                 cache: 'no-cache'
             }).then(function(res) {
-                return res.text();
-            }).then(function(html) {
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(html, 'text/html');
-                var freshTokenInput = doc.querySelector('input[name="csrfmiddlewaretoken"]');
-                var freshTokenMeta = doc.querySelector('meta[name="csrf-token"]');
-                var freshToken = (freshTokenInput && freshTokenInput.value) || (freshTokenMeta && freshTokenMeta.content) || '';
+                if (!res.ok) throw new Error('Failed to fetch CSRF token');
+                return res.json();
+            }).then(function(data) {
+                var freshToken = data.csrfToken || '';
                 if (freshToken && form) {
                     var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
                     if (csrfInput) csrfInput.value = freshToken;
                     var metaToken = document.querySelector('meta[name="csrf-token"]');
                     if (metaToken) metaToken.content = freshToken;
                 }
-            }).catch(function() {
-                // If refresh fails, use existing token
+                // Re-enable submit button after token refresh
+                if (submitBtn) submitBtn.disabled = false;
+                return freshToken;
+            }).catch(function(err) {
+                console.error('CSRF token refresh failed:', err);
+                // Re-enable submit button even if refresh fails
+                if (submitBtn) submitBtn.disabled = false;
+                return null;
             });
             // Scroll overlay to top on mobile
             overlay.scrollTop = 0;
@@ -3953,95 +3958,112 @@
             var loginUrl = trigger.getAttribute('data-login-url') || '/login/';
             var next = window.location.pathname + window.location.search;
             if (next === '/' || next === '') next = '/dashboard/';
-            // Get the latest CSRF token right before submitting
-            var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-            var metaToken = document.querySelector('meta[name="csrf-token"]');
-            var csrfToken = (csrfInput && csrfInput.value) || (metaToken && metaToken.content) || '';
-            if (!csrfToken) {
-                if (errorEl) {
-                    errorEl.textContent = 'CSRF token missing. Please refresh the page and try again.';
-                    errorEl.classList.remove('d-none');
+            
+            // Wait for CSRF token refresh to complete if it's in progress
+            var submitForm = function() {
+                // Get the latest CSRF token right before submitting
+                var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                var metaToken = document.querySelector('meta[name="csrf-token"]');
+                var csrfToken = (csrfInput && csrfInput.value) || (metaToken && metaToken.content) || '';
+                if (!csrfToken) {
+                    if (errorEl) {
+                        errorEl.textContent = 'CSRF token missing. Please refresh the page and try again.';
+                        errorEl.classList.remove('d-none');
+                    }
+                    return;
                 }
-                return;
-            }
-            var formData = new FormData(form);
-            // Ensure CSRF token in form data matches what we're sending in header
-            formData.set('csrfmiddlewaretoken', csrfToken);
-            formData.append('next', next);
-            var headers = {};
-            if (csrfToken) headers['X-CSRFToken'] = csrfToken;
-            if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging in...';
+                var formData = new FormData(form);
+                // Ensure CSRF token in form data matches what we're sending in header
+                formData.set('csrfmiddlewaretoken', csrfToken);
+                formData.append('next', next);
+                var headers = {};
+                if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+                if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging in...';
 
-            fetch(loginUrl + (loginUrl.indexOf('?') >= 0 ? '&' : '?') + 'next=' + encodeURIComponent(next), {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin',
-                redirect: 'manual',
-                headers: headers
-            }).then(function(res) {
-                if (res.status === 302 || res.type === 'opaqueredirect') {
-                    var loc = res.headers.get('Location');
-                    if (loc) { window.location.href = loc; return; }
-                }
-                return res.text().then(function(html) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
-                    var msg = '';
-                    if (res.status === 403) {
-                        // CSRF error - check if HTML contains CSRF message
-                        if (html.indexOf('CSRF') >= 0 || html.indexOf('csrf') >= 0 || html.indexOf('Forbidden') >= 0) {
-                            msg = 'Security verification failed. Please refresh the page and try again.';
+                fetch(loginUrl + (loginUrl.indexOf('?') >= 0 ? '&' : '?') + 'next=' + encodeURIComponent(next), {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin',
+                    redirect: 'manual',
+                    headers: headers
+                }).then(function(res) {
+                    if (res.status === 302 || res.type === 'opaqueredirect') {
+                        var loc = res.headers.get('Location');
+                        if (loc) { window.location.href = loc; return; }
+                    }
+                    return res.text().then(function(html) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
+                        var msg = '';
+                        if (res.status === 403) {
+                            // CSRF error - check if HTML contains CSRF message
+                            if (html.indexOf('CSRF') >= 0 || html.indexOf('csrf') >= 0 || html.indexOf('Forbidden') >= 0) {
+                                msg = 'Security verification failed. Please refresh the page and try again.';
+                            } else {
+                                msg = 'Access denied. Please refresh the page and try again.';
+                            }
+                        } else if (res.status === 500) {
+                            msg = 'Server error occurred. Please try again later or contact support.';
+                        } else if (res.ok) {
+                            // Success response - try to parse error message from HTML
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(html, 'text/html');
+                            var alert = doc.querySelector('.alert-danger, .alert-warning, .alert, #login-modal-error');
+                            if (alert) {
+                                msg = (alert.textContent || alert.innerText).trim();
+                            } else {
+                                // Check if response contains login form (means login failed)
+                                var loginForm = doc.querySelector('#login-modal-form, form[method="post"]');
+                                if (loginForm) {
+                                    msg = 'Invalid username or password. Please try again.';
+                                }
+                            }
                         } else {
-                            msg = 'Access denied. Please refresh the page and try again.';
-                        }
-                    } else if (res.status === 500) {
-                        msg = 'Server error occurred. Please try again later or contact support.';
-                    } else if (res.ok) {
-                        // Success response - try to parse error message from HTML
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(html, 'text/html');
-                        var alert = doc.querySelector('.alert-danger, .alert-warning, .alert, #login-modal-error');
-                        if (alert) {
-                            msg = (alert.textContent || alert.innerText).trim();
-                        } else {
-                            // Check if response contains login form (means login failed)
-                            var loginForm = doc.querySelector('#login-modal-form, form[method="post"]');
-                            if (loginForm) {
-                                msg = 'Invalid username or password. Please try again.';
+                            // Other error status
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(html, 'text/html');
+                            var alert = doc.querySelector('.alert-danger, .alert-warning, .alert, h1, title');
+                            if (alert) {
+                                msg = (alert.textContent || alert.innerText).trim();
+                                if (msg.length > 100) msg = msg.substring(0, 100) + '...';
+                            } else {
+                                msg = 'Unable to log in. Please check your username and password.';
                             }
                         }
-                    } else {
-                        // Other error status
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(html, 'text/html');
-                        var alert = doc.querySelector('.alert-danger, .alert-warning, .alert, h1, title');
-                        if (alert) {
-                            msg = (alert.textContent || alert.innerText).trim();
-                            if (msg.length > 100) msg = msg.substring(0, 100) + '...';
-                        } else {
-                            msg = 'Unable to log in. Please check your username and password.';
+                        if (errorEl && msg) {
+                            errorEl.textContent = msg;
+                            errorEl.classList.remove('d-none');
+                            // Scroll error into view on mobile
+                            if (window.innerWidth <= 576 && errorEl.scrollIntoView) {
+                                setTimeout(function() { errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+                            }
                         }
-                    }
-                    if (errorEl && msg) {
-                        errorEl.textContent = msg;
+                    });
+                }).catch(function(err) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
+                    if (errorEl) {
+                        errorEl.textContent = 'Network error. Please check your connection and try again.';
                         errorEl.classList.remove('d-none');
-                        // Scroll error into view on mobile
-                        if (window.innerWidth <= 576 && errorEl.scrollIntoView) {
-                            setTimeout(function() { errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-                        }
                     }
+                    console.error('Login error:', err);
                 });
-            }).catch(function(err) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
-                if (errorEl) {
-                    errorEl.textContent = 'Network error. Please check your connection and try again.';
-                    errorEl.classList.remove('d-none');
-                }
-                console.error('Login error:', err);
-            });
+            };
+            
+            // Wait for CSRF token refresh if it's in progress, otherwise submit immediately
+            if (csrfTokenRefreshPromise) {
+                csrfTokenRefreshPromise.then(function(token) {
+                    submitForm();
+                }).catch(function() {
+                    // If token refresh failed, try submitting anyway
+                    submitForm();
+                });
+            } else {
+                // No token refresh in progress, submit immediately
+                submitForm();
+            }
         });
     })();
     </script>

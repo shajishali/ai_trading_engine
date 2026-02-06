@@ -260,6 +260,14 @@ def login_view(request):
     return render(request, 'dashboard/login.html')
 
 
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    """API endpoint to get CSRF token for AJAX requests"""
+    from django.middleware.csrf import get_token
+    token = get_token(request)
+    return JsonResponse({'csrfToken': token})
+
+
 def logout_view(request):
     """Logout view"""
     logout(request)
