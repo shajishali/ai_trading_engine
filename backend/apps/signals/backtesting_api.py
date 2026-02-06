@@ -450,14 +450,33 @@ class BacktestAPIView(View):
                     })
             
             # Get historical data for backtesting
-            historical_data = self._get_historical_data(symbol, start_date, end_date)
+            historical_df = self._get_historical_data(symbol, start_date, end_date)
             
-            if historical_data.empty:
+            if historical_df.empty:
                 logger.error(f"No historical data found for {symbol.symbol}")
                 return JsonResponse({
                     'success': False,
                     'error': f'No historical data available for {symbol.symbol}'
                 })
+            
+            # Convert DataFrame to dict format expected by _simulate_single_signal_execution
+            # (timestamp -> {open, high, low, close, volume}) so simulation can check if price hit target/stop
+            from django.utils import timezone as tz
+            historical_data = {}
+            for ts, row in historical_df.iterrows():
+                # Ensure timestamp is timezone-aware for comparison with signal_time
+                if hasattr(ts, 'to_pydatetime'):
+                    ts = ts.to_pydatetime()
+                if ts.tzinfo is None:
+                    ts = tz.make_aware(ts)
+                historical_data[ts] = {
+                    'open': float(row.get('open', 0)),
+                    'high': float(row.get('high', 0)),
+                    'low': float(row.get('low', 0)),
+                    'close': float(row.get('close', 0)),
+                    'volume': float(row.get('volume', 0))
+                }
+            logger.info(f"Converted {len(historical_data)} price bars for execution simulation")
             
             # Simulate signal execution for all signals
             executed_signals = []
