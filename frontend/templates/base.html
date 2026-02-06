@@ -3961,10 +3961,31 @@
             
             // Wait for CSRF token refresh to complete if it's in progress
             var submitForm = function() {
-                // Get the latest CSRF token right before submitting
-                var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-                var metaToken = document.querySelector('meta[name="csrf-token"]');
-                var csrfToken = (csrfInput && csrfInput.value) || (metaToken && metaToken.content) || '';
+                // Get CSRF token from cookie first (Django validates against cookie)
+                function getCookie(name) {
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+                
+                // Get the latest CSRF token right before submitting - prioritize cookie
+                var csrfToken = getCookie('csrftoken');
+                if (!csrfToken) {
+                    // Fallback to form input or meta tag
+                    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                    var metaToken = document.querySelector('meta[name="csrf-token"]');
+                    csrfToken = (csrfInput && csrfInput.value) || (metaToken && metaToken.content) || '';
+                }
+                
                 if (!csrfToken) {
                     if (errorEl) {
                         errorEl.textContent = 'CSRF token missing. Please refresh the page and try again.';
@@ -3973,7 +3994,7 @@
                     return;
                 }
                 var formData = new FormData(form);
-                // Ensure CSRF token in form data matches what we're sending in header
+                // Ensure CSRF token in form data matches the cookie token
                 formData.set('csrfmiddlewaretoken', csrfToken);
                 formData.append('next', next);
                 var headers = {};

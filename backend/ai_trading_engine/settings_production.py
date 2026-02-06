@@ -256,12 +256,12 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'apps.core.middleware.SecurityHeadersMiddleware',
     'apps.core.middleware.RequestValidationMiddleware',
-    'apps.core.middleware.CSRFProtectionMiddleware',
+    # Removed CSRFProtectionMiddleware - Django's built-in CsrfViewMiddleware handles CSRF properly
     'apps.core.middleware.AuditLoggingMiddleware',
     'apps.core.middleware.IPWhitelistMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',  # Django's built-in CSRF middleware
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     # 'apps.core.middleware.APIRateLimitMiddleware',  # Disabled - rate limiting removed
     'django.contrib.messages.middleware.MessageMiddleware',
