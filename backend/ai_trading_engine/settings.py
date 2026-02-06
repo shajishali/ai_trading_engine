@@ -239,10 +239,10 @@ CSRF_COOKIE_AGE = 31449600  # 1 year
 CSRF_COOKIE_SAMESITE = 'Lax'  # Allow CSRF cookies to work on mobile browsers
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
 
-# CSRF Trusted Origins - Add your domain here
+# CSRF Trusted Origins - Add your domain here (include www for mobile/login)
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:8000,http://127.0.0.1:8000,https://cryptai.it.com,http://cryptai.it.com'
+    default='http://localhost:8000,http://127.0.0.1:8000,https://cryptai.it.com,http://cryptai.it.com,https://www.cryptai.it.com,http://www.cryptai.it.com'
 ).split(',')
 
 # Ensure localhost is always included

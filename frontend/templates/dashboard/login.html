@@ -116,11 +116,16 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging in...';
             
+            var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+            var csrfToken = (csrfInput && csrfInput.value) || (document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').content) || '';
+            var headers = {};
+            if (csrfToken) headers['X-CSRFToken'] = csrfToken;
             fetch(loginUrl + '?next=' + encodeURIComponent(next), {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin',
-                redirect: 'manual'
+                redirect: 'manual',
+                headers: headers
             }).then(function(res) {
                 if (res.status === 302 || res.type === 'opaqueredirect') {
                     var loc = res.headers.get('Location');

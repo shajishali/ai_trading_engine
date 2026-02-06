@@ -1,6 +1,8 @@
 import logging
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.cache import never_cache
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect
 from django.http import JsonResponse
@@ -53,8 +55,10 @@ def home(request):
         return HttpResponse(f"Error loading page: {str(e)}", status=500)
 
 
+@never_cache
+@ensure_csrf_cookie
 def login_view(request):
-    """Login view with email verification check"""
+    """Login view with email verification check. ensure_csrf_cookie sets CSRF cookie on GET so mobile login works."""
     if request.user.is_authenticated:
         return redirect('dashboard:dashboard')
     
