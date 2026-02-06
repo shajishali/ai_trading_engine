@@ -3884,6 +3884,29 @@
             if (mainWrap) mainWrap.classList.add('login-blurred');
             document.body.style.overflow = 'hidden';
             if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
+            // Refresh CSRF token when modal opens to ensure it matches the cookie
+            var loginUrl = trigger.getAttribute('data-login-url') || '/login/';
+            fetch(loginUrl, {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-cache'
+            }).then(function(res) {
+                return res.text();
+            }).then(function(html) {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+                var freshTokenInput = doc.querySelector('input[name="csrfmiddlewaretoken"]');
+                var freshTokenMeta = doc.querySelector('meta[name="csrf-token"]');
+                var freshToken = (freshTokenInput && freshTokenInput.value) || (freshTokenMeta && freshTokenMeta.content) || '';
+                if (freshToken && form) {
+                    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                    if (csrfInput) csrfInput.value = freshToken;
+                    var metaToken = document.querySelector('meta[name="csrf-token"]');
+                    if (metaToken) metaToken.content = freshToken;
+                }
+            }).catch(function() {
+                // If refresh fails, use existing token
+            });
             // Scroll overlay to top on mobile
             overlay.scrollTop = 0;
             // Focus username field after a short delay (for mobile keyboard)
@@ -3930,10 +3953,10 @@
             var loginUrl = trigger.getAttribute('data-login-url') || '/login/';
             var next = window.location.pathname + window.location.search;
             if (next === '/' || next === '') next = '/dashboard/';
-            var formData = new FormData(form);
-            formData.append('next', next);
+            // Get the latest CSRF token right before submitting
             var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-            var csrfToken = (csrfInput && csrfInput.value) || (document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').content) || '';
+            var metaToken = document.querySelector('meta[name="csrf-token"]');
+            var csrfToken = (csrfInput && csrfInput.value) || (metaToken && metaToken.content) || '';
             if (!csrfToken) {
                 if (errorEl) {
                     errorEl.textContent = 'CSRF token missing. Please refresh the page and try again.';
@@ -3941,6 +3964,10 @@
                 }
                 return;
             }
+            var formData = new FormData(form);
+            // Ensure CSRF token in form data matches what we're sending in header
+            formData.set('csrfmiddlewaretoken', csrfToken);
+            formData.append('next', next);
             var headers = {};
             if (csrfToken) headers['X-CSRFToken'] = csrfToken;
             if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
