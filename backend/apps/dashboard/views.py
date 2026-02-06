@@ -60,8 +60,10 @@ def home(request):
 @ensure_csrf_cookie
 def login_view(request):
     """Login view with email verification check. ensure_csrf_cookie sets CSRF cookie on GET so mobile login works."""
+    # If user is already authenticated, redirect immediately (before processing POST)
     if request.user.is_authenticated:
-        return redirect('dashboard:dashboard')
+        next_url = request.GET.get('next', '/dashboard/')
+        return redirect(next_url)
     
     if request.method == 'POST':
         try:

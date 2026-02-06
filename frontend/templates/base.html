@@ -4010,13 +4010,71 @@
                     redirect: 'manual',
                     headers: headers
                 }).then(function(res) {
-                    if (res.status === 302 || res.type === 'opaqueredirect') {
+                    // Handle redirects (302, 301, etc.)
+                    if (res.status === 302 || res.status === 301 || res.status === 303 || res.status === 307 || res.status === 308 || res.type === 'opaqueredirect') {
                         var loc = res.headers.get('Location');
-                        if (loc) { window.location.href = loc; return; }
+                        if (loc) {
+                            // Close modal and redirect
+                            if (overlay) overlay.classList.remove('show');
+                            if (mainWrap) mainWrap.classList.remove('login-blurred');
+                            document.body.style.overflow = '';
+                            window.location.href = loc;
+                            return;
+                        }
                     }
                     return res.text().then(function(html) {
+                        // Check if response indicates successful login or redirect BEFORE processing
+                        // This handles the case where user is already logged in
+                        var isRedirectResponse = false;
+                        
+                        // Check for redirect indicators in HTML
+                        if (html.indexOf('window.location') >= 0 || 
+                            html.indexOf('meta http-equiv="refresh"') >= 0 ||
+                            html.indexOf('dashboard') >= 0 && html.indexOf('logout') >= 0) {
+                            isRedirectResponse = true;
+                        }
+                        
+                        // Parse HTML to check for dashboard content or redirect meta tags
+                        try {
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(html, 'text/html');
+                            
+                            // Check for redirect meta tag
+                            var refreshMeta = doc.querySelector('meta[http-equiv="refresh"]');
+                            if (refreshMeta) {
+                                var content = refreshMeta.getAttribute('content');
+                                if (content && content.indexOf('url=') >= 0) {
+                                    var redirectUrl = content.split('url=')[1];
+                                    if (overlay) overlay.classList.remove('show');
+                                    if (mainWrap) mainWrap.classList.remove('login-blurred');
+                                    document.body.style.overflow = '';
+                                    window.location.href = redirectUrl;
+                                    return;
+                                }
+                            }
+                            
+                            // Check if this is dashboard content (user already logged in)
+                            if (doc.querySelector('.dashboard') !== null ||
+                                doc.querySelector('[data-dashboard]') !== null ||
+                                doc.querySelector('nav') !== null && doc.querySelector('nav').textContent.indexOf('Dashboard') >= 0) {
+                                isRedirectResponse = true;
+                            }
+                        } catch (e) {
+                            // If parsing fails, continue with normal error handling
+                        }
+                        
+                        if (isRedirectResponse && (res.status === 200 || res.ok)) {
+                            // User is already logged in or login succeeded - redirect
+                            if (overlay) overlay.classList.remove('show');
+                            if (mainWrap) mainWrap.classList.remove('login-blurred');
+                            document.body.style.overflow = '';
+                            window.location.href = next;
+                            return;
+                        }
+                        
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-1"></i>Login';
+                        
                         var msg = '';
                         if (res.status === 403) {
                             // CSRF error - check if HTML contains CSRF message
@@ -4029,8 +4087,6 @@
                             msg = 'Server error occurred. Please try again later or contact support.';
                         } else if (res.ok) {
                             // Success response - try to parse error message from HTML
-                            var parser = new DOMParser();
-                            var doc = parser.parseFromString(html, 'text/html');
                             var alert = doc.querySelector('.alert-danger, .alert-warning, .alert, #login-modal-error');
                             if (alert) {
                                 msg = (alert.textContent || alert.innerText).trim();
@@ -4043,8 +4099,6 @@
                             }
                         } else {
                             // Other error status
-                            var parser = new DOMParser();
-                            var doc = parser.parseFromString(html, 'text/html');
                             var alert = doc.querySelector('.alert-danger, .alert-warning, .alert, h1, title');
                             if (alert) {
                                 msg = (alert.textContent || alert.innerText).trim();
