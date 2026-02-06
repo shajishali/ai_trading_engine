@@ -3876,7 +3876,7 @@
         var form = document.getElementById('login-modal-form');
         var errorEl = document.getElementById('login-modal-error');
         var submitBtn = document.getElementById('login-modal-btn');
-        if (!trigger || !overlay) return;
+        if (!trigger || !overlay || !form) return;
 
         function openLoginModal() {
             overlay.classList.add('show');
@@ -3884,8 +3884,19 @@
             if (mainWrap) mainWrap.classList.add('login-blurred');
             document.body.style.overflow = 'hidden';
             if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
-            var firstInput = document.getElementById('login-username');
-            if (firstInput) firstInput.focus();
+            // Scroll overlay to top on mobile
+            overlay.scrollTop = 0;
+            // Focus username field after a short delay (for mobile keyboard)
+            setTimeout(function() {
+                var firstInput = document.getElementById('login-username');
+                if (firstInput) {
+                    firstInput.focus();
+                    // Scroll input into view on mobile
+                    if (window.innerWidth <= 576) {
+                        firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }, 100);
         }
         function closeLoginModal() {
             overlay.classList.remove('show');
@@ -3915,6 +3926,13 @@
             formData.append('next', next);
             var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
             var csrfToken = (csrfInput && csrfInput.value) || (document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').content) || '';
+            if (!csrfToken) {
+                if (errorEl) {
+                    errorEl.textContent = 'CSRF token missing. Please refresh the page and try again.';
+                    errorEl.classList.remove('d-none');
+                }
+                return;
+            }
             var headers = {};
             if (csrfToken) headers['X-CSRFToken'] = csrfToken;
             if (errorEl) { errorEl.classList.add('d-none'); errorEl.textContent = ''; }
