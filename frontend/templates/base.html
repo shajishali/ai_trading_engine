@@ -883,6 +883,34 @@
                 padding: 0.5rem 1rem;
             }
             
+            /* Enhanced active state visibility on mobile */
+            .nav-link.active {
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.22)) !important;
+                box-shadow: 0 4px 16px rgba(255, 255, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+                border: 2px solid rgba(255, 255, 255, 0.4) !important;
+            }
+            
+            .nav-link.active::before {
+                width: 5px;
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            }
+            
+            .nav-link.active::after {
+                width: 10px;
+                height: 10px;
+            }
+            
+            /* Enhanced hover on mobile */
+            .nav-link:hover {
+                background: rgba(255, 255, 255, 0.18) !important;
+                transform: translateY(-1px);
+            }
+            
+            .nav-link.active:hover {
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3)) !important;
+                border-color: rgba(255, 255, 255, 0.6) !important;
+            }
+            
             .navbar .container-fluid {
                 padding-left: 0.75rem;
                 padding-right: 0.75rem;
@@ -1106,34 +1134,37 @@
             border-radius: 0 3px 3px 0;
         }
 
+        /* Enhanced hover effect for all navigation items */
         .nav-link:hover {
-            background: rgba(255, 255, 255, 0.08) !important;
+            background: rgba(255, 255, 255, 0.15) !important;
             color: white !important;
-            transform: none;
-            box-shadow: none;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             text-decoration: none !important;
+            transition: all 0.2s ease;
         }
         
         .nav-link:hover::before {
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.8);
+            width: 4px;
         }
 
         .nav-link:active {
-            transform: none;
+            transform: translateY(0);
             transition: all 0.1s ease;
         }
 
-        /* Active navigation styling - professional left-aligned */
+        /* Enhanced Active navigation styling - CLEARLY VISIBLE */
         .nav-link.active {
-            background: rgba(255, 255, 255, 0.12) !important;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.18)) !important;
             color: white !important;
-            border-radius: 6px;
+            border-radius: 8px;
             padding: 0.6rem 1rem !important;
             margin: 0 2px;
             transform: none;
-            box-shadow: none;
-            border: none;
-            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            font-weight: 700;
             min-width: auto;
             text-align: left;
             display: flex !important;
@@ -1142,7 +1173,7 @@
             white-space: nowrap;
             position: relative;
             overflow: visible;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             z-index: 10;
         }
 
@@ -1152,39 +1183,50 @@
             left: 0;
             top: 0;
             bottom: 0;
-            width: 3px;
+            width: 4px;
             background: white;
-            border-radius: 0 3px 3px 0;
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
         }
 
         .nav-link.active:hover::before {
             background: white;
+            width: 5px;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
         }
 
-        /* Add a subtle indicator for active state */
+        /* Enhanced indicator for active state */
         .nav-link.active::after {
             content: '';
             position: absolute;
-            right: 1rem;
+            right: 0.75rem;
             top: 50%;
             transform: translateY(-50%);
-            width: 6px;
-            height: 3px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 2px;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
             transition: all 0.3s ease;
         }
 
+        /* Enhanced hover for active navigation item */
         .nav-link.active:hover {
-            background: linear-gradient(135deg, var(--primary-gradient-end), var(--primary-gradient-start)) !important;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.25)) !important;
             color: white !important;
-            transform: translateY(-4px) scale(1.08);
-            box-shadow: 0 15px 40px rgba(2, 43, 87, 0.6);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.5);
         }
 
+        .nav-link.active:hover::after {
+            width: 10px;
+            height: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 1);
+        }
+
         .nav-link.active:active {
-            transform: translateY(-2px) scale(1.05);
+            transform: translateY(-1px) scale(1.01);
             transition: all 0.1s ease;
         }
 
@@ -1442,6 +1484,17 @@
             background: linear-gradient(to right, #1e3a5f 0%, #2d5a8a 100%) !important;
         }
 
+        /* Enhanced dark mode active state */
+        [data-theme="dark"] .nav-link.active {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.22)) !important;
+            box-shadow: 0 4px 16px rgba(255, 255, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+
+        [data-theme="dark"] .nav-link.active:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.28)) !important;
+            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+
         [data-theme="dark"] .nav-link {
             color: white !important;
             background: rgba(255, 255, 255, 0.1);
@@ -1453,6 +1506,9 @@
             background: rgba(255, 255, 255, 0.2) !important;
             color: white !important;
             border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
         }
 
         [data-theme="dark"] .dropdown-menu {
