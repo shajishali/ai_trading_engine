@@ -1187,8 +1187,32 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
         
+        // Clean up data - remove empty strings and convert to proper types
+        const cleanedData = {};
+        for (const [key, value] of Object.entries(data)) {
+            // Skip empty strings for optional fields
+            if (value === '' || value === null || value === undefined) {
+                // Only include if it's a required field
+                if (['symbol', 'start_date', 'end_date'].includes(key)) {
+                    cleanedData[key] = value;
+                }
+                // Skip optional fields that are empty
+                continue;
+            }
+            
+            // Convert numeric fields to numbers
+            if (['initial_capital', 'commission_rate', 'desired_signal_count'].includes(key)) {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                    cleanedData[key] = numValue;
+                }
+            } else {
+                cleanedData[key] = value;
+            }
+        }
+        
         // Validate form
-        if (!data.symbol || !data.start_date || !data.end_date) {
+        if (!cleanedData.symbol || !cleanedData.start_date || !cleanedData.end_date) {
             alert('Please fill in all required fields');
             return;
         }
@@ -1203,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(cleanedData)
         })
         .then(response => response.json())
         .then(result => {

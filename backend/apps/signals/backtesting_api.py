@@ -45,8 +45,20 @@ class BacktestAPIView(View):
                 # Handle form data
                 data = request.POST
             
-            # Extract parameters
-            symbol_str = data.get('symbol', 'BTC').upper()
+            # Clean up data - remove None and empty string values
+            cleaned_data = {}
+            for key, value in data.items():
+                if value is not None and value != '' and value != 'null':
+                    cleaned_data[key] = value
+            data = cleaned_data
+            
+            # Extract parameters with safe defaults
+            symbol_str = data.get('symbol', 'BTC')
+            if symbol_str:
+                symbol_str = symbol_str.upper()
+            else:
+                symbol_str = 'BTC'
+            
             start_date_str = data.get('start_date')
             end_date_str = data.get('end_date')
             action = data.get('action', 'generate_signals')
@@ -105,9 +117,19 @@ class BacktestAPIView(View):
         """Ensure SELL has target < entry < stop; BUY has stop < entry < target. Mutates signal in place."""
         try:
             stype = (signal.get('signal_type') or '').upper()
-            entry = float(signal.get('entry_price') or 0)
-            target = float(signal.get('target_price') or 0)
-            stop = float(signal.get('stop_loss') or 0)
+            
+            # Safe float conversion with None handling
+            def safe_float(value, default=0.0):
+                if value is None or value == '' or value == 'null':
+                    return default
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return default
+            
+            entry = safe_float(signal.get('entry_price'), 0)
+            target = safe_float(signal.get('target_price'), 0)
+            stop = safe_float(signal.get('stop_loss'), 0)
             if entry <= 0:
                 return
             is_sell = 'SELL' in stype or 'STRONG_SELL' in stype
@@ -166,18 +188,27 @@ class BacktestAPIView(View):
                 # Convert database signals to API format and normalize SELL/BUY prices
                 formatted_signals = []
                 for signal in existing_signals:
+                    # Safe float conversion helper
+                    def safe_float_db(value, default=0.0):
+                        if value is None:
+                            return default
+                        try:
+                            return float(value)
+                        except (TypeError, ValueError):
+                            return default
+                    
                     sig_db = {
                         'id': f"db_{signal.id}",
                         'symbol': str(signal.symbol.symbol),
                         'signal_type': str(signal.signal_type.name if signal.signal_type else 'N/A'),
                         'strength': str(signal.strength),
-                        'confidence_score': float(signal.confidence_score),
-                        'entry_price': float(signal.entry_price or 0),
-                        'target_price': float(signal.target_price or 0),
-                        'stop_loss': float(signal.stop_loss or 0),
-                        'risk_reward_ratio': float(signal.risk_reward_ratio or 0),
+                        'confidence_score': safe_float_db(signal.confidence_score, 0.5),
+                        'entry_price': safe_float_db(signal.entry_price, 0),
+                        'target_price': safe_float_db(signal.target_price, 0),
+                        'stop_loss': safe_float_db(signal.stop_loss, 0),
+                        'risk_reward_ratio': safe_float_db(signal.risk_reward_ratio, 0),
                         'timeframe': str(signal.timeframe or '1D'),
-                        'quality_score': float(signal.quality_score or 0),
+                        'quality_score': safe_float_db(signal.quality_score, 0),
                         'created_at': signal.created_at.isoformat(),
                         'is_executed': False,
                         'executed_at': None,
@@ -480,15 +511,24 @@ class BacktestAPIView(View):
                 # Convert database signals to format needed for backtesting
                 signals_to_backtest = []
                 for signal in signals:
+                    # Safe float conversion for database signals
+                    def safe_float_signal(value, default=0.0):
+                        if value is None:
+                            return default
+                        try:
+                            return float(value)
+                        except (TypeError, ValueError):
+                            return default
+                    
                     signals_to_backtest.append({
                         'id': signal.id,
                         'created_at': signal.created_at.isoformat(),
-                        'entry_price': str(signal.entry_price),
-                        'target_price': str(signal.target_price),
-                        'stop_loss': str(signal.stop_loss),
+                        'entry_price': str(signal.entry_price) if signal.entry_price is not None else '0',
+                        'target_price': str(signal.target_price) if signal.target_price is not None else '0',
+                        'stop_loss': str(signal.stop_loss) if signal.stop_loss is not None else '0',
                         'signal_type': signal.signal_type.name if signal.signal_type else 'BUY',
-                        'confidence_score': float(signal.confidence_score),
-                        'risk_reward_ratio': float(signal.risk_reward_ratio)
+                        'confidence_score': safe_float_signal(signal.confidence_score, 0),
+                        'risk_reward_ratio': safe_float_signal(signal.risk_reward_ratio, 0)
                     })
             
             # Get historical data for backtesting
@@ -511,12 +551,21 @@ class BacktestAPIView(View):
                     ts = ts.to_pydatetime()
                 if ts.tzinfo is None:
                     ts = tz.make_aware(ts)
+                # Safe float conversion for historical data
+                def safe_float_hist(value, default=0.0):
+                    if value is None:
+                        return default
+                    try:
+                        return float(value)
+                    except (TypeError, ValueError):
+                        return default
+                
                 historical_data[ts] = {
-                    'open': float(row.get('open', 0)),
-                    'high': float(row.get('high', 0)),
-                    'low': float(row.get('low', 0)),
-                    'close': float(row.get('close', 0)),
-                    'volume': float(row.get('volume', 0))
+                    'open': safe_float_hist(row.get('open'), 0),
+                    'high': safe_float_hist(row.get('high'), 0),
+                    'low': safe_float_hist(row.get('low'), 0),
+                    'close': safe_float_hist(row.get('close'), 0),
+                    'volume': safe_float_hist(row.get('volume'), 0)
                 }
             logger.info(f"Converted {len(historical_data)} price bars for execution simulation")
             
@@ -525,15 +574,24 @@ class BacktestAPIView(View):
             for signal_data in signals_to_backtest:
                 # signal_data is already in dictionary format
                 # Ensure it has all required fields
+                # Safe float conversion helper
+                def safe_float_exec(value, default=0.0):
+                    if value is None or value == '':
+                        return default
+                    try:
+                        return float(value)
+                    except (TypeError, ValueError):
+                        return default
+                
                 signal_dict = {
                     'id': signal_data.get('id'),
                     'created_at': signal_data.get('created_at'),
-                    'entry_price': str(signal_data.get('entry_price', 0)),
-                    'target_price': str(signal_data.get('target_price', 0)),
-                    'stop_loss': str(signal_data.get('stop_loss', 0)),
+                    'entry_price': str(signal_data.get('entry_price', 0)) if signal_data.get('entry_price') is not None else '0',
+                    'target_price': str(signal_data.get('target_price', 0)) if signal_data.get('target_price') is not None else '0',
+                    'stop_loss': str(signal_data.get('stop_loss', 0)) if signal_data.get('stop_loss') is not None else '0',
                     'signal_type': signal_data.get('signal_type', 'BUY'),
-                    'confidence_score': float(signal_data.get('confidence_score', 0)),
-                    'risk_reward_ratio': float(signal_data.get('risk_reward_ratio', 0))
+                    'confidence_score': safe_float_exec(signal_data.get('confidence_score'), 0),
+                    'risk_reward_ratio': safe_float_exec(signal_data.get('risk_reward_ratio'), 0)
                 }
                 
                 # Simulate execution
@@ -581,16 +639,24 @@ class BacktestAPIView(View):
                 logger.warning(f"No market data found for {symbol.symbol} in date range")
                 return pd.DataFrame()
             
-            # Convert to DataFrame
+            # Convert to DataFrame with safe float conversion
+            def safe_float_market(value, default=0.0):
+                if value is None:
+                    return default
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return default
+            
             data = []
             for record in market_data:
                 data.append({
                     'timestamp': record.timestamp,
-                    'open': float(record.open_price),
-                    'high': float(record.high_price),
-                    'low': float(record.low_price),
-                    'close': float(record.close_price),
-                    'volume': float(record.volume)
+                    'open': safe_float_market(record.open_price, 0),
+                    'high': safe_float_market(record.high_price, 0),
+                    'low': safe_float_market(record.low_price, 0),
+                    'close': safe_float_market(record.close_price, 0),
+                    'volume': safe_float_market(record.volume, 0)
                 })
             
             df = pd.DataFrame(data)
@@ -805,16 +871,25 @@ class BacktestAPIView(View):
             
             price_data = {}
             
+            # Safe float conversion helper
+            def safe_float_price(value, default=0.0):
+                if value is None:
+                    return default
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return default
+            
             if market_data.exists():
                 # Use existing database data
                 for data_point in market_data:
                     timestamp = data_point.timestamp
                     price_data[timestamp] = {
-                        'open': float(data_point.open_price),
-                        'high': float(data_point.high_price),
-                        'low': float(data_point.low_price),
-                        'close': float(data_point.close_price),
-                        'volume': float(data_point.volume)
+                        'open': safe_float_price(data_point.open_price, 0),
+                        'high': safe_float_price(data_point.high_price, 0),
+                        'low': safe_float_price(data_point.low_price, 0),
+                        'close': safe_float_price(data_point.close_price, 0),
+                        'volume': safe_float_price(data_point.volume, 0)
                     }
                 logger.info(f"Retrieved {len(price_data)} price data points from database for execution simulation")
             else:
@@ -1504,6 +1579,15 @@ class BacktestingHistoryExportAPIView(View):
         output = io.StringIO()
         writer = csv.writer(output)
         
+        # Safe float conversion helper
+        def safe_float_export(value, default=0.0):
+            if value is None:
+                return default
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+        
         # CSV Headers
         headers = [
             'Date', 'Time', 'Symbol', 'Signal Type', 'Strength', 'Confidence Score',
@@ -1516,13 +1600,16 @@ class BacktestingHistoryExportAPIView(View):
         
         # Add signal data
         for signal in signals:
-            # Calculate performance percentage
+            # Calculate performance percentage with safe float conversion
             performance_pct = 0
             if signal.is_executed and signal.execution_price and signal.entry_price:
-                if signal.signal_type.name in ['BUY', 'STRONG_BUY']:
-                    performance_pct = ((float(signal.execution_price) - float(signal.entry_price)) / float(signal.entry_price)) * 100
-                else:
-                    performance_pct = ((float(signal.entry_price) - float(signal.execution_price)) / float(signal.entry_price)) * 100
+                exec_price = safe_float_export(signal.execution_price, 0)
+                entry_price = safe_float_export(signal.entry_price, 0)
+                if entry_price > 0:
+                    if signal.signal_type.name in ['BUY', 'STRONG_BUY']:
+                        performance_pct = ((exec_price - entry_price) / entry_price) * 100
+                    else:
+                        performance_pct = ((entry_price - exec_price) / entry_price) * 100
             
             row = [
                 signal.created_at.strftime('%Y-%m-%d'),
@@ -1610,6 +1697,15 @@ class AvailableSymbolsAPIView(View):
                                 price_stats['max_price'] < 1000000   # Not too high
                             )
                             
+                            # Safe float conversion helper for price stats
+                            def safe_float_stats(value, default=0.0):
+                                if value is None:
+                                    return default
+                                try:
+                                    return float(value)
+                                except (TypeError, ValueError):
+                                    return default
+                            
                             symbols_info.append({
                                 'symbol': symbol_name,
                                 'name': symbol.name or symbol_name,
@@ -1617,9 +1713,9 @@ class AvailableSymbolsAPIView(View):
                                 'is_available': True,
                                 'is_real_data': is_real_data,
                                 'price_range': {
-                                    'min': float(price_stats['min_price']) if price_stats['min_price'] else 0,
-                                    'max': float(price_stats['max_price']) if price_stats['max_price'] else 0,
-                                    'avg': float(price_stats['avg_price']) if price_stats['avg_price'] else 0
+                                    'min': safe_float_stats(price_stats['min_price'], 0) if price_stats['min_price'] else 0,
+                                    'max': safe_float_stats(price_stats['max_price'], 0) if price_stats['max_price'] else 0,
+                                    'avg': safe_float_stats(price_stats['avg_price'], 0) if price_stats['avg_price'] else 0
                                 }
                             })
                         except Symbol.DoesNotExist:
@@ -1635,6 +1731,15 @@ class AvailableSymbolsAPIView(View):
                         is_crypto_symbol=True,
                         is_active=True
                     ).order_by('symbol')[:100]  # Limit to top 100
+                    
+                    # Safe float conversion helper for price stats
+                    def safe_float_stats_fallback(value, default=0.0):
+                        if value is None:
+                            return default
+                        try:
+                            return float(value)
+                        except (TypeError, ValueError):
+                            return default
                     
                     for symbol in active_symbols:
                         # Try to get MarketData count if available
@@ -1660,9 +1765,9 @@ class AvailableSymbolsAPIView(View):
                             'is_available': True,
                             'is_real_data': is_real_data,
                             'price_range': {
-                                'min': float(price_stats['min_price']) if price_stats['min_price'] else 0,
-                                'max': float(price_stats['max_price']) if price_stats['max_price'] else 0,
-                                'avg': float(price_stats['avg_price']) if price_stats['avg_price'] else 0
+                                'min': safe_float_stats_fallback(price_stats['min_price'], 0) if price_stats['min_price'] else 0,
+                                'max': safe_float_stats_fallback(price_stats['max_price'], 0) if price_stats['max_price'] else 0,
+                                'avg': safe_float_stats_fallback(price_stats['avg_price'], 0) if price_stats['avg_price'] else 0
                             }
                         })
                 except Exception as e:
