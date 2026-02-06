@@ -4065,21 +4065,74 @@
             e.preventDefault();
             openLoginModal();
         });
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                closeLoginModal();
+        
+        // Use event delegation for close button (works even if button is added dynamically)
+        function attachCloseButtonListener() {
+            var btn = document.getElementById('login-modal-close');
+            if (btn) {
+                // Remove any existing listeners by cloning
+                var newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                
+                // Add new listener with multiple methods for maximum compatibility
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    closeLoginModal();
+                    return false;
+                });
+                
+                // Also add onclick as fallback
+                newBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeLoginModal();
+                    return false;
+                };
+                
+                return true;
+            }
+            return false;
+        }
+        
+        // Try to attach immediately
+        if (!attachCloseButtonListener()) {
+            // If button doesn't exist yet, wait for DOM and try again
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    attachCloseButtonListener();
+                });
+            } else {
+                // DOM already loaded, try after a short delay
+                setTimeout(function() {
+                    attachCloseButtonListener();
+                }, 100);
+            }
+        }
+        
+        // Use event delegation on overlay (handles both close button and clicking outside)
+        if (overlay) {
+            overlay.addEventListener('click', function(e) {
+                // Check if click is on close button
+                if (e.target && (e.target.id === 'login-modal-close' || e.target.closest('#login-modal-close'))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeLoginModal();
+                    return false;
+                }
+                // Also close if clicking directly on overlay (outside modal)
+                if (e.target === overlay) {
+                    closeLoginModal();
+                }
             });
         }
-        overlay.addEventListener('click', function(e) {
-            // Only close if clicking directly on overlay, not on modal content
-            if (e.target === overlay) {
+        
+        // Close on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) {
                 closeLoginModal();
             }
-        });
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && overlay.classList.contains('show')) closeLoginModal();
         });
 
         form.addEventListener('submit', function(e) {

@@ -97,12 +97,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    if (closeBtn) {
-        closeBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            closeLoginModal();
-        });
+    // Use event delegation for close button (more reliable)
+    function attachCloseHandler() {
+        var btn = document.getElementById('login-modal-close');
+        if (btn) {
+            // Remove existing listeners by cloning
+            var newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add click handler
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeLoginModal();
+                return false;
+            });
+            
+            // Also add onclick as fallback
+            newBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeLoginModal();
+                return false;
+            };
+            return true;
+        }
+        return false;
+    }
+    
+    // Try to attach immediately
+    if (!attachCloseHandler()) {
+        // Retry after a short delay
+        setTimeout(function() {
+            attachCloseHandler();
+        }, 100);
     }
     if (overlay) overlay.addEventListener('click', function(e) {
         // Only close if clicking directly on overlay, not on modal content
