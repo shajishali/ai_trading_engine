@@ -41,73 +41,6 @@
         font-size: 1.1rem;
     }
     
-    .social-login-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-        margin-bottom: 30px;
-    }
-    
-    .btn-social {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding: 15px 20px;
-        border-radius: 12px;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-        border: 2px solid transparent;
-    }
-    
-    .btn-google {
-        background: #ffffff;
-        color: #374151;
-        border-color: #d1d5db;
-    }
-    
-    .btn-google:hover {
-        background: #f9fafb;
-        border-color: #9ca3af;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    }
-    
-    .btn-facebook {
-        background: #1877f2;
-        color: white;
-    }
-    
-    .btn-facebook:hover {
-        background: #166fe5;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(24, 119, 242, 0.3);
-    }
-    
-    .divider {
-        text-align: center;
-        margin: 30px 0;
-        position: relative;
-    }
-    
-    .divider::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: #e2e8f0;
-    }
-    
-    .divider span {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 0 20px;
-        color: #718096;
-        font-weight: 500;
-    }
     
     .form-group {
         margin-bottom: 20px;
@@ -203,10 +136,6 @@
         font-weight: bold;
     }
     
-    .coming-soon {
-        opacity: 0.6;
-        font-style: italic;
-    }
     
     .error-message {
         color: #e53e3e;
@@ -239,26 +168,6 @@
     }
 
     [data-theme="dark"] .signup-header p {
-        color: #cccccc !important;
-    }
-
-    [data-theme="dark"] .btn-google {
-        background: #2d2d2d !important;
-        color: #ffffff !important;
-        border-color: #555 !important;
-    }
-
-    [data-theme="dark"] .btn-google:hover {
-        background: #444 !important;
-        border-color: #777 !important;
-    }
-
-    [data-theme="dark"] .divider::before {
-        background: #555 !important;
-    }
-
-    [data-theme="dark"] .divider span {
-        background: rgba(45, 45, 45, 0.95) !important;
         color: #cccccc !important;
     }
 
@@ -301,10 +210,6 @@
         color: #cccccc !important;
     }
 
-    [data-theme="dark"] .coming-soon {
-        color: #999 !important;
-    }
-
     [data-theme="dark"] .error-message {
         color: #ff6b6b !important;
         background: rgba(255, 107, 107, 0.1) !important;
@@ -328,26 +233,6 @@
     }
 
     body:not([data-theme="dark"]) .signup-header p {
-        color: #718096 !important;
-    }
-
-    body:not([data-theme="dark"]) .btn-google {
-        background: #ffffff !important;
-        color: #374151 !important;
-        border-color: #d1d5db !important;
-    }
-
-    body:not([data-theme="dark"]) .btn-google:hover {
-        background: #f9fafb !important;
-        border-color: #9ca3af !important;
-    }
-
-    body:not([data-theme="dark"]) .divider::before {
-        background: #e2e8f0 !important;
-    }
-
-    body:not([data-theme="dark"]) .divider span {
-        background: rgba(255, 255, 255, 0.95) !important;
         color: #718096 !important;
     }
 
@@ -390,10 +275,6 @@
         color: #4a5568 !important;
     }
 
-    body:not([data-theme="dark"]) .coming-soon {
-        color: #9ca3af !important;
-    }
-
     body:not([data-theme="dark"]) .error-message {
         color: #e53e3e !important;
         background: #fed7d7 !important;
@@ -424,24 +305,6 @@
                 </div>
             {% endfor %}
         {% endif %}
-        
-        <!-- Social Login Buttons -->
-        <div class="social-login-buttons">
-            <a href="#" class="btn-social btn-google" onclick="alert('Google login coming soon!')">
-                <i class="fab fa-google" style="color: #ea4335;"></i>
-                Continue with Google
-                <span class="coming-soon">(Coming Soon)</span>
-            </a>
-            <a href="#" class="btn-social btn-facebook" onclick="alert('Facebook login coming soon!')">
-                <i class="fab fa-facebook"></i>
-                Continue with Facebook
-                <span class="coming-soon">(Coming Soon)</span>
-            </a>
-        </div>
-        
-        <div class="divider">
-            <span>OR</span>
-        </div>
         
         <!-- Traditional Signup Form -->
         <form method="post">
