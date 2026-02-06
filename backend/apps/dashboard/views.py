@@ -561,15 +561,29 @@ def settings_view(request):
             
         elif action == 'change_password':
             # Change password
-            current_password = request.POST.get('current_password')
-            new_password = request.POST.get('new_password')
-            confirm_password = request.POST.get('confirm_password')
-            
-            if user.check_password(current_password) and new_password == confirm_password:
-                user.set_password(new_password)
-                user.save()
-                # Re-login user
-                login(request, user)
+            user = request.user
+            current_password = request.POST.get('current_password', '')
+            new_password = request.POST.get('new_password', '')
+            confirm_password = request.POST.get('confirm_password', '')
+            if not current_password:
+                messages.error(request, 'Please enter your current password.')
+            elif new_password != confirm_password:
+                messages.error(request, 'New password and confirmation do not match.')
+            elif len(new_password) < 8:
+                messages.error(request, 'New password must be at least 8 characters.')
+            elif user.check_password(current_password):
+                try:
+                    user.set_password(new_password)
+                    user.save()
+                    # Re-login user after password change (session is invalidated)
+                    login(request, user)
+                    messages.success(request, 'Password changed successfully.')
+                except Exception as e:
+                    messages.error(request, 'Password could not be set. Try a stronger password (e.g. 8+ characters, mixed letters and numbers).')
+                    logger.warning('Password change validation failed: %s', e)
+            else:
+                messages.error(request, 'Current password is incorrect.')
+            return redirect('dashboard:settings')
         
         elif action == 'update_preferences':
             # Update trading preferences
