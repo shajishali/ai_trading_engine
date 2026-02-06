@@ -240,25 +240,33 @@ class BacktestAPIView(View):
             # Generate signals based on YOUR actual strategy
             signals = strategy_service.generate_historical_signals(symbol, start_date, end_date)
             
-            # Convert signals to the required format
+            # Convert signals to the required format (safe float to avoid NoneType)
+            def _safe_float(v, default=0.0):
+                if v is None:
+                    return default
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return default
+
             formatted_signals = []
             for signal in signals:
                 formatted_signals.append({
-                    'id': signal.get('id', f"strategy_{hash(signal['created_at'])}"),  # Use signal ID if available
-                    'symbol': str(signal['symbol']),
-                    'signal_type': str(signal['signal_type']),
-                    'strength': str(signal['strength']),
-                    'confidence_score': float(signal['confidence_score']),
-                    'entry_price': float(signal['entry_price']),
-                    'target_price': float(signal['target_price']),
-                    'stop_loss': float(signal['stop_loss']),
-                    'risk_reward_ratio': float(signal['risk_reward_ratio']),
-                    'timeframe': str(signal['timeframe']),
-                    'quality_score': float(signal['quality_score']),
-                    'created_at': str(signal['created_at']),
+                    'id': signal.get('id', f"strategy_{hash(signal['created_at'])}"),
+                    'symbol': str(signal.get('symbol', '')),
+                    'signal_type': str(signal.get('signal_type', '')),
+                    'strength': str(signal.get('strength', '')),
+                    'confidence_score': _safe_float(signal.get('confidence_score'), 0.5),
+                    'entry_price': _safe_float(signal.get('entry_price')),
+                    'target_price': _safe_float(signal.get('target_price')),
+                    'stop_loss': _safe_float(signal.get('stop_loss')),
+                    'risk_reward_ratio': _safe_float(signal.get('risk_reward_ratio'), 0.0),
+                    'timeframe': str(signal.get('timeframe', '1D')),
+                    'quality_score': _safe_float(signal.get('quality_score'), 0.5),
+                    'created_at': str(signal.get('created_at', '')),
                     'is_executed': False,
                     'executed_at': None,
-                    'strategy_confirmations': int(signal.get('strategy_confirmations', 0)),
+                    'strategy_confirmations': int(signal.get('strategy_confirmations') or 0),
                     'strategy_details': signal.get('strategy_details', {})
                 })
             

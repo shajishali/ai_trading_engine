@@ -663,7 +663,10 @@ class StrategyBacktestingService:
     ) -> Optional[Dict]:
         """Create a BUY signal based on strategy + sentiment + ML."""
         try:
-            current_price = current_data['close']
+            current_price = current_data.get('close')
+            if current_price is None or (hasattr(current_price, '__float__') and getattr(np, 'isnan', lambda x: False)(current_price)):
+                return None
+            current_price = float(current_price)
             stop_loss = current_price * (1 - self.stop_loss_percentage)
             target_price = current_price * (1 + self.take_profit_percentage)
             risk = current_price - stop_loss
@@ -672,17 +675,26 @@ class StrategyBacktestingService:
             if risk_reward_ratio < self.min_risk_reward_ratio:
                 return None
 
-            base_conf = confirmation['confidence']
+            try:
+                base_conf = float(confirmation.get('confidence') or 0)
+            except (TypeError, ValueError):
+                base_conf = 0.0
             sentiment_score = 0.5
             if sentiment_info:
-                sentiment_score = sentiment_info.get('score', 0.5)
+                try:
+                    sentiment_score = float(sentiment_info.get('score') or 0.5)
+                except (TypeError, ValueError):
+                    sentiment_score = 0.5
                 if sentiment_score < 0.35:
                     return None
             ml_component = 0.5
             ml_used = False
             if ml_pred:
                 ml_used = True
-                conf = float(ml_pred.get('confidence', 0.5))
+                try:
+                    conf = float(ml_pred.get('confidence') or 0.5)
+                except (TypeError, ValueError):
+                    conf = 0.5
                 ml_component = conf if ml_pred.get('direction') == 'BUY' else (1.0 - conf) * 0.3
             final_confidence = (
                 self.weight_strategy * base_conf
@@ -691,11 +703,17 @@ class StrategyBacktestingService:
             )
             final_confidence = max(0.0, min(1.0, final_confidence))
 
+            try:
+                rsi_val = float(current_data.get('rsi') or 0)
+            except (TypeError, ValueError):
+                rsi_val = 0.0
+            if np.isnan(rsi_val):
+                rsi_val = 0.0
             details = {
                 'trend_bias': 'BULLISH',
-                'rsi_level': float(current_data.get('rsi', 0)),
+                'rsi_level': rsi_val,
                 'macd_signal': 'BULLISH_CROSSOVER',
-                'volume_confirmation': bool(current_data.get('volume_ratio', 1) >= self.volume_threshold),
+                'volume_confirmation': bool((current_data.get('volume_ratio') or 1) >= self.volume_threshold),
                 'take_profit_percentage': float(self.take_profit_percentage),
                 'stop_loss_percentage': float(self.stop_loss_percentage),
                 'sentiment_score': sentiment_score,
@@ -706,17 +724,21 @@ class StrategyBacktestingService:
                 details['ml_direction'] = ml_pred.get('direction')
                 details['ml_confidence'] = ml_pred.get('confidence')
 
+            entry_price = float(current_price) if current_price is not None else 0.0
+            target_price_f = float(target_price) if target_price is not None else 0.0
+            stop_loss_f = float(stop_loss) if stop_loss is not None else 0.0
+            rr = float(risk_reward_ratio) if risk_reward_ratio is not None else 0.0
             return {
                 'symbol': symbol.symbol,
                 'signal_type': 'BUY',
                 'strength': 'STRONG' if final_confidence > 0.7 else 'MODERATE',
-                'confidence_score': final_confidence,
-                'entry_price': current_price,
-                'target_price': target_price,
-                'stop_loss': stop_loss,
-                'risk_reward_ratio': risk_reward_ratio,
+                'confidence_score': float(final_confidence),
+                'entry_price': entry_price,
+                'target_price': target_price_f,
+                'stop_loss': stop_loss_f,
+                'risk_reward_ratio': rr,
                 'timeframe': '1D',
-                'quality_score': final_confidence,
+                'quality_score': float(final_confidence),
                 'created_at': current_date.isoformat(),
                 'strategy_confirmations': confirmation.get('confirmations', 0),
                 'strategy_details': details,
@@ -736,7 +758,10 @@ class StrategyBacktestingService:
     ) -> Optional[Dict]:
         """Create a SELL signal based on strategy + sentiment + ML."""
         try:
-            current_price = current_data['close']
+            current_price = current_data.get('close')
+            if current_price is None or (hasattr(current_price, '__float__') and getattr(np, 'isnan', lambda x: False)(current_price)):
+                return None
+            current_price = float(current_price)
             stop_loss = current_price * (1 + self.stop_loss_percentage)
             target_price = current_price * (1 - self.take_profit_percentage)
             risk = stop_loss - current_price
@@ -745,17 +770,26 @@ class StrategyBacktestingService:
             if risk_reward_ratio < self.min_risk_reward_ratio:
                 return None
 
-            base_conf = confirmation['confidence']
+            try:
+                base_conf = float(confirmation.get('confidence') or 0)
+            except (TypeError, ValueError):
+                base_conf = 0.0
             sentiment_score = 0.5
             if sentiment_info:
-                sentiment_score = sentiment_info.get('score', 0.5)
+                try:
+                    sentiment_score = float(sentiment_info.get('score') or 0.5)
+                except (TypeError, ValueError):
+                    sentiment_score = 0.5
                 if sentiment_score > 0.65:
                     return None
             ml_component = 0.5
             ml_used = False
             if ml_pred:
                 ml_used = True
-                conf = float(ml_pred.get('confidence', 0.5))
+                try:
+                    conf = float(ml_pred.get('confidence') or 0.5)
+                except (TypeError, ValueError):
+                    conf = 0.5
                 ml_component = conf if ml_pred.get('direction') == 'SELL' else (1.0 - conf) * 0.3
             final_confidence = (
                 self.weight_strategy * base_conf
@@ -764,11 +798,17 @@ class StrategyBacktestingService:
             )
             final_confidence = max(0.0, min(1.0, final_confidence))
 
+            try:
+                rsi_val_s = float(current_data.get('rsi') or 0)
+            except (TypeError, ValueError):
+                rsi_val_s = 0.0
+            if np.isnan(rsi_val_s):
+                rsi_val_s = 0.0
             details = {
                 'trend_bias': 'BEARISH',
-                'rsi_level': float(current_data.get('rsi', 0)),
+                'rsi_level': rsi_val_s,
                 'macd_signal': 'BEARISH_CROSSOVER',
-                'volume_confirmation': bool(current_data.get('volume_ratio', 1) >= self.volume_threshold),
+                'volume_confirmation': bool((current_data.get('volume_ratio') or 1) >= self.volume_threshold),
                 'take_profit_percentage': float(self.take_profit_percentage),
                 'stop_loss_percentage': float(self.stop_loss_percentage),
                 'sentiment_score': sentiment_score,
@@ -779,17 +819,21 @@ class StrategyBacktestingService:
                 details['ml_direction'] = ml_pred.get('direction')
                 details['ml_confidence'] = ml_pred.get('confidence')
 
+            entry_price_s = float(current_price) if current_price is not None else 0.0
+            target_price_s = float(target_price) if target_price is not None else 0.0
+            stop_loss_s = float(stop_loss) if stop_loss is not None else 0.0
+            rr_s = float(risk_reward_ratio) if risk_reward_ratio is not None else 0.0
             return {
                 'symbol': symbol.symbol,
                 'signal_type': 'SELL',
                 'strength': 'STRONG' if final_confidence > 0.7 else 'MODERATE',
-                'confidence_score': final_confidence,
-                'entry_price': current_price,
-                'target_price': target_price,
-                'stop_loss': stop_loss,
-                'risk_reward_ratio': risk_reward_ratio,
+                'confidence_score': float(final_confidence),
+                'entry_price': entry_price_s,
+                'target_price': target_price_s,
+                'stop_loss': stop_loss_s,
+                'risk_reward_ratio': rr_s,
                 'timeframe': '1D',
-                'quality_score': final_confidence,
+                'quality_score': float(final_confidence),
                 'created_at': current_date.isoformat(),
                 'strategy_confirmations': confirmation.get('confirmations', 0),
                 'strategy_details': details,
