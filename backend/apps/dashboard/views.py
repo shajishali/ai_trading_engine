@@ -18,8 +18,9 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+@ensure_csrf_cookie
 def home(request):
-    """Home page view"""
+    """Home page view. ensure_csrf_cookie sets CSRF cookie so header login modal works on mobile."""
     try:
         context = {
             'title': 'CryptAI',
