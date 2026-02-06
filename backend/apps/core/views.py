@@ -55,6 +55,26 @@ def handler403(request, exception):
     return render(request, 'core/403.html', status=403)
 
 
+# Legal Pages
+def privacy_policy(request):
+    """Privacy Policy page"""
+    return render(request, 'core/privacy_policy.html', {
+        'title': 'Privacy Policy - CryptAI'
+    })
+
+def terms_of_service(request):
+    """Terms of Service page"""
+    return render(request, 'core/terms_of_service.html', {
+        'title': 'Terms of Service - CryptAI'
+    })
+
+def disclaimer(request):
+    """Disclaimer page"""
+    return render(request, 'core/disclaimer.html', {
+        'title': 'Disclaimer - CryptAI'
+    })
+
+
 @method_decorator(login_required, name='dispatch')
 class PerformanceMetricsView(View):
     """View for performance metrics"""

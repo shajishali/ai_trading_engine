@@ -58,6 +58,10 @@ urlpatterns = [
     path('analytics/', include('apps.analytics.urls')),
     path('subscription/', include('apps.subscription.urls')),
     path('core/', include('apps.core.urls')),
+    # Legal pages (accessible from root)
+    path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
+    path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
+    path('disclaimer/', views.disclaimer, name='disclaimer'),
     path('', include('apps.dashboard.urls')),  # Dashboard last as catch-all
 ]
 

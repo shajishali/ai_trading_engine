@@ -35,4 +35,9 @@ urlpatterns = [
     path('api/monitoring/services/', views.service_status, name='service_status'),
     path('api/monitoring/test-alert/', views.trigger_test_alert, name='trigger_test_alert'),
     path('api/monitoring/config/', views.monitoring_config, name='monitoring_config'),
+    
+    # Legal pages
+    path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
+    path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
+    path('disclaimer/', views.disclaimer, name='disclaimer'),
 ]
