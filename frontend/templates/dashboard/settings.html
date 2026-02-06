@@ -232,12 +232,12 @@
                     <div class="form-group">
                         <label class="form-label">Choose Theme</label>
                         <div class="d-flex gap-3">
-                            <div class="theme-preview theme-light active" data-theme="light" title="Light Theme">
+                            <div class="theme-preview theme-light" data-theme="light" title="Light Theme">
                                 <div class="d-flex align-items-center justify-content-center h-100">
                                     <i class="fas fa-sun text-warning"></i>
                                 </div>
                             </div>
-                            <div class="theme-preview theme-dark" data-theme="dark" title="Dark Theme">
+                            <div class="theme-preview theme-dark active" data-theme="dark" title="Dark Theme">
                                 <div class="d-flex align-items-center justify-content-center h-100">
                                     <i class="fas fa-moon text-light"></i>
                                 </div>
@@ -290,6 +290,23 @@
 
 {% block extra_js %}
 <script>
+    // Theme preview functionality - default to dark mode
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load saved theme or default to dark
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.body.setAttribute('data-theme', savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        // Set active theme preview
+        document.querySelectorAll('.theme-preview').forEach(p => {
+            if (p.getAttribute('data-theme') === savedTheme) {
+                p.classList.add('active');
+            } else {
+                p.classList.remove('active');
+            }
+        });
+    });
+    
     // Theme preview functionality
     document.querySelectorAll('.theme-preview').forEach(preview => {
         preview.addEventListener('click', function() {
@@ -303,17 +320,8 @@
             
             // Apply theme
             document.body.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-theme', theme);
             localStorage.setItem('theme', theme);
-            
-            // Update theme icon in navbar
-            const themeIcon = document.getElementById('theme-icon');
-            if (themeIcon) {
-                if (theme === 'dark') {
-                    themeIcon.className = 'fas fa-sun';
-                } else {
-                    themeIcon.className = 'fas fa-moon';
-                }
-            }
         });
     });
 

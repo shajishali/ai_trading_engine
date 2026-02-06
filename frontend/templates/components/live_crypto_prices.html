@@ -719,43 +719,27 @@ function initializeThemeSupport() {
         }
     }
     
-    // Check current theme
+    // Check current theme - default to dark mode
     function checkCurrentTheme() {
-        const themeToggle = document.getElementById('theme-toggle') || document.getElementById('theme-toggle-home');
-        if (themeToggle) {
-            const icon = themeToggle.querySelector('i');
-            if (icon && icon.classList.contains('fa-sun')) {
-                updateThemeVariables('dark');
-            } else {
-                updateThemeVariables('light');
-            }
-        }
+        const currentTheme = document.body.getAttribute('data-theme') || 'dark';
+        updateThemeVariables(currentTheme);
     }
     
     // Initial theme check
     checkCurrentTheme();
     
-    // Watch for theme changes
+    // Watch for theme changes (from settings page)
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                checkCurrentTheme();
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                const theme = document.body.getAttribute('data-theme') || 'dark';
+                updateThemeVariables(theme);
             }
         });
     });
     
-    // Observe theme toggle buttons
-    const themeToggles = document.querySelectorAll('[id*="theme-toggle"]');
-    themeToggles.forEach(toggle => {
-        observer.observe(toggle, { attributes: true });
-    });
-    
-    // Also listen for click events on theme toggles
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('[id*="theme-toggle"]')) {
-            setTimeout(checkCurrentTheme, 100); // Small delay to allow theme change
-        }
-    });
+    // Observe body for theme changes
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] });
 }
 
 // Auto-refresh every 30 seconds

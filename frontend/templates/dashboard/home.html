@@ -282,12 +282,6 @@
                 <a href="/signals/" class="btn btn-outline-primary btn-lg px-4 px-md-5 py-3">
                     <i class="fas fa-signal me-2"></i>View Trading Signals
                 </a>
-                {% if not user.is_authenticated %}
-                    <button class="btn btn-outline-secondary btn-lg px-3 px-md-4 py-3" id="theme-toggle-home" title="Toggle Dark/Light Mode">
-                        <i class="fas fa-moon" id="theme-icon-home"></i>
-                    </button>
-
-                {% endif %}
             </div>
         </div>
     </div>
@@ -473,39 +467,5 @@
     </div>
 </footer>
 
-<!-- Theme Toggle Script for Home Page (only for non-authenticated users) -->
-{% if not user.is_authenticated %}
-<script>
-    // Theme toggle functionality for home page
-    const themeToggleHome = document.getElementById('theme-toggle-home');
-    const themeIconHome = document.getElementById('theme-icon-home');
-    const body = document.body;
-    
-    // Check for saved theme preference or default to light mode
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    body.setAttribute('data-theme', currentTheme);
-    updateThemeIconHome(currentTheme);
-    
-    themeToggleHome.addEventListener('click', () => {
-        const currentTheme = body.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        
-        body.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        updateThemeIconHome(newTheme);
-    });
-    
-    function updateThemeIconHome(theme) {
-        if (theme === 'dark') {
-            themeIconHome.className = 'fas fa-sun';
-            themeToggleHome.title = 'Switch to Light Mode';
-        } else {
-            themeIconHome.className = 'fas fa-moon';
-            themeToggleHome.title = 'Switch to Dark Mode';
-        }
-    }
-    
-
-</script>
-{% endif %}
+<!-- Theme toggle removed - theme can only be changed via settings page -->
 {% endblock %}

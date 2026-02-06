@@ -3784,21 +3784,29 @@
     </style>
     
     {% block extra_css %}{% endblock %}
-    <!-- Override to light only if user previously chose light (server already sent data-theme="dark" on html) -->
+    <!-- Default to dark mode - theme can be changed via settings page -->
     <script>
         (function(){
-            try {
-                var s = localStorage.getItem('theme');
-                if (s === 'light') document.documentElement.setAttribute('data-theme', 'light');
-            } catch (e) {}
+            // Default to dark mode, but respect user's choice from settings
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.body.setAttribute('data-theme', savedTheme);
         })();
     </script>
 </head>
 <body data-theme="dark">
     <script>
+        // Default to dark mode - theme can be changed via settings page
         try {
-            if (localStorage.getItem('theme') === 'light') document.body.setAttribute('data-theme', 'light');
-        } catch (e) {}
+            // Default to dark mode, but respect user's choice from settings
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.setAttribute('data-theme', savedTheme);
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        } catch (e) {
+            // Fallback to dark mode if localStorage fails
+            document.body.setAttribute('data-theme', 'dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
     </script>
     <!-- Premium Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light shadow-sm" style="background-color: var(--navbar-bg);">
@@ -3848,16 +3856,6 @@
                 
                 <ul class="navbar-nav ms-lg-auto mt-3 mt-lg-0">
                     {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <button class="btn btn-outline-secondary btn-sm" id="theme-toggle" title="Toggle Dark/Light Mode" style="display: flex !important; align-items: center; justify-content: center;">
-                                <i class="fas fa-moon" id="theme-icon"></i>
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="btn btn-outline-secondary btn-sm" id="brightness-toggle" title="Adjust Brightness" style="display: flex !important; align-items: center; justify-content: center;">
-                                <i class="fas fa-adjust" id="brightness-icon"></i>
-                            </button>
-                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button">
                                 <i class="fas fa-user me-1"></i><span>{{ user.username }}</span>
@@ -3869,11 +3867,6 @@
                             </ul>
                         </li>
                     {% else %}
-                        <li class="nav-item">
-                            <button class="btn btn-outline-secondary btn-sm" id="brightness-toggle" title="Adjust Brightness" style="display: flex !important; align-items: center; justify-content: center;">
-                                <i class="fas fa-adjust" id="brightness-icon"></i>
-                            </button>
-                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'subscription:signup' %}"><i class="fas fa-user-plus me-1"></i>Sign Up</a>
                         </li>
@@ -3954,38 +3947,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     
     <!-- Dark/Light Mode Toggle Script (server sends dark; we only override to light if user chose light before) -->
-    <script>
-        (function(){
-            var themeToggle = document.getElementById('theme-toggle');
-            var themeIcon = document.getElementById('theme-icon');
-            var body = document.body;
-            var currentTheme = 'dark';
-            try { if (localStorage.getItem('theme') === 'light') currentTheme = 'light'; } catch (e) {}
-            body.setAttribute('data-theme', currentTheme);
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            
-            if (themeToggle && themeIcon) {
-                function updateThemeIcon(theme) {
-                    if (theme === 'dark') {
-                        themeIcon.className = 'fas fa-sun';
-                        themeToggle.title = 'Switch to Light Mode';
-                    } else {
-                        themeIcon.className = 'fas fa-moon';
-                        themeToggle.title = 'Switch to Dark Mode';
-                    }
-                }
-                updateThemeIcon(currentTheme);
-                themeToggle.addEventListener('click', function() {
-                    var cur = body.getAttribute('data-theme');
-                    var newTheme = cur === 'dark' ? 'light' : 'dark';
-                    body.setAttribute('data-theme', newTheme);
-                    document.documentElement.setAttribute('data-theme', newTheme);
-                    try { localStorage.setItem('theme', newTheme); } catch (e) {}
-                    updateThemeIcon(newTheme);
-                });
-            }
-        })();
-    </script>
+    <!-- Theme toggle removed - theme can only be changed via settings page -->
 
     <!-- Login popup: open modal with blurred background, submit via fetch -->
     <script>
@@ -4255,78 +4217,12 @@
 
     <!-- Brightness Control Script -->
     <script>
-        // Brightness control functionality
-        const brightnessToggle = document.getElementById('brightness-toggle');
-        const brightnessModal = document.getElementById('brightness-modal');
-        const brightnessClose = document.getElementById('brightness-close');
-        const brightnessSlider = document.getElementById('brightness-slider');
-        const brightnessOptions = document.querySelectorAll('.brightness-option');
+        // Brightness toggle removed - brightness can only be changed via settings page
+        // Keep brightness overlay for settings page functionality
         const brightnessOverlay = document.getElementById('brightness-overlay');
-        
-        // Check for saved brightness preference or default to normal
-        const currentBrightness = localStorage.getItem('brightness') || 'normal';
-        applyBrightness(currentBrightness);
-        updateBrightnessSlider(currentBrightness);
-        
-        // Toggle brightness modal
-        brightnessToggle.addEventListener('click', () => {
-            brightnessModal.classList.add('show');
-        });
-        
-        // Close brightness modal
-        brightnessClose.addEventListener('click', () => {
-            brightnessModal.classList.remove('show');
-        });
-        
-        // Close modal when clicking outside
-        document.addEventListener('click', (e) => {
-            if (e.target === brightnessModal) {
-                brightnessModal.classList.remove('show');
-            }
-        });
-        
-        // Brightness slider control
-        brightnessSlider.addEventListener('input', (e) => {
-            const value = e.target.value;
-            let brightness = 'normal';
-            
-            if (value < 30) brightness = 'low';
-            else if (value > 70) brightness = 'high';
-            else brightness = 'normal';
-            
-            applyBrightness(brightness);
-            updateBrightnessOptions(brightness);
-        });
-        
-        // Brightness option buttons
-        brightnessOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                const brightness = option.dataset.brightness;
-                applyBrightness(brightness);
-                updateBrightnessSlider(brightness);
-                updateBrightnessOptions(brightness);
-            });
-        });
-        
-        function applyBrightness(brightness) {
-            brightnessOverlay.className = `brightness-overlay ${brightness}`;
-            localStorage.setItem('brightness', brightness);
-        }
-        
-        function updateBrightnessSlider(brightness) {
-            let value = 50; // normal
-            if (brightness === 'low') value = 20;
-            else if (brightness === 'high') value = 80;
-            brightnessSlider.value = value;
-        }
-        
-        function updateBrightnessOptions(brightness) {
-            brightnessOptions.forEach(option => {
-                option.classList.remove('active');
-                if (option.dataset.brightness === brightness) {
-                    option.classList.add('active');
-                }
-            });
+        if (brightnessOverlay) {
+            const savedBrightness = localStorage.getItem('brightness') || 'normal';
+            brightnessOverlay.className = `brightness-overlay ${savedBrightness}`;
         }
     </script>
 
