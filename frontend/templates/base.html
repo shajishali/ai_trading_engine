@@ -3885,13 +3885,13 @@
 
     <!-- Brightness Modal (hidden by default, only shown from settings page) -->
     <div class="brightness-modal" id="brightness-modal" style="display: none !important;">
-        <button class="brightness-close" id="brightness-close">&times;</button>
+        <button class="brightness-close" id="brightness-close" aria-label="Close brightness modal">&times;</button>
         <h5><i class="fas fa-adjust me-2"></i>Adjust Brightness</h5>
         <input type="range" class="brightness-slider" id="brightness-slider" min="0" max="100" value="50">
         <div class="brightness-options">
-            <button class="brightness-option" data-brightness="low">Low</button>
-            <button class="brightness-option active" data-brightness="normal">Normal</button>
-            <button class="brightness-option" data-brightness="high">High</button>
+            <button class="brightness-option" data-brightness="low" aria-label="Set brightness to low">Low</button>
+            <button class="brightness-option active" data-brightness="normal" aria-label="Set brightness to normal">Normal</button>
+            <button class="brightness-option" data-brightness="high" aria-label="Set brightness to high">High</button>
         </div>
     </div>
 
@@ -3930,6 +3930,7 @@
 
         var csrfTokenRefreshPromise = null;
         function openLoginModal() {
+            if (!overlay) return;
             overlay.classList.add('show');
             overlay.setAttribute('aria-hidden', 'false');
             if (mainWrap) mainWrap.classList.add('login-blurred');
@@ -4031,6 +4032,7 @@
             }, 200);
         }
         function closeLoginModal() {
+            if (!overlay) return;
             overlay.classList.remove('show');
             overlay.setAttribute('aria-hidden', 'true');
             if (mainWrap) mainWrap.classList.remove('login-blurred');
@@ -4471,9 +4473,11 @@
             console.log('Window loaded, checking dropdowns...');
             
             const userToggle = document.getElementById('navbarDropdown');
-            if (userToggle && !userToggle.hasAttribute('data-user-initialized')) {
-                setupUserDropdown();
-                userToggle.setAttribute('data-user-initialized', 'true');
+            if (userToggle) {
+                if (!userToggle.hasAttribute('data-user-initialized')) {
+                    setupUserDropdown();
+                    userToggle.setAttribute('data-user-initialized', 'true');
+                }
             }
         });
     </script>
