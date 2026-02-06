@@ -3753,27 +3753,41 @@
     {% block extra_css %}{% endblock %}
     <!-- Default to dark mode - theme can be changed via settings page -->
     <script>
+        // Set theme on documentElement immediately (before body exists)
         (function(){
-            // Default to dark mode, but respect user's choice from settings
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            document.body.setAttribute('data-theme', savedTheme);
+            try {
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                if (document.documentElement) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {
+                // Fallback to dark mode if localStorage fails
+                if (document.documentElement) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            }
         })();
     </script>
 </head>
 <body data-theme="dark">
     <script>
-        // Default to dark mode - theme can be changed via settings page
-        try {
-            // Default to dark mode, but respect user's choice from settings
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.body.setAttribute('data-theme', savedTheme);
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        } catch (e) {
-            // Fallback to dark mode if localStorage fails
-            document.body.setAttribute('data-theme', 'dark');
-            document.documentElement.setAttribute('data-theme', 'dark');
-        }
+        // Set theme on body after it's loaded (with null checks)
+        (function(){
+            try {
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                // Safely set theme on body if it exists
+                if (document.body) {
+                    document.body.setAttribute('data-theme', savedTheme);
+                }
+                // Ensure documentElement also has the theme
+                if (document.documentElement) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                }
+            } catch (e) {
+                // Fallback to dark mode if error occurs
+                console.error('Theme initialization error:', e);
+            }
+        })();
     </script>
     <!-- Premium Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light shadow-sm" style="background-color: var(--navbar-bg);">
