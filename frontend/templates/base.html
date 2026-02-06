@@ -7,8 +7,13 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}CryptAI{% endblock %}</title>
     
-    <!-- Favicon -->
+    <!-- Favicon - Multiple formats for compatibility -->
     <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/favicon.png' %}">
+    <!-- Fallback favicon using data URI if static files fail -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23022b57'/><stop offset='1' stop-color='%230d6efd'/></linearGradient></defs><rect x='4' y='4' width='56' height='56' rx='14' fill='url(%23g)'/><path d='M20 40c6-10 12-16 24-20' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/><path d='M22 24h6v18h-6z' fill='%23ffffff' opacity='0.9'/><path d='M30 20h6v22h-6z' fill='%23ffffff' opacity='0.9'/><path d='M38 28h6v14h-6z' fill='%23ffffff' opacity='0.9'/></svg>" type="image/svg+xml">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">

@@ -4,6 +4,10 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
+    # Favicon route (served directly to avoid 404)
+    path('favicon.ico', views.favicon_view, name='favicon'),
+    path('static/images/favicon.svg', views.favicon_view, name='favicon_svg'),
+    
     # Performance monitoring (Phase 5)
     path('api/performance/', views.performance_metrics, name='performance_metrics'),
     

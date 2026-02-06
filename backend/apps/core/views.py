@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -7,8 +7,11 @@ from django.core.cache import cache
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.utils import timezone
+from django.conf import settings
+from pathlib import Path
 import logging
 import json
+import os
 
 from .services import market_broadcaster, signals_broadcaster, notification_broadcaster
 
@@ -457,6 +460,43 @@ def monitoring_dashboard(request):
         return JsonResponse(error_response, status=500)
 
 
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
+
+
 def start_monitoring(request):
     """
     Start all monitoring services
@@ -487,6 +527,43 @@ def start_monitoring(request):
         return JsonResponse(error_response, status=500)
 
 
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
+
+
 def stop_monitoring(request):
     """
     Stop all monitoring services
@@ -515,6 +592,43 @@ def stop_monitoring(request):
             'timestamp': timezone.now().isoformat()
         }
         return JsonResponse(error_response, status=500)
+
+
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
 
 
 def performance_metrics(request):
@@ -550,6 +664,43 @@ def performance_metrics(request):
         return JsonResponse(error_response, status=500)
 
 
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
+
+
 def alert_history(request):
     """
     Get alert history from all monitoring services
@@ -569,6 +720,43 @@ def alert_history(request):
             'timestamp': timezone.now().isoformat()
         }
         return JsonResponse(error_response, status=500)
+
+
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
 
 
 def service_status(request):
@@ -596,6 +784,43 @@ def service_status(request):
             'timestamp': timezone.now().isoformat()
         }
         return JsonResponse(error_response, status=500)
+
+
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
 
 
 def trigger_test_alert(request):
@@ -628,6 +853,43 @@ def trigger_test_alert(request):
             'timestamp': timezone.now().isoformat()
         }
         return JsonResponse(error_response, status=500)
+
+
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')
 
 
 def monitoring_config(request):
@@ -694,3 +956,40 @@ def monitoring_config(request):
             'timestamp': timezone.now().isoformat()
         }
         return JsonResponse(error_response, status=500)
+
+
+def favicon_view(request):
+    """Serve favicon directly to avoid 404 errors"""
+    favicon_path = None
+    
+    # Try multiple possible locations
+    possible_paths = [
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'favicon.svg',
+        Path(settings.BASE_DIR.parent) / 'frontend' / 'staticfiles' / 'images' / 'favicon.svg',
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            favicon_path = path
+            break
+    
+    if favicon_path and favicon_path.exists():
+        return FileResponse(open(favicon_path, 'rb'), content_type='image/svg+xml')
+    else:
+        # Return inline SVG favicon as fallback
+        svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#022b57"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40c6-10 12-16 24-20" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 24h6v18h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M30 20h6v22h-6z" fill="#ffffff" opacity="0.9"/>
+  <path d="M38 28h6v14h-6z" fill="#ffffff" opacity="0.9"/>
+</svg>'''
+        return HttpResponse(svg_content, content_type='image/svg+xml')

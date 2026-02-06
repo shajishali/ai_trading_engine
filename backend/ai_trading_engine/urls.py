@@ -43,6 +43,10 @@ if settings.DEBUG:
         static_urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 urlpatterns = [
+    # Favicon routes (highest priority to avoid 404)
+    path('favicon.ico', views.favicon_view, name='favicon'),
+    path('static/images/favicon.svg', views.favicon_view, name='favicon_svg'),
+    
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/auth/', include('rest_framework.urls')),
