@@ -736,6 +736,14 @@ class StrategyBacktestingService:
             target_price_f = float(target_price) if target_price is not None else 0.0
             stop_loss_f = float(stop_loss) if stop_loss is not None else 0.0
             rr = float(risk_reward_ratio) if risk_reward_ratio is not None else 0.0
+            # BUY must have Stop Loss below entry and Take Profit above entry
+            if entry_price > 0:
+                if stop_loss_f >= entry_price or target_price_f <= entry_price:
+                    stop_loss_f = entry_price * (1 - self.stop_loss_percentage)
+                    target_price_f = entry_price * (1 + self.take_profit_percentage)
+                    risk_new = entry_price - stop_loss_f
+                    reward_new = target_price_f - entry_price
+                    rr = float(reward_new / risk_new) if risk_new > 0 else 0.0
             return {
                 'symbol': symbol.symbol,
                 'signal_type': 'BUY',
@@ -839,6 +847,14 @@ class StrategyBacktestingService:
             target_price_s = float(target_price) if target_price is not None else 0.0
             stop_loss_s = float(stop_loss) if stop_loss is not None else 0.0
             rr_s = float(risk_reward_ratio) if risk_reward_ratio is not None else 0.0
+            # SELL must have Take Profit below entry and Stop Loss above entry
+            if entry_price_s > 0:
+                if target_price_s >= entry_price_s or stop_loss_s <= entry_price_s:
+                    target_price_s = entry_price_s * (1 - self.take_profit_percentage)
+                    stop_loss_s = entry_price_s * (1 + self.stop_loss_percentage)
+                    risk_new = stop_loss_s - entry_price_s
+                    reward_new = entry_price_s - target_price_s
+                    rr_s = float(reward_new / risk_new) if risk_new > 0 else 0.0
             return {
                 'symbol': symbol.symbol,
                 'signal_type': 'SELL',

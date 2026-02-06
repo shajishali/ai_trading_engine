@@ -100,7 +100,34 @@ class BacktestAPIView(View):
         except Exception as e:
             logger.error(f"Error getting/creating symbol {symbol_str}: {e}")
             raise
-    
+
+    def _normalize_signal_prices(self, signal: dict) -> None:
+        """Ensure SELL has target < entry < stop; BUY has stop < entry < target. Mutates signal in place."""
+        try:
+            stype = (signal.get('signal_type') or '').upper()
+            entry = float(signal.get('entry_price') or 0)
+            target = float(signal.get('target_price') or 0)
+            stop = float(signal.get('stop_loss') or 0)
+            if entry <= 0:
+                return
+            is_sell = 'SELL' in stype or 'STRONG_SELL' in stype
+            if is_sell:
+                if target >= entry or stop <= entry:
+                    signal['target_price'] = entry * 0.85
+                    signal['stop_loss'] = entry * 1.08
+                    risk = signal['stop_loss'] - entry
+                    reward = entry - signal['target_price']
+                    signal['risk_reward_ratio'] = reward / risk if risk > 0 else 0.0
+            else:
+                if stop >= entry or target <= entry:
+                    signal['stop_loss'] = entry * 0.92
+                    signal['target_price'] = entry * 1.15
+                    risk = entry - signal['stop_loss']
+                    reward = signal['target_price'] - entry
+                    signal['risk_reward_ratio'] = reward / risk if risk > 0 else 0.0
+        except (TypeError, ValueError, KeyError):
+            pass
+
     def _generate_historical_signals(self, request, symbol, start_date, end_date):
         """Generate historical signals for the given period using YOUR actual strategy"""
         try:
@@ -136,27 +163,29 @@ class BacktestAPIView(View):
             
             if existing_signals.exists():
                 logger.info(f"Found {existing_signals.count()} existing signals in database for {symbol.symbol}")
-                # Convert database signals to API format
+                # Convert database signals to API format and normalize SELL/BUY prices
                 formatted_signals = []
                 for signal in existing_signals:
-                    formatted_signals.append({
+                    sig_db = {
                         'id': f"db_{signal.id}",
                         'symbol': str(signal.symbol.symbol),
                         'signal_type': str(signal.signal_type.name if signal.signal_type else 'N/A'),
                         'strength': str(signal.strength),
                         'confidence_score': float(signal.confidence_score),
-                        'entry_price': float(signal.entry_price),
-                        'target_price': float(signal.target_price),
-                        'stop_loss': float(signal.stop_loss),
-                        'risk_reward_ratio': float(signal.risk_reward_ratio),
+                        'entry_price': float(signal.entry_price or 0),
+                        'target_price': float(signal.target_price or 0),
+                        'stop_loss': float(signal.stop_loss or 0),
+                        'risk_reward_ratio': float(signal.risk_reward_ratio or 0),
                         'timeframe': str(signal.timeframe or '1D'),
-                        'quality_score': float(signal.quality_score),
+                        'quality_score': float(signal.quality_score or 0),
                         'created_at': signal.created_at.isoformat(),
                         'is_executed': False,
                         'executed_at': None,
                         'strategy_confirmations': int(signal.metadata.get('confirmations', 0) if signal.metadata else 0),
                         'strategy_details': signal.metadata or {}
-                    })
+                    }
+                    self._normalize_signal_prices(sig_db)
+                    formatted_signals.append(sig_db)
                 
                 logger.info(f"Returning {len(formatted_signals)} cached signals from database")
                 
@@ -251,7 +280,7 @@ class BacktestAPIView(View):
 
             formatted_signals = []
             for signal in signals:
-                formatted_signals.append({
+                sig = {
                     'id': signal.get('id', f"strategy_{hash(signal['created_at'])}"),
                     'symbol': str(signal.get('symbol', '')),
                     'signal_type': str(signal.get('signal_type', '')),
@@ -268,7 +297,9 @@ class BacktestAPIView(View):
                     'executed_at': None,
                     'strategy_confirmations': int(signal.get('strategy_confirmations') or 0),
                     'strategy_details': signal.get('strategy_details', {})
-                })
+                }
+                self._normalize_signal_prices(sig)
+                formatted_signals.append(sig)
             
             logger.info(f"Generated {len(formatted_signals)} new signals using YOUR strategy for {symbol.symbol}")
             
@@ -414,7 +445,7 @@ class BacktestAPIView(View):
                             created_at_str = created_at
                         else:
                             created_at_str = str(created_at) if created_at else ''
-                        formatted_signals.append({
+                        sig_bt = {
                             'id': signal.get('id', f"strategy_{hash(created_at_str)}"),
                             'symbol': str(signal.get('symbol', '')),
                             'signal_type': str(signal.get('signal_type', '')),
@@ -431,7 +462,9 @@ class BacktestAPIView(View):
                             'executed_at': None,
                             'strategy_confirmations': int(signal.get('strategy_confirmations') or 0),
                             'strategy_details': signal.get('strategy_details', {})
-                        })
+                        }
+                        self._normalize_signal_prices(sig_bt)
+                        formatted_signals.append(sig_bt)
                     
                     logger.info(f"Generated {len(formatted_signals)} signals for backtesting {symbol.symbol}")
                     
@@ -710,12 +743,13 @@ class BacktestAPIView(View):
         executed_signals = []
         for signal in signals:
             try:
-                # Create a copy of the signal to modify
+                # Create a copy of the signal to modify; ensure SELL/BUY prices are logical
                 executed_signal = signal.copy()
-                
-                # Simulate execution
+                self._normalize_signal_prices(executed_signal)
+
+                # Simulate execution using normalized prices
                 execution_result = self._simulate_single_signal_execution(
-                    signal, historical_data, symbol
+                    executed_signal, historical_data, symbol
                 )
                 
                 # Update signal with execution results
