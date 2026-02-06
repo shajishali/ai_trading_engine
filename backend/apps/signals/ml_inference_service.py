@@ -102,6 +102,63 @@ class MLInferenceService:
             self.logger.error(f"Error predicting signal direction for {symbol.symbol}: {e}")
             raise e
     
+    def predict_signal_direction_as_of_date(
+        self,
+        symbol: Symbol,
+        as_of_date: datetime,
+        model_name: Optional[str] = None,
+        prediction_horizon_hours: int = 24,
+        store_prediction: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Predict signal direction for a symbol as of a historical date (for backtesting / Search Signals).
+        Uses data up to as_of_date only. Returns None if no model or no data.
+        """
+        try:
+            if as_of_date.tzinfo is None:
+                as_of_date = timezone.make_aware(as_of_date)
+            if model_name:
+                model = MLModel.objects.get(name=model_name, is_active=True)
+            else:
+                model = self._get_best_active_model('signal_direction')
+            if not model:
+                return None
+            end_date = as_of_date
+            start_date = end_date - timedelta(days=30)
+            recent_data = self.data_service.collect_training_data(
+                [symbol], start_date, end_date, prediction_horizon_hours
+            )
+            if recent_data.empty or len(recent_data) < 2:
+                return None
+            X, feature_names = self._prepare_prediction_features(recent_data, model)
+            ml_model, scaler = self._load_model_and_scaler(model)
+            prediction_result = self._make_prediction(ml_model, scaler, X, model)
+            pred_value = prediction_result['prediction']
+            direction = 'BUY' if (pred_value == 1 or (isinstance(pred_value, (int, float)) and pred_value > 0.5)) else 'SELL'
+            if store_prediction:
+                MLPrediction.objects.create(
+                    model=model,
+                    symbol=symbol,
+                    prediction_type='SIGNAL_DIRECTION',
+                    prediction_value=pred_value,
+                    confidence_score=prediction_result['confidence'],
+                    prediction_probabilities=prediction_result.get('probabilities', {}),
+                    input_features=dict(zip(feature_names, X.flatten().tolist())),
+                    prediction_timestamp=as_of_date,
+                    prediction_horizon_hours=prediction_horizon_hours
+                )
+            return {
+                'symbol': symbol.symbol,
+                'model_name': model.name,
+                'prediction': pred_value,
+                'direction': direction,
+                'confidence': prediction_result['confidence'],
+                'probabilities': prediction_result.get('probabilities', {}),
+            }
+        except Exception as e:
+            self.logger.debug(f"ML prediction as of date for {symbol.symbol} skipped: {e}")
+            return None
+
     def predict_price_change(self, symbol: Symbol, model_name: Optional[str] = None,
                            prediction_horizon_hours: int = 24) -> Dict[str, Any]:
         """Predict price change for a symbol"""

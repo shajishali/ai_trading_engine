@@ -1120,9 +1120,14 @@
             <div class="card" style="overflow: visible;">
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="card-title mb-0 text-white">Trading Signals</h5>
-                    <a href="{% url 'signals:signal_history' %}" class="btn btn-outline-light btn-sm">
-                        <i class="fas fa-history me-1"></i>Signal History
-                    </a>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#searchSignalsModal" id="btnSearchSignals">
+                            <i class="fas fa-search me-1"></i>Search Signals
+                        </button>
+                        <a href="{% url 'signals:signal_history' %}" class="btn btn-outline-light btn-sm">
+                            <i class="fas fa-history me-1"></i>Signal History
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body" style="overflow-x: auto; padding-left: 0; padding-right: 0; overflow-y: visible;">
                     <!-- Filter Controls -->
@@ -1198,6 +1203,83 @@
 
 <!-- Notifications Container -->
 <div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
+
+<!-- Search Signals Modal -->
+<div class="modal fade" id="searchSignalsModal" tabindex="-1" aria-labelledby="searchSignalsModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background-color: var(--card-bg); color: var(--text-color);">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="searchSignalsModalLabel"><i class="fas fa-search me-2"></i>Search Signals</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Generate signals for a specific coin and date range using your strategy, market sentiment, and key levels.</p>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <label for="searchSignalsCoin" class="form-label">Coin</label>
+                        <input type="text" class="form-control" id="searchSignalsCoin" placeholder="e.g. BTC, ETH" list="searchSignalsCoinList" autocomplete="off">
+                        <datalist id="searchSignalsCoinList"></datalist>
+                        <small class="text-muted">Start typing to see suggested coins.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="searchSignalsStartDate" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="searchSignalsStartDate">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="searchSignalsEndDate" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="searchSignalsEndDate">
+                    </div>
+                    <div class="col-12">
+                        <label for="searchSignalsTimeframe" class="form-label">Timeframe</label>
+                        <select class="form-select" id="searchSignalsTimeframe">
+                            <option value="1d">1 Day</option>
+                            <option value="4h">4 Hours</option>
+                            <option value="1h">1 Hour</option>
+                            <option value="15m">15 Minutes</option>
+                            <option value="5m">5 Minutes</option>
+                            <option value="1m">1 Minute</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mb-3">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="searchSignalsGenerateBtn">
+                        <i class="fas fa-cogs me-1"></i>Generate
+                    </button>
+                </div>
+                <hr class="border-secondary">
+                <div id="searchSignalsResults" style="display: none;">
+                    <h6 class="mb-2"><i class="fas fa-chart-line me-1"></i>Generated Signals</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" id="searchSignalsResultsTable">
+                            <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Entry</th>
+                                    <th>Take Profit</th>
+                                    <th>Stop Loss</th>
+                                    <th>Confidence</th>
+                                    <th>R/R</th>
+                                </tr>
+                            </thead>
+                            <tbody id="searchSignalsResultsBody"></tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0 mt-2" id="searchSignalsSummary"></p>
+                </div>
+                <div id="searchSignalsEmpty" class="text-center text-muted py-4" style="display: none;">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p class="mb-0">No signals in this range. Try another coin or date.</p>
+                </div>
+                <div id="searchSignalsError" class="alert alert-danger py-2" style="display: none;" role="alert"></div>
+                <div id="searchSignalsLoading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 mb-0">Generating signals...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 // Global variables
@@ -1583,6 +1665,146 @@ function filterSignals() {
 }
 
 // Note: Event listeners are now set up in the main DOMContentLoaded event listener above
+
+// --- Search Signals Modal ---
+(function() {
+    const modalEl = document.getElementById('searchSignalsModal');
+    const coinInput = document.getElementById('searchSignalsCoin');
+    const coinList = document.getElementById('searchSignalsCoinList');
+    const startDateInput = document.getElementById('searchSignalsStartDate');
+    const endDateInput = document.getElementById('searchSignalsEndDate');
+    const generateBtn = document.getElementById('searchSignalsGenerateBtn');
+    const resultsDiv = document.getElementById('searchSignalsResults');
+    const resultsBody = document.getElementById('searchSignalsResultsBody');
+    const resultsSummary = document.getElementById('searchSignalsSummary');
+    const emptyDiv = document.getElementById('searchSignalsEmpty');
+    const errorDiv = document.getElementById('searchSignalsError');
+    const loadingDiv = document.getElementById('searchSignalsLoading');
+
+    function setDefaultDates() {
+        if (!startDateInput.value) {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            startDateInput.value = d.toISOString().slice(0, 10);
+        }
+        if (!endDateInput.value) {
+            endDateInput.value = new Date().toISOString().slice(0, 10);
+        }
+    }
+
+    function loadSearchModalSymbols() {
+        fetch('/signals/api/backtests/search/?action=symbols')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success || !data.symbols) return;
+                coinList.innerHTML = '';
+                data.symbols.forEach(function(s) {
+                    const opt = document.createElement('option');
+                    opt.value = s.symbol;
+                    opt.textContent = s.symbol + (s.name && s.name !== s.symbol ? ' - ' + s.name : '');
+                    coinList.appendChild(opt);
+                });
+            })
+            .catch(function(e) { console.error('Search signals: load symbols', e); });
+    }
+
+    function showSearchResults(show) {
+        if (resultsDiv) resultsDiv.style.display = show ? 'block' : 'none';
+        if (emptyDiv) emptyDiv.style.display = 'none';
+        if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+        if (loadingDiv) loadingDiv.style.display = 'none';
+    }
+
+    function showSearchLoading(show) {
+        if (loadingDiv) loadingDiv.style.display = show ? 'block' : 'none';
+        if (resultsDiv) resultsDiv.style.display = 'none';
+        if (emptyDiv) emptyDiv.style.display = 'none';
+        if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+    }
+
+    function renderSearchResults(data) {
+        showSearchResults(false);
+        if (!data || !data.signals || data.signals.length === 0) {
+            if (emptyDiv) { emptyDiv.style.display = 'block'; emptyDiv.innerHTML = (data && data.no_signals_reason) ? '<i class="fas fa-info-circle fa-2x mb-2"></i><p class="mb-0">' + data.no_signals_reason + '</p>' : '<i class="fas fa-info-circle fa-2x mb-2"></i><p class="mb-0">No signals in this range. Try another coin or date.</p>'; }
+            return;
+        }
+        resultsBody.innerHTML = '';
+        data.signals.forEach(function(s) {
+            const type = (s.signal_type || s.type || '').toUpperCase().indexOf('BUY') >= 0 ? 'BUY' : 'SELL';
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td><span class="badge ' + (type === 'BUY' ? 'bg-success' : 'bg-danger') + '">' + type + '</span></td>' +
+                '<td>$' + formatPrice(s.entry_price) + '</td>' +
+                '<td class="text-success">$' + formatPrice(s.target_price) + '</td>' +
+                '<td class="text-danger">$' + formatPrice(s.stop_loss) + '</td>' +
+                '<td>' + (s.confidence_score != null ? (typeof s.confidence_score === 'number' ? (s.confidence_score * 100).toFixed(0) : s.confidence_score) + '%' : '—') + '</td>' +
+                '<td>' + (s.risk_reward_ratio != null ? s.risk_reward_ratio : '—') + '</td>';
+            resultsBody.appendChild(tr);
+        });
+        if (resultsSummary) {
+            const total = data.total_signals != null ? data.total_signals : data.signals.length;
+            resultsSummary.textContent = 'Generated ' + total + ' signal(s) for ' + (data.symbol || coinInput.value) + ' from ' + (data.start_date || '') + ' to ' + (data.end_date || '') + ' (strategy, sentiment & key levels).';
+        }
+        resultsDiv.style.display = 'block';
+    }
+
+    function runSearchSignals() {
+        const coin = (coinInput && coinInput.value) ? coinInput.value.trim().toUpperCase() : '';
+        const startDate = startDateInput && startDateInput.value ? startDateInput.value : '';
+        const endDate = endDateInput && endDateInput.value ? endDateInput.value : '';
+        if (!coin) {
+            if (errorDiv) { errorDiv.textContent = 'Please select or enter a coin.'; errorDiv.style.display = 'block'; }
+            return;
+        }
+        if (!startDate || !endDate) {
+            if (errorDiv) { errorDiv.textContent = 'Please set start and end date.'; errorDiv.style.display = 'block'; }
+            return;
+        }
+        if (new Date(endDate) < new Date(startDate)) {
+            if (errorDiv) { errorDiv.textContent = 'End date must be on or after start date.'; errorDiv.style.display = 'block'; }
+            return;
+        }
+        showSearchLoading(true);
+        const csrfToken = getCookie('csrftoken') || (document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').content);
+        fetch('/signals/api/backtests/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken || ''
+            },
+            body: JSON.stringify({
+                action: 'generate_signals',
+                symbol: coin,
+                start_date: startDate,
+                end_date: endDate,
+                timeframe: (document.getElementById('searchSignalsTimeframe') && document.getElementById('searchSignalsTimeframe').value) || '1d'
+            })
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                showSearchLoading(false);
+                if (data.success) {
+                    renderSearchResults(data);
+                } else {
+                    if (errorDiv) { errorDiv.textContent = data.error || 'Failed to generate signals.'; errorDiv.style.display = 'block'; }
+                }
+            })
+            .catch(function(e) {
+                showSearchLoading(false);
+                if (errorDiv) { errorDiv.textContent = 'Request failed: ' + (e.message || 'Network error'); errorDiv.style.display = 'block'; }
+            });
+    }
+
+    if (modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function() {
+            setDefaultDates();
+            loadSearchModalSymbols();
+            showSearchResults(false);
+            if (emptyDiv) emptyDiv.style.display = 'none';
+            if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.textContent = ''; }
+        });
+    }
+    if (generateBtn) generateBtn.addEventListener('click', runSearchSignals);
+})();
 
 // Auto-refresh live prices every 15 seconds for better real-time experience
 setInterval(refreshLivePrices, 15000);

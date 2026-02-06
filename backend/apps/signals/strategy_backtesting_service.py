@@ -18,6 +18,14 @@ from apps.data.models import MarketData, TechnicalIndicator
 
 logger = logging.getLogger(__name__)
 
+# Optional: sentiment and ML (import inside methods to avoid circular deps and missing apps)
+def _get_sentiment_aggregate_model():
+    try:
+        from apps.sentiment.models import SentimentAggregate
+        return SentimentAggregate
+    except Exception:
+        return None
+
 
 class StrategyBacktestingService:
     """
@@ -50,6 +58,49 @@ class StrategyBacktestingService:
         # Strategy sensitivity (for testing - can be adjusted)
         self.min_confirmations = 2  # Minimum confirmations needed (reduced from 4)
         self.enable_debug_logging = True  # Enable detailed logging
+        
+        # Weights for blending strategy + sentiment + ML (must sum to 1.0)
+        self.weight_strategy = 0.60
+        self.weight_sentiment = 0.20
+        self.weight_ml = 0.20
+    
+    def _get_sentiment_for_date(self, symbol: Symbol, as_of_date: datetime) -> Optional[Dict]:
+        """Get sentiment for symbol as of a given date (latest aggregate on or before that date). Returns None if no data."""
+        SentimentAggregate = _get_sentiment_aggregate_model()
+        if not SentimentAggregate:
+            return None
+        try:
+            from django.utils import timezone as tz
+            if as_of_date.tzinfo is None:
+                as_of_date = tz.make_aware(as_of_date)
+            agg = SentimentAggregate.objects.filter(
+                asset=symbol,
+                created_at__lte=as_of_date
+            ).order_by('-created_at').first()
+            if not agg:
+                return None
+            # combined_sentiment_score is typically -1 to 1; normalize to 0-1 for blending
+            raw = float(agg.combined_sentiment_score or 0)
+            normalized = max(0.0, min(1.0, (raw + 1.0) / 2.0))
+            return {
+                'score': normalized,
+                'raw_score': raw,
+                'confidence': float(agg.confidence_score or 0.5),
+                'total_mentions': int(agg.total_mentions or 0),
+            }
+        except Exception as e:
+            logger.debug(f"Sentiment for {symbol.symbol} as of {as_of_date}: {e}")
+            return None
+    
+    def _get_ml_prediction_for_date(self, symbol: Symbol, as_of_date: datetime) -> Optional[Dict]:
+        """Get ML signal direction prediction as of a given date. Returns None if no model or data."""
+        try:
+            from apps.signals.ml_inference_service import MLInferenceService
+            svc = MLInferenceService()
+            return svc.predict_signal_direction_as_of_date(symbol, as_of_date, store_prediction=False)
+        except Exception as e:
+            logger.debug(f"ML prediction for {symbol.symbol} as of {as_of_date}: {e}")
+            return None
     
     def generate_historical_signals(self, symbol: Symbol, start_date: datetime, end_date: datetime) -> List[Dict]:
         """
@@ -380,9 +431,13 @@ class StrategyBacktestingService:
             # 3. ENTRY CONFIRMATION
             entry_confirmation = self._analyze_entry_confirmation(data, trend_bias)
             
-            # 4. GENERATE SIGNALS BASED ON YOUR STRATEGY
+            # 4. SENTIMENT & ML (for Search Signals / backtest)
+            sentiment_info = self._get_sentiment_for_date(symbol, current_date)
+            ml_pred = self._get_ml_prediction_for_date(symbol, current_date)
+            
+            # 5. GENERATE SIGNALS BASED ON STRATEGY + SENTIMENT + ML
             if entry_confirmation['direction'] == 'BUY' and trend_bias == 'BULLISH':
-                signal = self._create_buy_signal(symbol, current_data, current_date, entry_confirmation)
+                signal = self._create_buy_signal(symbol, current_data, current_date, entry_confirmation, sentiment_info, ml_pred)
                 if signal:
                     signals.append(signal)
                     if self.enable_debug_logging:
@@ -391,7 +446,7 @@ class StrategyBacktestingService:
                     logger.debug(f"BUY signal rejected for {symbol.symbol} on {current_date.date()}: Risk/reward too low")
             
             elif entry_confirmation['direction'] == 'SELL' and trend_bias == 'BEARISH':
-                signal = self._create_sell_signal(symbol, current_data, current_date, entry_confirmation)
+                signal = self._create_sell_signal(symbol, current_data, current_date, entry_confirmation, sentiment_info, ml_pred)
                 if signal:
                     signals.append(signal)
                     if self.enable_debug_logging:
@@ -597,92 +652,150 @@ class StrategyBacktestingService:
             logger.error(f"Error analyzing candlestick patterns: {e}")
             return 'NEUTRAL'
     
-    def _create_buy_signal(self, symbol: Symbol, current_data: pd.Series, current_date: datetime, confirmation: Dict) -> Optional[Dict]:
-        """Create a BUY signal based on YOUR strategy"""
+    def _create_buy_signal(
+        self,
+        symbol: Symbol,
+        current_data: pd.Series,
+        current_date: datetime,
+        confirmation: Dict,
+        sentiment_info: Optional[Dict] = None,
+        ml_pred: Optional[Dict] = None,
+    ) -> Optional[Dict]:
+        """Create a BUY signal based on strategy + sentiment + ML."""
         try:
             current_price = current_data['close']
-            
-            # Calculate YOUR specific risk management
-            stop_loss = current_price * (1 - self.stop_loss_percentage)  # 8% stop loss
-            target_price = current_price * (1 + self.take_profit_percentage)  # 15% take profit
-            
-            # Calculate risk/reward ratio
+            stop_loss = current_price * (1 - self.stop_loss_percentage)
+            target_price = current_price * (1 + self.take_profit_percentage)
             risk = current_price - stop_loss
             reward = target_price - current_price
             risk_reward_ratio = reward / risk if risk > 0 else 0
-            
-            # Only create signal if risk/reward meets minimum requirement
-            if risk_reward_ratio >= self.min_risk_reward_ratio:
-                return {
-                    'symbol': symbol.symbol,
-                    'signal_type': 'BUY',
-                    'strength': 'STRONG' if confirmation['confidence'] > 0.7 else 'MODERATE',
-                    'confidence_score': confirmation['confidence'],
-                    'entry_price': current_price,
-                    'target_price': target_price,
-                    'stop_loss': stop_loss,
-                    'risk_reward_ratio': risk_reward_ratio,
-                    'timeframe': '1D',
-                    'quality_score': confirmation['confidence'],
-                    'created_at': current_date.isoformat(),
-                    'strategy_confirmations': confirmation.get('confirmations', 0),
-                    'strategy_details': {
-                        'trend_bias': 'BULLISH',
-                        'rsi_level': float(current_data.get('rsi', 0)),
-                        'macd_signal': 'BULLISH_CROSSOVER',
-                        'volume_confirmation': bool(current_data.get('volume_ratio', 1) >= self.volume_threshold),
-                        'take_profit_percentage': float(self.take_profit_percentage),
-                        'stop_loss_percentage': float(self.stop_loss_percentage)
-                    }
-                }
-            
+            if risk_reward_ratio < self.min_risk_reward_ratio:
+                return None
+
+            base_conf = confirmation['confidence']
+            sentiment_score = 0.5
+            if sentiment_info:
+                sentiment_score = sentiment_info.get('score', 0.5)
+                if sentiment_score < 0.35:
+                    return None
+            ml_component = 0.5
+            ml_used = False
+            if ml_pred:
+                ml_used = True
+                conf = float(ml_pred.get('confidence', 0.5))
+                ml_component = conf if ml_pred.get('direction') == 'BUY' else (1.0 - conf) * 0.3
+            final_confidence = (
+                self.weight_strategy * base_conf
+                + self.weight_sentiment * sentiment_score
+                + self.weight_ml * ml_component
+            )
+            final_confidence = max(0.0, min(1.0, final_confidence))
+
+            details = {
+                'trend_bias': 'BULLISH',
+                'rsi_level': float(current_data.get('rsi', 0)),
+                'macd_signal': 'BULLISH_CROSSOVER',
+                'volume_confirmation': bool(current_data.get('volume_ratio', 1) >= self.volume_threshold),
+                'take_profit_percentage': float(self.take_profit_percentage),
+                'stop_loss_percentage': float(self.stop_loss_percentage),
+                'sentiment_score': sentiment_score,
+                'sentiment_used': sentiment_info is not None,
+                'ml_used': ml_used,
+            }
+            if ml_pred:
+                details['ml_direction'] = ml_pred.get('direction')
+                details['ml_confidence'] = ml_pred.get('confidence')
+
+            return {
+                'symbol': symbol.symbol,
+                'signal_type': 'BUY',
+                'strength': 'STRONG' if final_confidence > 0.7 else 'MODERATE',
+                'confidence_score': final_confidence,
+                'entry_price': current_price,
+                'target_price': target_price,
+                'stop_loss': stop_loss,
+                'risk_reward_ratio': risk_reward_ratio,
+                'timeframe': '1D',
+                'quality_score': final_confidence,
+                'created_at': current_date.isoformat(),
+                'strategy_confirmations': confirmation.get('confirmations', 0),
+                'strategy_details': details,
+            }
         except Exception as e:
             logger.error(f"Error creating BUY signal: {e}")
-        
         return None
     
-    def _create_sell_signal(self, symbol: Symbol, current_data: pd.Series, current_date: datetime, confirmation: Dict) -> Optional[Dict]:
-        """Create a SELL signal based on YOUR strategy"""
+    def _create_sell_signal(
+        self,
+        symbol: Symbol,
+        current_data: pd.Series,
+        current_date: datetime,
+        confirmation: Dict,
+        sentiment_info: Optional[Dict] = None,
+        ml_pred: Optional[Dict] = None,
+    ) -> Optional[Dict]:
+        """Create a SELL signal based on strategy + sentiment + ML."""
         try:
             current_price = current_data['close']
-            
-            # Calculate YOUR specific risk management
-            stop_loss = current_price * (1 + self.stop_loss_percentage)  # 8% stop loss
-            target_price = current_price * (1 - self.take_profit_percentage)  # 15% take profit
-            
-            # Calculate risk/reward ratio
+            stop_loss = current_price * (1 + self.stop_loss_percentage)
+            target_price = current_price * (1 - self.take_profit_percentage)
             risk = stop_loss - current_price
             reward = current_price - target_price
             risk_reward_ratio = reward / risk if risk > 0 else 0
-            
-            # Only create signal if risk/reward meets minimum requirement
-            if risk_reward_ratio >= self.min_risk_reward_ratio:
-                return {
-                    'symbol': symbol.symbol,
-                    'signal_type': 'SELL',
-                    'strength': 'STRONG' if confirmation['confidence'] > 0.7 else 'MODERATE',
-                    'confidence_score': confirmation['confidence'],
-                    'entry_price': current_price,
-                    'target_price': target_price,
-                    'stop_loss': stop_loss,
-                    'risk_reward_ratio': risk_reward_ratio,
-                    'timeframe': '1D',
-                    'quality_score': confirmation['confidence'],
-                    'created_at': current_date.isoformat(),
-                    'strategy_confirmations': confirmation.get('confirmations', 0),
-                    'strategy_details': {
-                        'trend_bias': 'BEARISH',
-                        'rsi_level': float(current_data.get('rsi', 0)),
-                        'macd_signal': 'BEARISH_CROSSOVER',
-                        'volume_confirmation': bool(current_data.get('volume_ratio', 1) >= self.volume_threshold),
-                        'take_profit_percentage': float(self.take_profit_percentage),
-                        'stop_loss_percentage': float(self.stop_loss_percentage)
-                    }
-                }
-            
+            if risk_reward_ratio < self.min_risk_reward_ratio:
+                return None
+
+            base_conf = confirmation['confidence']
+            sentiment_score = 0.5
+            if sentiment_info:
+                sentiment_score = sentiment_info.get('score', 0.5)
+                if sentiment_score > 0.65:
+                    return None
+            ml_component = 0.5
+            ml_used = False
+            if ml_pred:
+                ml_used = True
+                conf = float(ml_pred.get('confidence', 0.5))
+                ml_component = conf if ml_pred.get('direction') == 'SELL' else (1.0 - conf) * 0.3
+            final_confidence = (
+                self.weight_strategy * base_conf
+                + self.weight_sentiment * (1.0 - sentiment_score)
+                + self.weight_ml * ml_component
+            )
+            final_confidence = max(0.0, min(1.0, final_confidence))
+
+            details = {
+                'trend_bias': 'BEARISH',
+                'rsi_level': float(current_data.get('rsi', 0)),
+                'macd_signal': 'BEARISH_CROSSOVER',
+                'volume_confirmation': bool(current_data.get('volume_ratio', 1) >= self.volume_threshold),
+                'take_profit_percentage': float(self.take_profit_percentage),
+                'stop_loss_percentage': float(self.stop_loss_percentage),
+                'sentiment_score': sentiment_score,
+                'sentiment_used': sentiment_info is not None,
+                'ml_used': ml_used,
+            }
+            if ml_pred:
+                details['ml_direction'] = ml_pred.get('direction')
+                details['ml_confidence'] = ml_pred.get('confidence')
+
+            return {
+                'symbol': symbol.symbol,
+                'signal_type': 'SELL',
+                'strength': 'STRONG' if final_confidence > 0.7 else 'MODERATE',
+                'confidence_score': final_confidence,
+                'entry_price': current_price,
+                'target_price': target_price,
+                'stop_loss': stop_loss,
+                'risk_reward_ratio': risk_reward_ratio,
+                'timeframe': '1D',
+                'quality_score': final_confidence,
+                'created_at': current_date.isoformat(),
+                'strategy_confirmations': confirmation.get('confirmations', 0),
+                'strategy_details': details,
+            }
         except Exception as e:
             logger.error(f"Error creating SELL signal: {e}")
-        
         return None
     
     def _generate_additional_signals(self, symbol: Symbol, historical_data: pd.DataFrame, 
