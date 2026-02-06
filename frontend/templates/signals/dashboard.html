@@ -1204,10 +1204,75 @@
 <!-- Notifications Container -->
 <div id="notifications-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
 
+<style>
+    /* Search Signals modal: larger, below header, mobile responsive */
+    #searchSignalsModal .modal-dialog {
+        max-width: 900px;
+        margin-top: 4.5rem;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    #searchSignalsModal .modal-content {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-radius: 12px;
+        max-height: calc(100vh - 6rem);
+    }
+    #searchSignalsModal .modal-body {
+        padding: 1.25rem 1.5rem;
+        max-height: calc(100vh - 12rem);
+        overflow-y: auto;
+    }
+    #searchSignalsModal .modal-header {
+        padding: 1rem 1.5rem;
+    }
+    #searchSignalsResultsTable {
+        min-width: 640px;
+    }
+    #searchSignalsResultsTable th,
+    #searchSignalsResultsTable td {
+        white-space: nowrap;
+        padding: 0.5rem 0.6rem;
+        font-size: 0.9rem;
+    }
+    @media (max-width: 991px) {
+        #searchSignalsModal .modal-dialog {
+            margin-top: 3.5rem;
+            max-width: calc(100vw - 1.5rem);
+            margin-left: 0.75rem;
+            margin-right: 0.75rem;
+        }
+        #searchSignalsModal .modal-body {
+            padding: 1rem;
+        }
+        #searchSignalsModal .modal-header {
+            padding: 0.75rem 1rem;
+        }
+        #searchSignalsResultsTable {
+            min-width: 520px;
+            font-size: 0.85rem;
+        }
+        #searchSignalsResultsTable th,
+        #searchSignalsResultsTable td {
+            padding: 0.4rem 0.5rem;
+        }
+    }
+    @media (max-width: 576px) {
+        #searchSignalsModal .modal-dialog {
+            margin-top: 3rem;
+            max-width: calc(100vw - 1rem);
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
+        }
+        #searchSignalsModal .modal-body {
+            padding: 0.75rem;
+        }
+    }
+</style>
 <!-- Search Signals Modal -->
 <div class="modal fade" id="searchSignalsModal" tabindex="-1" aria-labelledby="searchSignalsModalLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background-color: var(--card-bg); color: var(--text-color);">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
             <div class="modal-header border-secondary">
                 <h5 class="modal-title" id="searchSignalsModalLabel"><i class="fas fa-search me-2"></i>Search Signals</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1250,10 +1315,11 @@
                 <hr class="border-secondary">
                 <div id="searchSignalsResults" style="display: none;">
                     <h6 class="mb-2"><i class="fas fa-chart-line me-1"></i>Generated Signals</h6>
-                    <div class="table-responsive">
+                    <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
                         <table class="table table-sm table-hover" id="searchSignalsResultsTable">
                             <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                                 <tr>
+                                    <th>Date</th>
                                     <th>Type</th>
                                     <th>Entry</th>
                                     <th>Take Profit</th>
@@ -1731,8 +1797,22 @@ function filterSignals() {
         resultsBody.innerHTML = '';
         data.signals.forEach(function(s) {
             const type = (s.signal_type || s.type || '').toUpperCase().indexOf('BUY') >= 0 ? 'BUY' : 'SELL';
+            let dateStr = '—';
+            const rawDate = s.created_at || s.signal_date || s.date;
+            if (rawDate) {
+                try {
+                    const d = new Date(rawDate);
+                    if (!isNaN(d.getTime())) {
+                        dateStr = d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
+                        if (s.signal_time || (typeof rawDate === 'string' && rawDate.indexOf('T') >= 0)) {
+                            dateStr += ' ' + (d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) || '');
+                        }
+                    }
+                } catch (e) {}
+            }
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td><span class="badge ' + (type === 'BUY' ? 'bg-success' : 'bg-danger') + '">' + type + '</span></td>' +
+            tr.innerHTML = '<td class="text-nowrap">' + dateStr + '</td>' +
+                '<td><span class="badge ' + (type === 'BUY' ? 'bg-success' : 'bg-danger') + '">' + type + '</span></td>' +
                 '<td>$' + formatPrice(s.entry_price) + '</td>' +
                 '<td class="text-success">$' + formatPrice(s.target_price) + '</td>' +
                 '<td class="text-danger">$' + formatPrice(s.stop_loss) + '</td>' +
