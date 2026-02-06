@@ -6,9 +6,10 @@
 {% block content %}
 <div class="container my-5">
     <div class="row">
-        <div class="col-lg-10 mx-auto">
-            <div class="card shadow-lg">
-                <div class="card-header bg-primary text-white">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-lg position-relative">
+                <div class="card-header bg-primary text-white position-relative">
+                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" onclick="window.location.href='{% url 'dashboard:home' %}'" aria-label="Close" style="z-index: 10; opacity: 1;"></button>
                     <h1 class="h3 mb-0"><i class="fas fa-shield-alt me-2"></i>Privacy Policy</h1>
                     <p class="mb-0 mt-2">Last Updated: February 6, 2026</p>
                 </div>
@@ -44,14 +45,6 @@
                                 <li>Risk management settings and strategy configurations</li>
                             </ul>
 
-                            <h3 class="h5 mt-3 mb-2">2.3 Technical Information</h3>
-                            <p>We automatically collect certain technical information:</p>
-                            <ul>
-                                <li>IP address, browser type, and device information</li>
-                                <li>Usage data, including pages visited and features used</li>
-                                <li>Log files and error reports</li>
-                                <li>Cookies and similar tracking technologies</li>
-                            </ul>
                         </section>
 
                         <section class="mb-4">
@@ -203,6 +196,29 @@
     
     .legal-content a:hover {
         text-decoration: underline;
+    }
+    
+    /* Close button styling */
+    .btn-close {
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s ease;
+    }
+    
+    .btn-close:hover {
+        opacity: 1;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        .card-header {
+            padding-right: 3.5rem !important;
+        }
     }
 </style>
 {% endblock %}
