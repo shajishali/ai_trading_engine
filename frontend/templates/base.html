@@ -5,7 +5,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>{% block title %}CryptAI{% endblock %}</title>
+    <title>{% block title %}CryptAI - AI-Powered Trading Platform{% endblock %}</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{% block meta_description %}CryptAI - Advanced AI-powered cryptocurrency trading platform with real-time signals, machine learning analytics, and automated trading strategies. Start your trading journey today.{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}cryptocurrency trading, AI trading, crypto signals, trading bot, machine learning trading, crypto analytics, Bitcoin trading, Ethereum trading, automated trading{% endblock %}">
+    <meta name="author" content="CryptAI">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cryptai.it.com{% block og_url %}{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}CryptAI - AI-Powered Trading Platform{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Advanced AI-powered cryptocurrency trading platform with real-time signals and machine learning analytics.{% endblock %}">
+    <meta property="og:image" content="https://cryptai.it.com{% static 'images/og-image.png' %}">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://cryptai.it.com{% block twitter_url %}{% endblock %}">
+    <meta name="twitter:title" content="{% block twitter_title %}CryptAI - AI-Powered Trading Platform{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Advanced AI-powered cryptocurrency trading platform with real-time signals and machine learning analytics.{% endblock %}">
+    <meta name="twitter:image" content="https://cryptai.it.com{% static 'images/twitter-image.png' %}">
+    
+    <!-- Additional Professional Meta Tags -->
+    <meta name="theme-color" content="#113E80">
+    <meta name="msapplication-TileColor" content="#113E80">
+    <meta name="application-name" content="CryptAI">
     
     <!-- Favicon - Multiple formats for compatibility -->
     <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
@@ -90,17 +116,90 @@
             font-weight: bold;
         }
         
+        /* Professional Button Styles - Touch-Friendly */
+        .btn-primary, .btn, button {
+            min-height: 44px; /* Touch-friendly minimum size */
+            min-width: 44px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            touch-action: manipulation; /* Prevents double-tap zoom */
+        }
+        
         .btn-primary {
             background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
             border: 2px solid var(--primary-gradient-end);
             border-radius: 8px;
-            padding: 10px 20px;
             font-weight: 600;
             letter-spacing: 0.3px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 12px rgba(17, 62, 128, 0.3);
             color: white;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+        
+        /* Loading Indicator Styles */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        /* Professional Accessibility Improvements */
+        *:focus {
+            outline: 2px solid var(--primary-gradient-end);
+            outline-offset: 2px;
+        }
+        
+        .btn:focus, button:focus, a:focus {
+            outline: 2px solid var(--primary-gradient-end);
+            outline-offset: 2px;
+        }
+        
+        /* Skip to main content link (accessibility) */
+        .skip-to-main {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--primary-gradient-end);
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            z-index: 100;
+        }
+        
+        .skip-to-main:focus {
+            top: 0;
         }
         
         .btn-primary:hover {
@@ -211,6 +310,33 @@
            COMPREHENSIVE MOBILE RESPONSIVE STYLES
            ============================================ */
         
+        /* Professional Accessibility Improvements */
+        *:focus {
+            outline: 2px solid var(--primary-gradient-end);
+            outline-offset: 2px;
+        }
+        
+        .btn:focus, button:focus, a:focus {
+            outline: 2px solid var(--primary-gradient-end);
+            outline-offset: 2px;
+        }
+        
+        /* Skip to main content link (accessibility) */
+        .skip-to-main {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--primary-gradient-end);
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            z-index: 100;
+        }
+        
+        .skip-to-main:focus {
+            top: 0;
+        }
+        
         /* Mobile First - Base Styles for Small Screens */
         @media (max-width: 576px) {
             /* Container adjustments */
@@ -219,9 +345,35 @@
                 padding-right: 10px;
             }
             
+            /* Touch-friendly buttons on mobile */
+            .btn, button, .nav-link {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 12px 16px;
+            }
+            
+            /* Larger touch targets */
+            input, select, textarea {
+                min-height: 44px;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
             /* Main content padding */
             .main-content {
                 padding: 10px !important;
+            }
+            
+            /* Touch-friendly buttons on mobile */
+            .btn, button, .nav-link {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 12px 16px;
+            }
+            
+            /* Larger touch targets */
+            input, select, textarea {
+                min-height: 44px;
+                font-size: 16px; /* Prevents zoom on iOS */
             }
             
             /* Typography */
@@ -3775,6 +3927,8 @@
     </script>
 </head>
 <body data-theme="dark">
+    <!-- Skip to main content (accessibility) -->
+    <a href="#main-content" class="skip-to-main">Skip to main content</a>
     <script>
         // Set theme on body after it's loaded (with null checks)
         (function(){
@@ -3918,7 +4072,7 @@
     <div class="main-content-wrap" id="main-content-wrap">
         <div class="container-fluid">
             <div class="row">
-                <div class="col-12 main-content">
+                <div class="col-12 main-content" id="main-content">
                     {% block content %}{% endblock %}
                 </div>
             </div>
