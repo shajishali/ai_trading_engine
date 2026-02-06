@@ -97,9 +97,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    if (closeBtn) closeBtn.addEventListener('click', closeLoginModal);
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeLoginModal();
+        });
+    }
     if (overlay) overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) closeLoginModal();
+        // Only close if clicking directly on overlay, not on modal content
+        if (e.target === overlay) {
+            closeLoginModal();
+        }
     });
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closeLoginModal();

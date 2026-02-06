@@ -22,6 +22,59 @@
         padding: 40px;
         max-width: 500px;
         width: 100%;
+        position: relative;
+    }
+    
+    .signup-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(0, 0, 0, 0.1);
+        border: none;
+        color: #2d3748;
+        font-size: 1.75rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0.5rem 0.75rem;
+        border-radius: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        z-index: 10;
+        user-select: none;
+    }
+    
+    .signup-close:hover {
+        background: rgba(0, 0, 0, 0.2);
+        color: #1a202c;
+        transform: scale(1.1);
+    }
+    
+    .signup-close:active {
+        transform: scale(0.95);
+    }
+    
+    [data-theme="dark"] .signup-close {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+    }
+    
+    [data-theme="dark"] .signup-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+    }
+    
+    body:not([data-theme="dark"]) .signup-close {
+        background: rgba(0, 0, 0, 0.1);
+        color: #2d3748;
+    }
+    
+    body:not([data-theme="dark"]) .signup-close:hover {
+        background: rgba(0, 0, 0, 0.2);
+        color: #1a202c;
     }
     
     .signup-header {
@@ -286,12 +339,31 @@
         background: #c6f6d5 !important;
         border-color: #9ae6b4 !important;
     }
+    
+    /* Mobile responsive close button */
+    @media (max-width: 576px) {
+        .signup-close {
+            top: 0.75rem;
+            right: 0.75rem;
+            width: 2.25rem;
+            height: 2.25rem;
+            font-size: 1.5rem;
+            padding: 0.375rem;
+        }
+        
+        .signup-card {
+            padding: 30px 20px;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="signup-container">
     <div class="signup-card">
+        <button type="button" class="signup-close" id="signup-close" aria-label="Close" title="Close">
+            &times;
+        </button>
         <div class="signup-header">
             <h1>🚀 Join CryptAI</h1>
             <p>Start your journey with AI-powered trading signals</p>
@@ -373,6 +445,17 @@ document.addEventListener('DOMContentLoaded', function() {
     formFields.forEach(function(field) {
         field.classList.add('form-control');
     });
+    
+    // Close button functionality
+    const closeBtn = document.getElementById('signup-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            // Redirect to home page
+            window.location.href = '{% url "dashboard:home" %}';
+        });
+    }
 });
 </script>
 {% endblock %}
