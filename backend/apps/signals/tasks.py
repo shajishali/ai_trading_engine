@@ -72,10 +72,11 @@ def _symbol_ids_with_signal_created_today() -> List[int]:
     return _symbol_ids_with_signal_on_date(timezone.now().date())
 
 
-def _count_signals_for_hour(signal_date: date, signal_hour: int) -> int:
+def _count_signals_for_slot(signal_date: date, signal_hour: int) -> int:
     """
-    Count hourly-best slots for this (date, hour). Used to skip generation if
-    this hour already has 5 (never regenerate). Source of truth: HourlyBestSignal.
+    Count best-signal entries for this (date, 4h slot). Used to skip generation if
+    this slot already has 5 (never regenerate). Source of truth: HourlyBestSignal.
+    signal_hour is the slot start: 0, 4, 8, 12, 16, 20 (UTC).
     """
     return HourlyBestSignal.objects.filter(
         signal_date=signal_date,
@@ -83,8 +84,8 @@ def _count_signals_for_hour(signal_date: date, signal_hour: int) -> int:
     ).count()
 
 
-def _symbol_ids_in_hourly_best_for_hour(signal_date: date, signal_hour: int) -> Set[int]:
-    """Symbol IDs that already have an entry in HourlyBestSignal for this (date, hour)."""
+def _symbol_ids_in_hourly_best_for_slot(signal_date: date, signal_hour: int) -> Set[int]:
+    """Symbol IDs that already have an entry in HourlyBestSignal for this (date, 4h slot)."""
     return set(
         HourlyBestSignal.objects.filter(
             signal_date=signal_date,
@@ -120,24 +121,29 @@ def _symbol_ids_with_signal_in_last_hour() -> List[int]:
     )
 
 
+# Runs at 0, 4, 8, 12, 16, 20 UTC (every 4 hours). Slot = hour when task runs.
+BEST_SIGNALS_PER_RUN = 5
+RUNS_PER_DAY = 6
+MAX_BEST_SIGNALS_PER_DAY = BEST_SIGNALS_PER_RUN * RUNS_PER_DAY  # 30
+
+
 @shared_task
 def generate_signals_for_all_symbols():
     """
-    HOURLY SIGNAL GENERATION (run every hour via Celery beat).
+    SIGNAL GENERATION EVERY 4 HOURS (run at 00, 04, 08, 12, 16, 20 UTC via Celery beat).
 
     STRICT RULES:
-    - Exactly 5 signals per hour; one signal = one unique coin.
-    - A coin can appear ONLY ONCE per day (DB constraint: unique_signal_per_coin_per_day).
-    - Total daily = 24 × 5 = 120 unique coins max.
-    - NEVER regenerate: if this (date, hour) already has 5 signals, skip.
-    - All times UTC (timezone.now()).
+    - Exactly 5 best signals per run (one signal = one unique coin per 4h slot).
+    - A coin can appear ONLY ONCE per day.
+    - Total daily = 6 runs × 5 = 30 best signals per day max.
+    - NEVER regenerate: if this (date, slot_hour) already has 5 signals, skip.
+    - All times UTC (timezone.now()). slot_hour is 0, 4, 8, 12, 16, or 20.
 
     Flow:
-    1. Acquire cache lock for (today, hour) to avoid concurrent runs.
-    2. If this hour already has 5 signals (signal_date/signal_hour), return.
-    3. Exclude all coins that already have a signal on this date.
-    4. Generate candidates from remaining coins, rank by score, take top 5.
-    5. Set signal_date=today, signal_hour=hour on the 5; invalidate the rest.
+    1. Normalize to 4h slot (0,4,8,12,16,20). If not on slot, skip (beat runs only on slot).
+    2. Acquire cache lock for (today, slot_hour). If slot already has 4, return.
+    3. Exclude coins that already have a signal today. Generate candidates, take top 5.
+    4. Persist to HourlyBestSignal and set signal_date/signal_hour on TradingSignal.
     """
     from datetime import date
     from django.db import transaction, IntegrityError
@@ -145,29 +151,31 @@ def generate_signals_for_all_symbols():
     now = timezone.now()
     today = now.date()
     hour = now.hour  # 0-23 UTC
-    logger.info(f"[Signal Queue] Starting hourly run for date={today} hour={hour} (UTC).")
+    # Only run at 4-hour boundaries (Celery beat should schedule only these)
+    slot_hour = (hour // 4) * 4  # 0, 4, 8, 12, 16, 20
+    logger.info(f"[Signal Queue] Starting 4h run for date={today} slot_hour={slot_hour} (UTC).")
 
-    # --- Race safety: only one run per (date, hour) ---
-    lock_key = f"signal_gen:{today.isoformat()}:{hour}"
-    if not cache.add(lock_key, 1, timeout=3600):  # 1 hour TTL
-        logger.warning(f"[Signal Queue] Skipping – another process holds lock for {today} {hour}:00.")
+    # --- Race safety: one run per (date, slot) ---
+    lock_key = f"signal_gen:{today.isoformat()}:{slot_hour}"
+    if not cache.add(lock_key, 1, timeout=4 * 3600):  # 4 hour TTL
+        logger.warning(f"[Signal Queue] Skipping – lock held for {today} {slot_hour}:00.")
         return {
             'total_signals': 0,
             'skipped': 'lock',
             'date': today.isoformat(),
-            'hour': hour,
+            'slot_hour': slot_hour,
         }
 
     try:
-        # --- Never regenerate: if this hour already has 5, skip ---
-        existing_count = _count_signals_for_hour(today, hour)
-        if existing_count >= 5:
-            logger.info(f"[Signal Queue] Skipping – hour {hour} already has {existing_count} signals for {today}.")
+        # --- Never regenerate: if this slot already has 4, skip ---
+        existing_count = _count_signals_for_slot(today, slot_hour)
+        if existing_count >= BEST_SIGNALS_PER_RUN:
+            logger.info(f"[Signal Queue] Skipping – slot {slot_hour} already has {existing_count} signals for {today}.")
             return {
                 'total_signals': 0,
-                'skipped': 'hour_full',
+                'skipped': 'slot_full',
                 'date': today.isoformat(),
-                'hour': hour,
+                'slot_hour': slot_hour,
                 'existing_count': existing_count,
             }
 
@@ -194,7 +202,7 @@ def generate_signals_for_all_symbols():
 
         # --- Step 1: Exclude coins that already have a signal on this date (any hour) ---
         exclude_symbol_ids = set(_symbol_ids_with_signal_on_date(today))
-        # Also exclude symbols that already appear in HourlyBestSignal today (one coin per day, 120 max)
+        # Also exclude symbols that already appear in HourlyBestSignal today (one coin per day, 30 max)
         today_best_symbols = set(
             HourlyBestSignal.objects.filter(signal_date=today).values_list("symbol_id", flat=True)
         )
@@ -229,9 +237,8 @@ def generate_signals_for_all_symbols():
             }
 
         signal_service = SignalGenerationService()
-        max_signals_per_hour = 5
-        max_candidates_to_try = 50  # Cap to avoid long runs; from these we pick best 5
-        # Generate one best signal per symbol (candidate), then pick best 5 by quality
+        max_candidates_to_try = 50  # Cap to avoid long runs; from these we pick best N per run
+        # Generate one best signal per symbol (candidate), then pick best 4 by quality
         candidates: List[tuple] = []  # (score, signal)
 
         for symbol in active_symbols[:max_candidates_to_try]:
@@ -247,20 +254,20 @@ def generate_signals_for_all_symbols():
             except Exception as e:
                 logger.error(f"[Signal Queue] Error generating for {symbol.symbol}: {e}")
 
-        # Sort by score descending; then take only symbols not already in this hour's best (no duplicate coin per hour/day)
+        # Sort by score descending; then take only symbols not already in this slot's best (no duplicate coin per slot/day)
         candidates.sort(key=lambda x: x[0], reverse=True)
-        existing_in_hour = _symbol_ids_in_hourly_best_for_hour(today, hour)
+        existing_in_slot = _symbol_ids_in_hourly_best_for_slot(today, slot_hour)
         score_by_id = {s.id: sc for sc, s in candidates}
         to_add: List[TradingSignal] = []
         for _, s in candidates:
-            if s.symbol_id in existing_in_hour:
+            if s.symbol_id in existing_in_slot:
                 continue
             to_add.append(s)
-            existing_in_hour.add(s.symbol_id)
-            if len(to_add) >= max_signals_per_hour:
+            existing_in_slot.add(s.symbol_id)
+            if len(to_add) >= BEST_SIGNALS_PER_RUN:
                 break
         # Balanced mix: ensure at least one BUY-type and one SELL-type in the batch when both exist in candidates
-        if len(to_add) == max_signals_per_hour:
+        if len(to_add) == BEST_SIGNALS_PER_RUN:
             has_buy = any(_is_buy_type(s) for s in to_add)
             has_sell = any(_is_sell_type(s) for s in to_add)
             if not (has_buy and has_sell):
@@ -275,12 +282,12 @@ def generate_signals_for_all_symbols():
                     to_add.remove(worst_in_to_add)
                     to_add_symbol_ids.discard(worst_in_to_add.symbol_id)
                     for _, s in other_candidates:
-                        if s.symbol_id in to_add_symbol_ids or s.symbol_id in existing_in_hour:
+                        if s.symbol_id in to_add_symbol_ids or s.symbol_id in existing_in_slot:
                             continue
                         to_add.append(s)
                         to_add_symbol_ids.add(s.symbol_id)
                         break
-                    if len(to_add) < max_signals_per_hour:
+                    if len(to_add) < BEST_SIGNALS_PER_RUN:
                         to_add.append(worst_in_to_add)
         generated_signals = to_add
         # Only use signals that are already persisted with valid id (do not save unsaved signals;
@@ -315,7 +322,7 @@ def generate_signals_for_all_symbols():
                         continue
                     HourlyBestSignal.objects.update_or_create(
                         signal_date=today,
-                        signal_hour=hour,
+                        signal_hour=slot_hour,
                         symbol_id=s.symbol_id,
                         defaults={
                             "trading_signal_id": signal_id,
@@ -324,19 +331,19 @@ def generate_signals_for_all_symbols():
                         },
                     )
                     s.signal_date = today
-                    s.signal_hour = hour
+                    s.signal_hour = slot_hour
                     s.save(update_fields=['signal_date', 'signal_hour'])
         except IntegrityError as e:
-            logger.warning(f"[Signal Queue] DB constraint error (HourlyBestSignal): {e}. Hour may have been filled by another run.")
+            logger.warning(f"[Signal Queue] DB constraint error (HourlyBestSignal): {e}. Slot may have been filled by another run.")
             return {
                 'total_signals': 0,
                 'skipped': 'constraint',
                 'date': today.isoformat(),
-                'hour': hour,
+                'slot_hour': slot_hour,
             }
 
         logger.info(
-            f"[Signal Queue] Step 2 done – Selected best {len(generated_signals)} signals for this hour (HourlyBestSignal). "
+            f"[Signal Queue] Step 2 done – Selected best {len(generated_signals)} signals for slot {slot_hour} (HourlyBestSignal). "
             f"Symbols: {generated_symbols}"
         )
 

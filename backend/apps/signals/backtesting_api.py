@@ -150,6 +150,39 @@ class BacktestAPIView(View):
         except (TypeError, ValueError, KeyError):
             pass
 
+    def _backtest_strategy_details(self, leverage):
+        """Strategy details for API response; when leverage=10 use mandatory 50% TP / 25% SL of capital."""
+        try:
+            from apps.signals.risk_constants import (
+                LEVERAGE_10X,
+                TAKE_PROFIT_CAPITAL_PERCENT,
+                STOP_LOSS_CAPITAL_PERCENT,
+                TAKE_PROFIT_PRICE_PERCENT_10X,
+                STOP_LOSS_PRICE_PERCENT_10X,
+            )
+            if leverage == LEVERAGE_10X:
+                return {
+                    'leverage': LEVERAGE_10X,
+                    'take_profit_capital_percent': TAKE_PROFIT_CAPITAL_PERCENT,
+                    'stop_loss_capital_percent': STOP_LOSS_CAPITAL_PERCENT,
+                    'take_profit_percentage': TAKE_PROFIT_PRICE_PERCENT_10X,
+                    'stop_loss_percentage': STOP_LOSS_PRICE_PERCENT_10X,
+                    'min_risk_reward_ratio': 1.5,
+                    'rsi_buy_range': [20, 50],
+                    'rsi_sell_range': [50, 80],
+                    'volume_threshold': 1.2,
+                }
+        except ImportError:
+            pass
+        return {
+            'take_profit_percentage': 15.0,
+            'stop_loss_percentage': 8.0,
+            'min_risk_reward_ratio': 1.5,
+            'rsi_buy_range': [20, 50],
+            'rsi_sell_range': [50, 80],
+            'volume_threshold': 1.2,
+        }
+
     def _generate_historical_signals(self, request, symbol, start_date, end_date):
         """Generate historical signals for the given period using YOUR actual strategy"""
         try:
@@ -175,6 +208,13 @@ class BacktestAPIView(View):
                 desired_signal_count = 0
             if desired_signal_count > 100:
                 desired_signal_count = 100
+            
+            # Optional leverage: when 10, use mandatory 50% profit / 25% stop loss of capital
+            raw_leverage = data.get('leverage') or data.get('leverage_multiplier')
+            try:
+                leverage = int(raw_leverage) if raw_leverage not in (None, '', 'null') else None
+            except (TypeError, ValueError):
+                leverage = None
             
             # First, check if signals already exist in database for this period
             existing_signals = TradingSignal.objects.filter(
@@ -241,14 +281,8 @@ class BacktestAPIView(View):
                     'end_date': end_date.strftime('%Y-%m-%d'),
                     'strategy_used': 'YOUR_ACTUAL_STRATEGY',
                     'source': 'database_cache',
-                    'strategy_details': {
-                        'take_profit_percentage': 15.0,
-                        'stop_loss_percentage': 8.0,
-                        'min_risk_reward_ratio': 1.5,
-                        'rsi_buy_range': [20, 50],
-                        'rsi_sell_range': [50, 80],
-                        'volume_threshold': 1.2
-                    }
+                    'strategy_details': self._backtest_strategy_details(leverage),
+                    'leverage': leverage
                 }
                 
                 # Add signal count analysis and filtering
@@ -294,8 +328,8 @@ class BacktestAPIView(View):
             # Import the new strategy-based backtesting service
             from apps.signals.strategy_backtesting_service import StrategyBacktestingService
             
-            # Create strategy backtesting service
-            strategy_service = StrategyBacktestingService()
+            # Create strategy backtesting service (leverage=10 => mandatory 50% TP / 25% SL of capital)
+            strategy_service = StrategyBacktestingService(leverage=leverage)
             
             # Generate signals based on YOUR actual strategy
             signals = strategy_service.generate_historical_signals(symbol, start_date, end_date)
@@ -392,14 +426,8 @@ class BacktestAPIView(View):
                 'strategy_used': 'YOUR_ACTUAL_STRATEGY',
                 'source': 'newly_generated',
                 'no_signals_reason': no_signals_reason,
-                'strategy_details': {
-                    'take_profit_percentage': 15.0,
-                    'stop_loss_percentage': 8.0,
-                    'min_risk_reward_ratio': 1.5,
-                    'rsi_buy_range': [20, 50],
-                    'rsi_sell_range': [50, 80],
-                    'volume_threshold': 1.2
-                }
+                'strategy_details': self._backtest_strategy_details(leverage),
+                'leverage': leverage,
             }
             
             # PHASE 2: Add analysis results to response
@@ -416,6 +444,20 @@ class BacktestAPIView(View):
     def _run_backtest(self, request, symbol, start_date, end_date):
         """Run a full backtest"""
         try:
+            # Parse optional leverage (10 => mandatory 50% TP / 25% SL of capital)
+            if getattr(request, 'content_type', '') == 'application/json':
+                try:
+                    data_bt = json.loads(request.body)
+                except Exception:
+                    data_bt = {}
+            else:
+                data_bt = getattr(request, 'POST', {})
+            raw_lev = data_bt.get('leverage') or data_bt.get('leverage_multiplier')
+            try:
+                leverage_bt = int(raw_lev) if raw_lev not in (None, '', 'null') else None
+            except (TypeError, ValueError):
+                leverage_bt = None
+
             logger.info(f"Running backtest for {symbol.symbol} from {start_date} to {end_date}")
             
             # Get signals in the date range
@@ -434,8 +476,8 @@ class BacktestAPIView(View):
                     # Import the strategy backtesting service
                     from apps.signals.strategy_backtesting_service import StrategyBacktestingService
                     
-                    # Create strategy backtesting service
-                    strategy_service = StrategyBacktestingService()
+                    # Create strategy backtesting service (leverage=10 => 50% TP / 25% SL of capital)
+                    strategy_service = StrategyBacktestingService(leverage=leverage_bt)
                     
                     # Generate signals based on YOUR actual strategy
                     generated_signals = strategy_service.generate_historical_signals(symbol, start_date, end_date)

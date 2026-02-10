@@ -19,6 +19,10 @@ from apps.sentiment.models import SentimentAggregate, CryptoMention
 from apps.signals.timeframe_analysis_service import TimeframeAnalysisService
 from apps.signals.strategy_engine import StrategyEngine
 from apps.signals.spot_trading_engine import SpotTradingStrategyEngine
+from apps.signals.risk_constants import (
+    TAKE_PROFIT_PRICE_DECIMAL_10X,
+    STOP_LOSS_PRICE_DECIMAL_10X,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +35,10 @@ class SignalGenerationService:
         self.timeframe_service = TimeframeAnalysisService()  # 50% minimum confidence
         self.min_risk_reward_ratio = 1.0     # Lowered from 1.5 for better signal generation
         self.signal_expiry_hours = 48        # Signal expires in 48 hours for better coverage
-        # Fixed target/stop for 10x: $10 margin → $5 profit at +5% price, $2.5 loss at -2.5% price (2:1 R:R)
-        self.target_percent = Decimal('0.05')   # 5% price move = $5 profit on $100 notional
-        self.stop_loss_percent = Decimal('0.025')  # 2.5% price move = $2.5 loss on $100 notional
+        # Mandatory 10x leverage risk: 50% profit of capital, 25% stop loss of capital
+        # → 5% price = 50% capital, 2.5% price = 25% capital (see risk_constants.py)
+        self.target_percent = Decimal(str(TAKE_PROFIT_PRICE_DECIMAL_10X))   # 5% price
+        self.stop_loss_percent = Decimal(str(STOP_LOSS_PRICE_DECIMAL_10X))  # 2.5% price
         
         # Unified rule-based engine for futures trading
         self.engine = StrategyEngine()

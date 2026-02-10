@@ -33,10 +33,11 @@ _SELL_TYPE_NAMES = {'SELL', 'STRONG_SELL'}
 
 
 def _ensure_balanced_batch(batch: List, signal_date, signal_hour: int):
-    """If batch has 5 signals but only one direction (all BUY or all SELL), try to replace the
-    lowest-quality one with the best signal of the other type for the same hour (if any).
+    """If batch is full but only one direction (all BUY or all SELL), try to replace the
+    lowest-quality one with the best signal of the other type for the same slot (if any).
     Modifies batch in place; used for API response only (no DB change)."""
-    if len(batch) != 5:
+    from apps.signals.tasks import BEST_SIGNALS_PER_RUN
+    if len(batch) != BEST_SIGNALS_PER_RUN:
         return
     has_buy = any(s.signal_type.name in _BUY_TYPE_NAMES for s in batch)
     has_sell = any(s.signal_type.name in _SELL_TYPE_NAMES for s in batch)
@@ -369,18 +370,22 @@ class SignalAPIView(View):
                     }, status=500)
 
     def _get_top5_signals_last_hour(self, request):
-        """Return the best signals for the current (date, hour) from HourlyBestSignal.
-        Ensures no duplicate coins per hour/day. Fallback to TradingSignal slot/created_at for legacy data.
+        """Return the best signals for the current 4-hour slot from HourlyBestSignal.
+        Runs every 4 hours (UTC 00, 04, 08, 12, 16, 20); up to 5 best signals per slot, 30 per day.
+        Fallback to TradingSignal slot/created_at for legacy data.
         """
         from apps.signals.price_sync_service import price_sync_service
+        from apps.signals.tasks import BEST_SIGNALS_PER_RUN
+
         now = timezone.now()
         today = now.date()
-        current_hour = now.hour  # 0-23 UTC
+        # Current 4-hour slot: 0, 4, 8, 12, 16, 20 (UTC)
+        current_slot = (now.hour // 4) * 4
 
-        # Primary: read from HourlyBestSignal (one row per symbol per hour per day, max 5 per hour)
+        # Primary: read from HourlyBestSignal (one row per symbol per slot per day, max 5 per slot)
         hourly_best = (
             HourlyBestSignal.objects.select_related('symbol', 'trading_signal', 'trading_signal__signal_type')
-            .filter(signal_date=today, signal_hour=current_hour)
+            .filter(signal_date=today, signal_hour=current_slot)
             .order_by('rank')
         )
         batch = []
@@ -388,27 +393,28 @@ class SignalAPIView(View):
             batch.append(hb.trading_signal)
 
         # Fallback: no HourlyBestSignal rows yet – use TradingSignal with signal_date/signal_hour or created_at
-        if len(batch) < 5:
+        max_signals = BEST_SIGNALS_PER_RUN  # 4
+        if len(batch) < max_signals:
             with_slot = (
                 TradingSignal.objects.select_related('symbol', 'signal_type')
-                .filter(signal_date=today, signal_hour=current_hour)
+                .filter(signal_date=today, signal_hour=current_slot)
                 .order_by('-quality_score', '-confidence_score', '-created_at')
             )
-            batch = list(with_slot[:5])
-            if len(batch) < 5:
-                hour_start = now.replace(minute=0, second=0, microsecond=0)
-                hour_end = hour_start + timedelta(hours=1)
+            batch = list(with_slot[:max_signals])
+            if len(batch) < max_signals:
+                slot_start = now.replace(minute=0, second=0, microsecond=0).replace(hour=current_slot)
+                slot_end = slot_start + timedelta(hours=4)
                 fallback = (
                     TradingSignal.objects.select_related('symbol', 'signal_type')
                     .filter(
-                        created_at__gte=hour_start,
-                        created_at__lt=hour_end,
+                        created_at__gte=slot_start,
+                        created_at__lt=slot_end,
                     )
                     .order_by('-quality_score', '-confidence_score', '-created_at')
                 )
                 seen = {(s.symbol_id, s.signal_type_id) for s in batch}
                 for signal in fallback:
-                    if len(batch) >= 5:
+                    if len(batch) >= max_signals:
                         break
                     key = (signal.symbol_id, signal.signal_type_id)
                     if key not in seen:
@@ -416,7 +422,7 @@ class SignalAPIView(View):
                         batch.append(signal)
 
         # Ensure batch includes both buy- and sell-type when possible (for balanced analysis)
-        _ensure_balanced_batch(batch, today, current_hour)
+        _ensure_balanced_batch(batch, today, current_slot)
 
         signal_data = []
         for signal in batch:
@@ -1067,7 +1073,10 @@ def signal_dashboard(request):
 
 @login_required
 def signal_history(request):
-    """Signal history view"""
+    """
+    Signal history view – shows only BEST signals (5 per 4h slot, 30 per day).
+    Does not show all generated signals to avoid clutter; source: HourlyBestSignal.
+    """
     try:
         # Get query parameters
         symbol = request.GET.get('symbol', '')
@@ -1082,40 +1091,34 @@ def signal_history(request):
         from django.utils import timezone
         end_date = timezone.now()
         start_date = end_date - timedelta(days=days)
+        start_date_date = start_date.date()
+        end_date_date = end_date.date()
         
-        # Build query - show archived signals (executed or expired)
-        query = Q()
-        
-        # Filter by date range (only if days is specified and reasonable)
-        # For now, let's show all signals regardless of date to fix the issue
-        # if days <= 365:  # Only apply date filter for reasonable ranges
-        #     query &= Q(created_at__gte=start_date, created_at__lte=end_date)
-        
-        # Filter by symbol
+        # Only show best signals (HourlyBestSignal): 5 per 4h slot, 30 per day max
+        best_qs = HourlyBestSignal.objects.select_related(
+            'trading_signal', 'trading_signal__symbol', 'trading_signal__signal_type'
+        ).filter(
+            signal_date__gte=start_date_date,
+            signal_date__lte=end_date_date,
+        )
         if symbol:
-            query &= Q(symbol__symbol__icontains=symbol)
-        
-        # Filter by signal type
+            best_qs = best_qs.filter(trading_signal__symbol__symbol__icontains=symbol)
         if signal_type:
-            query &= Q(signal_type__name__icontains=signal_type)
+            best_qs = best_qs.filter(trading_signal__signal_type__name__icontains=signal_type)
+        best_qs = best_qs.order_by('-signal_date', '-signal_hour', 'rank')
         
-        # Show ALL generated signals (history = full list, no filter by archived only)
-        # No extra filter: query already has symbol/signal_type if provided
-        
-        # Get signals with pagination
-        signals = TradingSignal.objects.select_related(
-            'symbol', 'signal_type'
-        ).filter(query).order_by('-created_at')
-        
-        # Calculate pagination
-        total_signals = signals.count()
+        # Pagination
+        total_signals = best_qs.count()
         start_index = (page - 1) * per_page
         end_index = start_index + per_page
-        signals_page = signals[start_index:end_index]
+        best_page = best_qs[start_index:end_index]
         
-        # Transform signals to match template expectations
+        # Transform to match template expectations (one row per best signal)
         processed_signals = []
-        for signal in signals_page:
+        for hb in best_page:
+            signal = hb.trading_signal
+            if not signal:
+                continue
             # Calculate performance metrics
             performance_percentage = None
             is_profitable = None
@@ -1169,20 +1172,27 @@ def signal_history(request):
             }
             processed_signals.append(signal_data)
         
-        # Get unique values for filters
-        unique_signal_types = list(TradingSignal.objects.filter(
-            created_at__gte=start_date, created_at__lte=end_date
-        ).values_list('signal_type__name', flat=True).distinct().exclude(signal_type__name__isnull=True))
+        # Get unique values for filters (from best signals only)
+        best_signal_ids = HourlyBestSignal.objects.filter(
+            signal_date__gte=start_date_date,
+            signal_date__lte=end_date_date,
+        ).values_list('trading_signal_id', flat=True)
+        unique_signal_types = list(
+            TradingSignal.objects.filter(id__in=best_signal_ids)
+            .values_list('signal_type__name', flat=True)
+            .distinct()
+            .exclude(signal_type__name__isnull=True)
+        )
         
         unique_reasons = ['EXECUTED', 'EXPIRED', 'MANUAL_ARCHIVE', 'SYSTEM_CLEANUP', 'ACTIVE']
         
-        # Calculate statistics
+        # Statistics: total = best signals in range; recent = best signals from last 24h
         total_count = total_signals
-        recent_archived = TradingSignal.objects.filter(
-            created_at__gte=timezone.now() - timedelta(days=1),
-            created_at__lte=timezone.now()
-        ).filter(
-            Q(is_executed=True) | Q(is_valid=False)  # Only count actually archived signals
+        today = timezone.now().date()
+        yesterday = today - timedelta(days=1)
+        recent_archived = HourlyBestSignal.objects.filter(
+            signal_date__gte=yesterday,
+            signal_date__lte=today,
         ).count()
         
         # Pagination info

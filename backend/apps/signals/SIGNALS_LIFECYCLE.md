@@ -2,26 +2,26 @@
 
 ## Overview
 
-- **Hourly**: Every hour, exactly **5 signals** are generated and stored. Each belongs to a **coin**, a **specific hour**, and a **specific date** (inferred from `created_at`).
+- **Every 4 hours**: At 00, 04, 08, 12, 16, 20 UTC, exactly **5 best signals** per run are generated and stored (30 per day max). Each belongs to a **coin**, a **4-hour slot**, and a **date** (signal_date, signal_hour = 0|4|8|12|16|20).
 - **Best Signals (date-based)**: User selects a date and sees the **top 10** signals for that date only, from signals **already generated** that day (read-only, no new generation).
 
 ---
 
-## 1. Hourly Signal Generation
+## 1. Every-4-Hours Signal Generation
 
-**When**: Celery beat runs `generate_signals_for_all_symbols` every hour (e.g. at :00).
+**When**: Celery beat runs `generate_signals_for_all_symbols` at 00, 04, 08, 12, 16, 20 UTC (every 4 hours).
 
 **Rules**:
 
-1. **Daily uniqueness**: For the current day, ignore all coins that already have at least one signal with `created_at.date() == today`. Only consider coins that have **not** appeared earlier that day.
-2. **Candidates**: From the remaining coins, generate signal candidates (up to 50 symbols tried per run to limit runtime). Each candidate is scored (quality + confidence).
-3. **Best 5**: Select the **best 5** signals by score. Only these 5 remain valid; any other signals created in the same run are set `is_valid=False`.
-4. **Persistence**: Signals are stored in the DB. The UI **never** recalculates; it fetches by `created_at` in the current hour (and date).
+1. **Daily uniqueness**: For the current day, ignore all coins that already have at least one signal today. Only consider coins that have **not** appeared earlier that day.
+2. **Candidates**: From the remaining coins, generate signal candidates (up to 50 symbols tried per run). Each candidate is scored (quality + confidence).
+3. **Best 5 per slot**: Select the **best 5** signals by score for this 4h slot. Only these 5 remain valid for the slot; any other signals from this run are set `is_valid=False`.
+4. **Persistence**: Stored in HourlyBestSignal and TradingSignal (signal_date, signal_hour = slot). UI fetches by current 4h slot (slot = (hour // 4) * 4).
 
 **Implementation**: `apps.signals.tasks.generate_signals_for_all_symbols`
 
-- Uses `_symbol_ids_with_signal_created_today()` to exclude symbols.
-- Builds a list of (score, signal) from eligible symbols, sorts, takes top 5, invalidates the rest.
+- Uses `_symbol_ids_with_signal_on_date(today)` and HourlyBestSignal today to exclude symbols.
+- Builds (score, signal) from eligible symbols, sorts, takes top 5 per slot, invalidates the rest.
 
 ---
 
@@ -46,7 +46,7 @@
 ## 3. Frontend State
 
 - **View mode**: `hourly` (default) or `best_by_date`.
-- **Hourly**: Table shows top 5 from current hour (API `mode=top5`). Auto-refresh (e.g. every 30s) may update the table.
+- **Current slot**: Table shows up to 5 best signals from the current 4h slot (API `mode=top5`). Auto-refresh may update the table.
 - **Best by date**: Table shows top 10 for the selected date. Auto-refresh must **not** overwrite this view; when `currentViewMode === 'best_by_date'`, the result of `loadSignals()` is ignored for updating the table.
 - **Reset**: “Reset filters” sets view back to `hourly` and reloads top 5 from the API.
 
@@ -64,7 +64,7 @@
 | Case | Rule / Handling |
 |------|------------------|
 | No eligible coins left today | Hourly task returns 0 signals; no DB writes. |
-| Fewer than 5 candidates in an hour | Only that many signals are kept valid (e.g. 3). |
+| Fewer than 5 candidates in a slot | Only that many signals are kept valid (e.g. 3). |
 | Best Signals for a date with no signals | API returns empty list; UI shows “No signals” and stays in best_by_date view. |
 | Best Signals for “today” before any run | Empty or partial list from today’s `created_at` only. |
 | Duplicate symbol+type in same hour | Backend duplicate cleanup keeps latest per symbol+type. |
@@ -77,7 +77,7 @@
 
 | Endpoint | Purpose |
 |----------|--------|
-| `GET /signals/api/signals/?mode=top5` | Top 5 signals for the **current clock hour** (and same day). Fetched from DB only. |
+| `GET /signals/api/signals/?mode=top5` | Up to 5 best signals for the **current 4h slot** (00, 04, 08, 12, 16, 20 UTC) and same day. Fetched from DB only. |
 | `GET /signals/api/daily-best-signals/?date=YYYY-MM-DD` | Top 10 signals for the given date. Read-only; no generation; date-strict. |
 | `GET /signals/api/available-dates/` | Dates that have saved best-of-day data. |
 
@@ -85,5 +85,5 @@
 
 ## 6. Determinism and Scale
 
-- **Deterministic**: For a given hour and set of eligible symbols, the same “best 5” logic applies (sort by score, take top 5). Symbol order is randomized (`order_by('?')`) so which 50 are tried may vary, but the selection from candidates is deterministic.
-- **Scale**: Hourly run is capped at 50 candidate symbols per run to keep duration bounded. For more coverage, increase `max_candidates_to_try` in the task if needed.
+- **Deterministic**: For a given 4h slot and set of eligible symbols, the same “best 5” logic applies (sort by score, take top 5). Symbol order is randomized (`order_by('?')`) so which 50 are tried may vary, but the selection from candidates is deterministic.
+- **Scale**: Each run is capped at 50 candidate symbols. Total best signals per day = 6 runs x 5 = 30.

@@ -15,6 +15,13 @@ import pandas as pd
 from apps.trading.models import Symbol
 from apps.signals.models import TradingSignal, SignalType
 from apps.data.models import MarketData, TechnicalIndicator
+from apps.signals.risk_constants import (
+    LEVERAGE_10X,
+    TAKE_PROFIT_PRICE_DECIMAL_10X,
+    STOP_LOSS_PRICE_DECIMAL_10X,
+    TAKE_PROFIT_CAPITAL_PERCENT,
+    STOP_LOSS_CAPITAL_PERCENT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +40,20 @@ class StrategyBacktestingService:
     - Higher timeframe trend analysis (1D)
     - Market structure analysis (BOS/CHoCH)
     - Entry confirmation (candlestick patterns, RSI, MACD)
-    - Risk management (15% TP, 8% SL)
+    - Risk management: default 15% TP / 8% SL; when leverage=10x uses mandatory
+      50% profit of capital (5% price) / 25% stop loss of capital (2.5% price).
     """
     
-    def __init__(self):
-        # YOUR specific risk management parameters
-        self.take_profit_percentage = 0.15  # 15% take profit
-        self.stop_loss_percentage = 0.08    # 8% stop loss
+    def __init__(self, leverage: Optional[int] = None):
+        # When 10x leverage: mandatory 50% profit of capital, 25% stop loss of capital
+        if leverage == LEVERAGE_10X:
+            self.take_profit_percentage = TAKE_PROFIT_PRICE_DECIMAL_10X   # 5% price
+            self.stop_loss_percentage = STOP_LOSS_PRICE_DECIMAL_10X       # 2.5% price
+            self._risk_mode = '10x_leverage'
+        else:
+            self.take_profit_percentage = 0.15  # 15% take profit (no leverage)
+            self.stop_loss_percentage = 0.08    # 8% stop loss
+            self._risk_mode = 'default'
         self.min_risk_reward_ratio = 1.5    # Minimum 1.5:1 risk/reward
         
         # Technical analysis parameters

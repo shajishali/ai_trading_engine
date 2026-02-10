@@ -72,10 +72,10 @@ app.conf.update(
         #     'schedule': crontab(minute='*/30'),  # Every 30 minutes
         #     'options': {'queue': 'data', 'priority': 10},  # Explicitly route to data queue
         # },
-        # ENABLED: Hourly signal generation – exactly 5 signals per hour, 1 coin per day (120/day max)
-        'hourly-signal-generation': {
+        # ENABLED: Signal generation every 4 hours – 5 best signals per run, 30 per day max (UTC 00, 04, 08, 12, 16, 20)
+        'every-4h-signal-generation': {
             'task': 'apps.signals.tasks.generate_signals_for_all_symbols',
-            'schedule': crontab(minute=0),  # Every hour at minute 0 (UTC)
+            'schedule': crontab(minute=0, hour='0,4,8,12,16,20'),  # Every 4 hours at :00 (UTC)
             'options': {'queue': 'signals', 'priority': 8},
         },
         # DISABLED: Sentiment analysis tasks (disabled per user request)

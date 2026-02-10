@@ -620,9 +620,9 @@ class SpotPosition(models.Model):
 
 class HourlyBestSignal(models.Model):
     """
-    Best signals per hour for display. One row per (date, hour, symbol).
-    Max 5 symbols per hour, 24 hours = 120 rows per day. Ensures the same coin
-    is not shown again in the same hour on the same day (no duplicate batch).
+    Best signals per 4-hour slot for display. One row per (date, slot_hour, symbol).
+    Slot runs at 00, 04, 08, 12, 16, 20 UTC. Max 5 symbols per slot, 6 slots = 30 rows per day.
+    Ensures the same coin is not shown again in the same slot on the same day (no duplicate batch).
     """
     signal_date = models.DateField(
         db_index=True,
@@ -631,7 +631,7 @@ class HourlyBestSignal(models.Model):
     signal_hour = models.IntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(23)],
         db_index=True,
-        help_text="Hour of day 0-23 UTC"
+        help_text="4-hour slot start: 0, 4, 8, 12, 16, 20 UTC"
     )
     symbol = models.ForeignKey(Symbol, on_delete=models.CASCADE)
     trading_signal = models.ForeignKey(
@@ -641,7 +641,7 @@ class HourlyBestSignal(models.Model):
     )
     rank = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
-        help_text="Rank within this hour (1 = best)"
+        help_text="Rank within this slot (1 = best); up to 5 per slot"
     )
     quality_score = models.FloatField(
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
